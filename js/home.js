@@ -1,14 +1,17 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
+import { invoiceRef } from './cardService.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDia = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' });
 const fmtMes = new Intl.DateTimeFormat('pt-BR', { month: 'long' });
+const fmtDataCurta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
+const fmtDiaSemana = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
 
 let mesRef = new Date();
 mesRef.setDate(1);
 
-const CARDS_PADRAO = ['ranking', 'economia', 'pendentes'];
-const LABELS_CARDS = { ranking: 'Ranking categorias (Despesas)', economia: 'Economia mensal', pendentes: 'Pendências' };
+const CARDS_PADRAO = ['ranking', 'economia', 'pendentes', 'cartoes'];
+const LABELS_CARDS = { ranking: 'Ranking categorias (Despesas)', economia: 'Economia mensal', pendentes: 'Pendências', cartoes: 'Cartões de crédito' };
 const CORES_RANKING = ['#0E7C86', '#8b5cf6', '#94a3b8', '#38bdf8', '#f59e0b'];
 let ordemCards = [...CARDS_PADRAO];
 let cardsOcultos = new Set();
@@ -278,6 +281,72 @@ async function carregarPendentes(userId, conta, tipo, inicio, fim) {
   return { conta, tipo, count: (data ?? []).length, total };
 }
 
+function proximoFechamento(fechamentoDia) {
+  const hoje = new Date();
+  const mesFechamento = fechamentoDia >= hoje.getDate() ? hoje.getMonth() : hoje.getMonth() + 1;
+  return new Date(hoje.getFullYear(), mesFechamento, fechamentoDia);
+}
+
+function rotuloFechamento(data) {
+  const hoje = new Date();
+  const diffDias = Math.round((data - new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())) / 86400000);
+  if (diffDias === 0) return 'Hoje';
+  if (diffDias === 1) return 'Amanhã';
+  const semana = fmtDiaSemana.format(data).replace('.', '');
+  return `${fmtDataCurta.format(data)}, ${semana}.`;
+}
+
+async function carregarCartoesResumo(userId) {
+  const { data, error } = await supabase
+    .from('credit_cards')
+    .select('id, nome, fechamento_dia, vencimento_dia')
+    .eq('user_id', userId)
+    .eq('ativo', true)
+    .order('sort_order');
+  if (error) throw error;
+
+  const cartoes = data ?? [];
+  const linhas = await Promise.all(cartoes.map(async (cartao) => {
+    const ref = invoiceRef(hojeISO(), cartao.fechamento_dia, cartao.vencimento_dia);
+    const { data: compras, error: erroCompras } = await supabase
+      .from('card_transactions')
+      .select('valor_parcela')
+      .eq('card_id', cartao.id)
+      .eq('fatura_referencia', ref)
+      .eq('status', 'aberta');
+    if (erroCompras) throw erroCompras;
+
+    const proximaFatura = (compras ?? []).reduce((soma, c) => soma + Number(c.valor_parcela), 0);
+    return { cartao, fechamento: proximoFechamento(cartao.fechamento_dia), proximaFatura };
+  }));
+
+  const total = linhas.reduce((soma, l) => soma + l.proximaFatura, 0);
+  return { linhas, total };
+}
+
+function renderConteudoCartoes({ linhas, total }) {
+  if (linhas.length === 0) {
+    return '<div class="conta-vazia">Nenhum cartão cadastrado ainda — cadastre no FinZen.</div>';
+  }
+  const itensHtml = linhas.map(({ cartao, fechamento, proximaFatura }) => `
+    <button type="button" class="cartoes-linha" data-cartao="${cartao.id}">
+      <div class="cartoes-avatar">${escapeHtml(cartao.nome.charAt(0).toUpperCase())}</div>
+      <div class="cartoes-info">
+        <div class="cartoes-nome">${escapeHtml(cartao.nome)}</div>
+        <div class="cartoes-detalhe"><span>Fechamento</span><span>${rotuloFechamento(fechamento)}</span></div>
+        <div class="cartoes-detalhe"><span>Próxima fatura</span><span>${fmt.format(proximaFatura)}</span></div>
+      </div>
+    </button>
+  `).join('');
+  return `
+    <div class="cartoes-lista">${itensHtml}</div>
+    <div class="cartoes-total">
+      <div class="rotulo">Total</div>
+      <div class="valor">${fmt.format(total)}</div>
+    </div>
+  `;
+}
+
 function renderCardWrapper(id, titulo, conteudoHtml, index, total) {
   return `
     <div class="card-resumo" data-card="${id}">
@@ -407,7 +476,7 @@ function renderConteudoPendentes({ conta, tipo, count, total }, temMultiplasCont
   `;
 }
 
-const cacheResumo = { ranking: null, economia: null, pendentes: null };
+const cacheResumo = { ranking: null, economia: null, pendentes: null, cartoes: null };
 let usuarioAtual = null;
 
 function renderResumoCards() {
@@ -423,6 +492,8 @@ function renderResumoCards() {
       html += renderCardWrapper('economia', LABELS_CARDS.economia, renderConteudoEconomia(cacheResumo.economia), i, total);
     } else if (id === 'pendentes' && cacheResumo.pendentes) {
       html += renderCardWrapper('pendentes', LABELS_CARDS.pendentes, renderConteudoPendentes(cacheResumo.pendentes, contasCache.length > 1), i, total);
+    } else if (id === 'cartoes' && cacheResumo.cartoes) {
+      html += renderCardWrapper('cartoes', LABELS_CARDS.cartoes, renderConteudoCartoes(cacheResumo.cartoes), i, total);
     }
   });
   container.innerHTML = html || '<div class="conta-vazia">Nenhum card ativo — toque no ⚙ acima para exibir algum.</div>';
@@ -454,6 +525,11 @@ function wireResumoEventos() {
   document.getElementById('btn-ver-pendentes')?.addEventListener('click', () => {
     const conta = contasCache[pendentesContaIndex];
     if (conta) window.location.href = `/pages/extrato.html?conta=${conta.id}`;
+  });
+  container.querySelectorAll('.cartoes-linha').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      window.location.href = `/pages/cartao.html?cartao=${btn.dataset.cartao}`;
+    });
   });
 }
 
@@ -505,6 +581,15 @@ async function recarregarResumoMensal() {
     ]);
     cacheResumo.ranking = ranking;
     cacheResumo.economia = { ...economia, anterior: economiaAnterior };
+    renderResumoCards();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function recarregarCardCartoes() {
+  try {
+    cacheResumo.cartoes = await carregarCartoesResumo(usuarioAtual.id);
     renderResumoCards();
   } catch (err) {
     console.error(err);
@@ -599,7 +684,7 @@ async function init() {
     renderContas(contas);
     renderLancamentos(lancamentos);
     await recarregarTimeline(user);
-    await Promise.all([recarregarResumoMensal(), recarregarCardPendentes()]);
+    await Promise.all([recarregarResumoMensal(), recarregarCardPendentes(), recarregarCardCartoes()]);
   } catch (err) {
     console.error(err);
     document.getElementById('lista-lancamentos').innerHTML =

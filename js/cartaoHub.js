@@ -64,7 +64,8 @@ async function carregarCartoes(userId) {
     .order('sort_order');
   if (error) throw error;
   cartoes = data ?? [];
-  cartaoSelecionado = cartoes[0]?.id ?? null;
+  const cartaoUrl = new URLSearchParams(window.location.search).get('cartao');
+  cartaoSelecionado = (cartaoUrl && cartoes.some((c) => c.id === cartaoUrl)) ? cartaoUrl : (cartoes[0]?.id ?? null);
   const cartao = cartaoAtual();
   faturaRef = cartao ? invoiceRef(hojeISO(), cartao.fechamento_dia, cartao.vencimento_dia) : null;
   renderCartoes();

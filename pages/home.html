@@ -288,6 +288,50 @@
       gap: 8px;
     }
 
+    .cartoes-lista { display: flex; flex-direction: column; }
+    .cartoes-linha {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+      color: var(--text);
+    }
+    .cartoes-linha:not(:last-child) { border-bottom: 1px solid var(--border); }
+    .cartoes-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 15px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .cartoes-info { flex: 1; min-width: 0; }
+    .cartoes-nome { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }
+    .cartoes-detalhe { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+    .cartoes-detalhe span:last-child { color: var(--text); font-weight: 700; }
+    .cartoes-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--surface-2);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      margin-top: 12px;
+    }
+    .cartoes-total .rotulo { font-size: 14px; font-weight: 800; }
+    .cartoes-total .valor { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
     .fab {
       position: fixed;
       right: 50%;
