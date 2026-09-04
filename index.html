@@ -19,35 +19,15 @@
     }
     .hero {
       background: linear-gradient(135deg, var(--accent-grad-1), var(--accent-grad-2));
-      padding: 64px 28px 44px 28px;
+      padding: 48px 28px;
       border-radius: 0 0 28px 28px;
       display: flex;
-      flex-direction: column;
-      gap: 6px;
+      justify-content: center;
     }
-    .hero-icon {
-      height: 78px;
-      width: 53px;
-      align-self: flex-start;
-      object-fit: contain;
-      object-position: left;
-    }
-    .hero-title {
-      font-size: 24px;
-      margin-top: 10px;
-    }
-    .hero-title-strong {
-      font-weight: 800;
-      color: #ffffff;
-    }
-    .hero-title-light {
-      font-weight: 700;
-      color: #bfe9e2;
-    }
-    .hero-subtitle {
-      font-size: 13px;
-      color: rgba(255,255,255,0.8);
-      font-weight: 600;
+    .hero-logo {
+      width: 100%;
+      max-width: 340px;
+      height: auto;
     }
     form {
       flex: 1;
@@ -67,9 +47,7 @@
 <body>
   <div class="shell">
     <div class="hero">
-      <img class="hero-icon" src="/img/logo-mark.png" alt="FinZen Flash" width="42" height="62">
-      <div class="hero-title"><span class="hero-title-strong">FinZen</span> <span class="hero-title-light">Flash</span></div>
-      <div class="hero-subtitle">lance um gasto em segundos</div>
+      <img class="hero-logo" src="/img/logo-full.png" alt="FinZen Flash — lance um gasto em segundos">
     </div>
 
     <form id="form-login">
