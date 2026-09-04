@@ -15,7 +15,6 @@ const LABELS_CARDS = { ranking: 'Ranking categorias (Despesas)', economia: 'Econ
 const CORES_RANKING = ['#0E7C86', '#8b5cf6', '#94a3b8', '#38bdf8', '#f59e0b'];
 let ordemCards = [...CARDS_PADRAO];
 let cardsOcultos = new Set();
-let pendentesContaIndex = 0;
 let pendentesTipo = 'despesa';
 
 function iconReceita() {
@@ -264,13 +263,11 @@ async function carregarEconomia(userId, inicio, fim) {
   return { receitas, despesas };
 }
 
-async function carregarPendentes(userId, conta, tipo, inicio, fim) {
-  if (!conta) return { conta: null, tipo, count: 0, total: 0 };
+async function carregarPendentes(userId, tipo, inicio, fim) {
   const { data, error } = await supabase
     .from('transactions')
     .select('amount')
     .eq('user_id', userId)
-    .eq('account_id', conta.id)
     .eq('type', tipo)
     .eq('status', 'pendente')
     .gte('date', inicio)
@@ -278,7 +275,7 @@ async function carregarPendentes(userId, conta, tipo, inicio, fim) {
   if (error) throw error;
 
   const total = (data ?? []).reduce((soma, t) => soma + Number(t.amount), 0);
-  return { conta, tipo, count: (data ?? []).length, total };
+  return { tipo, count: (data ?? []).length, total };
 }
 
 function proximoFechamento(fechamentoDia) {
@@ -441,27 +438,14 @@ function renderConteudoEconomia({ receitas, despesas, anterior }) {
   `;
 }
 
-function renderConteudoPendentes({ conta, tipo, count, total }, temMultiplasContas) {
-  if (!conta) {
-    return '<div class="conta-vazia">Nenhuma conta cadastrada ainda — cadastre no FinZen.</div>';
-  }
+function renderConteudoPendentes({ tipo, count, total }) {
   const textoTipo = tipo === 'despesa' ? 'despesas' : 'receitas';
   return `
     <div class="pendentes-abas">
       <button type="button" class="pendentes-aba ${tipo === 'despesa' ? 'ativa' : ''}" data-tipo="despesa">Despesas</button>
       <button type="button" class="pendentes-aba ${tipo === 'receita' ? 'ativa' : ''}" data-tipo="receita">Receitas</button>
     </div>
-    <div class="pendentes-conta">
-      <button type="button" id="btn-pendentes-conta-anterior" aria-label="Conta anterior" ${!temMultiplasContas ? 'disabled' : ''}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-      </button>
-      <div class="pendentes-avatar">${escapeHtml(conta.nome.charAt(0).toUpperCase())}</div>
-      <button type="button" id="btn-pendentes-conta-proxima" aria-label="Próxima conta" ${!temMultiplasContas ? 'disabled' : ''}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-      </button>
-    </div>
     <div class="pendentes-conteudo">
-      <div class="pendentes-nome-conta">${escapeHtml(conta.nome).toUpperCase()}</div>
       ${count === 0
         ? `<div class="conta-vazia">Nenhuma ${tipo === 'despesa' ? 'despesa' : 'receita'} pendente.</div>`
         : `
@@ -491,7 +475,7 @@ function renderResumoCards() {
     } else if (id === 'economia' && cacheResumo.economia) {
       html += renderCardWrapper('economia', LABELS_CARDS.economia, renderConteudoEconomia(cacheResumo.economia), i, total);
     } else if (id === 'pendentes' && cacheResumo.pendentes) {
-      html += renderCardWrapper('pendentes', LABELS_CARDS.pendentes, renderConteudoPendentes(cacheResumo.pendentes, contasCache.length > 1), i, total);
+      html += renderCardWrapper('pendentes', LABELS_CARDS.pendentes, renderConteudoPendentes(cacheResumo.pendentes), i, total);
     } else if (id === 'cartoes' && cacheResumo.cartoes) {
       html += renderCardWrapper('cartoes', LABELS_CARDS.cartoes, renderConteudoCartoes(cacheResumo.cartoes), i, total);
     }
@@ -514,17 +498,8 @@ function wireResumoEventos() {
       await recarregarCardPendentes();
     });
   });
-  document.getElementById('btn-pendentes-conta-anterior')?.addEventListener('click', async () => {
-    pendentesContaIndex = (pendentesContaIndex - 1 + contasCache.length) % contasCache.length;
-    await recarregarCardPendentes();
-  });
-  document.getElementById('btn-pendentes-conta-proxima')?.addEventListener('click', async () => {
-    pendentesContaIndex = (pendentesContaIndex + 1) % contasCache.length;
-    await recarregarCardPendentes();
-  });
   document.getElementById('btn-ver-pendentes')?.addEventListener('click', () => {
-    const conta = contasCache[pendentesContaIndex];
-    if (conta) window.location.href = `/pages/extrato.html?conta=${conta.id}`;
+    window.location.href = '/pages/extrato.html';
   });
   container.querySelectorAll('.cartoes-linha').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -598,9 +573,8 @@ async function recarregarCardCartoes() {
 
 async function recarregarCardPendentes() {
   try {
-    const conta = contasCache[pendentesContaIndex] ?? null;
     const { inicio, fim } = limitesMes(mesRef);
-    cacheResumo.pendentes = await carregarPendentes(usuarioAtual.id, conta, pendentesTipo, inicio, fim);
+    cacheResumo.pendentes = await carregarPendentes(usuarioAtual.id, pendentesTipo, inicio, fim);
     renderResumoCards();
   } catch (err) {
     console.error(err);
@@ -678,7 +652,6 @@ async function init() {
     contasCache = contas;
     ordemCards = preferencias.ordem;
     cardsOcultos = preferencias.ocultos;
-    pendentesContaIndex = 0;
     pendentesTipo = 'despesa';
 
     renderContas(contas);
