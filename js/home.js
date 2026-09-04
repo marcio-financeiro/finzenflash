@@ -157,7 +157,7 @@ function renderContas(contas) {
   container.innerHTML = lista.map((c, i) => `
     <div class="conta-card ${destacar && i === 0 ? 'destaque' : ''}">
       <div class="conta-nome">${escapeHtml(c.nome).toUpperCase()}</div>
-      <div class="conta-saldo">${fmt.format(c.saldo_atual)}</div>
+      <div class="conta-saldo ${c.saldo_atual < 0 ? 'negativo' : ''}">${fmt.format(c.saldo_atual)}</div>
     </div>
   `).join('');
 }
