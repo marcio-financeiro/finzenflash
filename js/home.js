@@ -126,3 +126,14 @@ document.getElementById('btn-sair').addEventListener('click', async () => {
 });
 
 init();
+
+// Safari (principalmente em PWA standalone) pode restaurar a página do
+// bfcache ao voltar de outra tela, sem recarregar — o que mostra dados
+// desatualizados. Recarrega os dados sempre que a página volta a ficar
+// visível.
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) init();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') init();
+});

@@ -16,23 +16,39 @@ function valorEmReais() {
   return Number(digitos) / 100;
 }
 
+function atualizarDisplaysValor(centavos) {
+  const texto = formatarValorDigitado(Number(centavos));
+  document.getElementById('valor').dataset.centavos = centavos;
+  document.getElementById('valor').textContent = texto;
+  document.getElementById('sheet-valor-display').textContent = texto;
+}
+
 function configurarTecladoValor() {
-  const display = document.getElementById('valor');
-  display.dataset.centavos = '0';
+  atualizarDisplaysValor('0');
 
   document.querySelectorAll('.tecla').forEach((tecla) => {
     tecla.addEventListener('click', () => {
       const acao = tecla.dataset.acao;
-      let centavos = display.dataset.centavos;
+      let centavos = document.getElementById('valor').dataset.centavos || '0';
       if (acao === 'apagar') {
         centavos = centavos.slice(0, -1) || '0';
       } else {
         centavos = (centavos === '0' ? '' : centavos) + acao;
         centavos = centavos.slice(0, 12);
       }
-      display.dataset.centavos = centavos;
-      display.textContent = formatarValorDigitado(Number(centavos));
+      atualizarDisplaysValor(centavos);
     });
+  });
+
+  const sheet = document.getElementById('sheet-valor');
+  document.getElementById('btn-abrir-valor').addEventListener('click', () => {
+    sheet.hidden = false;
+  });
+  document.getElementById('btn-concluir-valor').addEventListener('click', () => {
+    sheet.hidden = true;
+  });
+  sheet.addEventListener('click', (e) => {
+    if (e.target === sheet) sheet.hidden = true;
   });
 }
 
@@ -42,6 +58,8 @@ function selecionarTipo(novoTipo) {
   document.getElementById('btn-receita').classList.toggle('ativo-receita', tipo === 'receita');
   document.getElementById('valor').classList.toggle('cor-despesa', tipo === 'despesa');
   document.getElementById('valor').classList.toggle('cor-receita', tipo === 'receita');
+  document.getElementById('sheet-valor-display').classList.toggle('cor-despesa', tipo === 'despesa');
+  document.getElementById('sheet-valor-display').classList.toggle('cor-receita', tipo === 'receita');
   renderCategorias();
 }
 
