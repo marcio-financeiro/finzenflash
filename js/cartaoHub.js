@@ -389,12 +389,13 @@ async function confirmarPagamento() {
 }
 
 async function init() {
+  configurarBotaoSair();
+  configurarBotaoPrivacidade('btn-privacidade');
+
   const user = await requireAuth();
   if (!user) return;
 
   usuarioAtual = user;
-  configurarBotaoSair();
-  configurarBotaoPrivacidade('btn-privacidade');
 
   document.getElementById('btn-fatura-anterior').addEventListener('click', () => {
     if (!faturaRef) return;

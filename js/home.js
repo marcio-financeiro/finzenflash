@@ -824,11 +824,12 @@ async function recarregarTimeline(user) {
 }
 
 async function init() {
+  configurarBotaoPrivacidade('btn-privacidade');
+
   const user = await requireAuth();
   if (!user) return;
 
   renderMes();
-  configurarBotaoPrivacidade('btn-privacidade');
 
   usuarioAtual = user;
 

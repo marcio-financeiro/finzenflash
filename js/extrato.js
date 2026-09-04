@@ -131,11 +131,11 @@ async function recarregar(userId) {
 }
 
 async function init() {
-  const user = await requireAuth();
-  if (!user) return;
-
   configurarBotaoSair();
   configurarBotaoPrivacidade('btn-privacidade');
+
+  const user = await requireAuth();
+  if (!user) return;
 
   const params = new URLSearchParams(window.location.search);
   const contaUrl = params.get('conta');
