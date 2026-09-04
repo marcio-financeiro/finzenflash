@@ -65,10 +65,11 @@
     .timeline-linha { flex: 1; height: 2px; background: rgba(255,255,255,0.35); margin: 0 2px; }
     .timeline-linha.pontilhada { background: repeating-linear-gradient(90deg, rgba(255,255,255,0.55) 0 4px, transparent 4px 8px); }
 
-    .timeline-valores { display: flex; margin-top: -4px; }
-    .timeline-item { flex: 1; text-align: center; }
-    .timeline-item.destaque .timeline-valor { font-size: 24px; }
-    .timeline-valor { font-weight: 800; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+    .timeline-valores { display: flex; align-items: flex-start; margin-top: -4px; }
+    .timeline-item { flex: 1; min-width: 0; text-align: center; }
+    .timeline-item.destaque { flex: 1.3; }
+    .timeline-item.destaque .timeline-valor { font-size: 21px; }
+    .timeline-valor { font-size: 14px; font-weight: 800; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .timeline-valor.negativo { color: #ffb4a8; }
     .timeline-label { font-size: 11px; color: rgba(255,255,255,0.75); font-weight: 600; margin-top: 2px; }
 
