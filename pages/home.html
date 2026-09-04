@@ -3,6 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <script>
+    (function () {
+      function h() { return (window.visualViewport ? window.visualViewport.height : window.innerHeight) + 'px'; }
+      document.documentElement.style.setProperty('--app-vh', h());
+      window.addEventListener('resize', function () { document.documentElement.style.setProperty('--app-vh', h()); });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', function () { document.documentElement.style.setProperty('--app-vh', h()); });
+      }
+    })();
+  </script>
   <title>FinZen Flash</title>
   <link rel="icon" href="/img/logo-mark.png">
   <link rel="manifest" href="/manifest.json">
@@ -20,7 +30,7 @@
     .shell {
       width: 100%;
       max-width: 480px;
-      height: 100dvh;
+      height: var(--app-vh, 100dvh);
       display: flex;
       flex-direction: column;
       position: relative;
