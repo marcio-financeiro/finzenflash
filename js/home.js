@@ -1,6 +1,6 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { invoiceRef } from './cardService.js';
-import { configurarBotaoPrivacidade } from './privacidade.js';
+import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDia = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' });
