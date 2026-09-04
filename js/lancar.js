@@ -5,6 +5,7 @@ let contaSelecionada = null;
 let categoriaSelecionada = null;
 let contas = [];
 let categorias = [];
+let lancamentoOriginal = null;
 
 function formatarValorDigitado(valorCentavos) {
   const reais = valorCentavos / 100;
@@ -114,7 +115,7 @@ async function carregarContasECategorias(userId) {
 
   contas = dadosContas ?? [];
   categorias = dadosCategorias ?? [];
-  contaSelecionada = contas[0]?.id ?? null;
+  contaSelecionada = lancamentoOriginal?.account_id ?? (contas[0]?.id ?? null);
 
   renderContas();
   renderCategorias();
@@ -140,8 +141,44 @@ async function salvar(user) {
   }
 
   const btn = document.getElementById('btn-salvar');
+  const textoBotaoPadrao = lancamentoOriginal ? 'Salvar alterações' : 'Salvar lançamento';
   btn.disabled = true;
   btn.textContent = 'Salvando...';
+
+  if (lancamentoOriginal) {
+    const { error: erroUpdate } = await supabase.from('transactions').update({
+      account_id: contaSelecionada,
+      category_id: categoriaSelecionada,
+      type: tipo,
+      amount: valor,
+      description: descricao,
+    }).eq('id', lancamentoOriginal.id).eq('user_id', user.id);
+
+    if (erroUpdate) {
+      erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
+      btn.disabled = false;
+      btn.textContent = textoBotaoPadrao;
+      return;
+    }
+
+    // Desfaz o efeito do lançamento original na conta antiga e aplica o
+    // novo valor/tipo na conta escolhida — cobre também troca de conta.
+    const deltaReverso = lancamentoOriginal.type === 'receita' ? -Number(lancamentoOriginal.amount) : Number(lancamentoOriginal.amount);
+    await supabase.rpc('increment_account_balance', { p_account_id: lancamentoOriginal.account_id, p_delta: deltaReverso });
+
+    const deltaNovo = tipo === 'receita' ? valor : -valor;
+    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', { p_account_id: contaSelecionada, p_delta: deltaNovo });
+
+    if (erroSaldo) {
+      erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
+      btn.disabled = false;
+      btn.textContent = textoBotaoPadrao;
+      return;
+    }
+
+    window.location.href = '/pages/home.html';
+    return;
+  }
 
   const hoje = new Date();
   const dataISO = new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -159,7 +196,7 @@ async function salvar(user) {
   if (erroInsercao) {
     erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
     btn.disabled = false;
-    btn.textContent = 'Salvar lançamento';
+    btn.textContent = textoBotaoPadrao;
     return;
   }
 
@@ -172,7 +209,7 @@ async function salvar(user) {
   if (erroSaldo) {
     erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
     btn.disabled = false;
-    btn.textContent = 'Salvar lançamento';
+    btn.textContent = textoBotaoPadrao;
     return;
   }
 
@@ -187,7 +224,27 @@ async function init() {
   document.getElementById('btn-despesa').addEventListener('click', () => selecionarTipo('despesa'));
   document.getElementById('btn-receita').addEventListener('click', () => selecionarTipo('receita'));
   document.getElementById('btn-salvar').addEventListener('click', () => salvar(user));
-  selecionarTipo('despesa');
+
+  const idUrl = new URLSearchParams(window.location.search).get('id');
+  if (idUrl) {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('id, account_id, category_id, type, amount, description')
+      .eq('id', idUrl)
+      .eq('user_id', user.id)
+      .single();
+
+    if (!error && data) {
+      lancamentoOriginal = data;
+      document.getElementById('topo-titulo').textContent = 'Editar lançamento';
+      document.getElementById('btn-salvar').textContent = 'Salvar alterações';
+      document.getElementById('descricao').value = data.description ?? '';
+      categoriaSelecionada = data.category_id;
+      atualizarDisplaysValor(String(Math.round(Number(data.amount) * 100)));
+    }
+  }
+
+  selecionarTipo(lancamentoOriginal?.type ?? 'despesa');
 
   try {
     await carregarContasECategorias(user.id);
