@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>FinZen Flash</title>
+  <link rel="icon" href="/img/logo-mark.png">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap">
   <link rel="stylesheet" href="/css/variables.css">
   <link rel="stylesheet" href="/css/base.css">
@@ -25,10 +26,11 @@
       gap: 6px;
     }
     .hero-icon {
-      width: 44px;
-      height: 60px;
-      display: flex;
-      align-items: flex-end;
+      height: 78px;
+      width: 53px;
+      align-self: flex-start;
+      object-fit: contain;
+      object-position: left;
     }
     .hero-title {
       font-size: 24px;
@@ -65,15 +67,7 @@
 <body>
   <div class="shell">
     <div class="hero">
-      <div class="hero-icon">
-        <svg width="44" height="60" viewBox="0 0 220 300">
-          <text x="163" y="52" font-family="Manrope, sans-serif" font-weight="800" font-size="42" fill="#eaf5f4" text-anchor="middle">$</text>
-          <rect x="20" y="76" width="160" height="34" fill="#eaf5f4"/>
-          <rect x="20" y="234" width="160" height="34" fill="#eaf5f4"/>
-          <path d="M165,110 C90,140 170,165 42,234" fill="none" stroke="#eaf5f4" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M165,110 C90,140 170,165 42,234" fill="none" stroke="#7fd0c4" stroke-width="8" stroke-linecap="round" opacity="0.9"/>
-        </svg>
-      </div>
+      <img class="hero-icon" src="/img/logo-mark.png" alt="FinZen Flash" width="42" height="62">
       <div class="hero-title"><span class="hero-title-strong">FinZen</span> <span class="hero-title-light">Flash</span></div>
       <div class="hero-subtitle">lance um gasto em segundos</div>
     </div>
