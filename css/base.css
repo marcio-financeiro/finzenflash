@@ -6,6 +6,7 @@ html, body {
   background: var(--bg);
   color: var(--text);
   font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  touch-action: manipulation;
 }
 
 a { color: var(--accent); }
