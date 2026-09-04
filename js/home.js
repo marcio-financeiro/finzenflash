@@ -263,6 +263,19 @@ async function carregarEconomia(userId, inicio, fim) {
   return { receitas, despesas };
 }
 
+async function carregarFaturasMesCorrente(userId, ref) {
+  const { data, error } = await supabase
+    .from('card_transactions')
+    .select('valor_parcela')
+    .eq('user_id', userId)
+    .eq('status', 'aberta')
+    .eq('fatura_referencia', ref);
+  if (error) throw error;
+
+  const total = (data ?? []).reduce((soma, r) => soma + Number(r.valor_parcela), 0);
+  return { count: (data ?? []).length, total };
+}
+
 async function carregarPendentes(userId, tipo, inicio, fim) {
   const { data, error } = await supabase
     .from('transactions')
@@ -574,7 +587,19 @@ async function recarregarCardCartoes() {
 async function recarregarCardPendentes() {
   try {
     const { inicio, fim } = limitesMes(mesRef);
-    cacheResumo.pendentes = await carregarPendentes(usuarioAtual.id, pendentesTipo, inicio, fim);
+    const base = await carregarPendentes(usuarioAtual.id, pendentesTipo, inicio, fim);
+
+    if (pendentesTipo === 'despesa') {
+      // Faturas de cartão que vencem no mês selecionado também entram como
+      // despesa pendente — o valor final deve refletir tudo que ainda vai
+      // ser pago no mês, não só os lançamentos de conta.
+      const refMes = `${mesRef.getFullYear()}-${String(mesRef.getMonth() + 1).padStart(2, '0')}`;
+      const faturas = await carregarFaturasMesCorrente(usuarioAtual.id, refMes);
+      cacheResumo.pendentes = { tipo: pendentesTipo, count: base.count + faturas.count, total: base.total + faturas.total };
+    } else {
+      cacheResumo.pendentes = base;
+    }
+
     renderResumoCards();
   } catch (err) {
     console.error(err);
