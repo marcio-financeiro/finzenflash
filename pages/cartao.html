@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cartão — FinZen Flash</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0E7C86">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FinZen Flash">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <style>
+    body { display: flex; justify-content: center; }
+    .shell {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+    .topo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 8px 20px;
+    }
+    .topo a { display: flex; color: var(--text); }
+    .topo-titulo { font-size: 17px; font-weight: 800; }
+
+    .conteudo {
+      flex: 1;
+      padding: 12px 20px calc(108px + env(safe-area-inset-bottom, 0px)) 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+
+    .valor-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 26px 0;
+      border: none;
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      width: 100%;
+    }
+    .valor-rotulo { font-size: 12px; color: var(--muted); font-weight: 700; }
+    .valor-display { font-size: 48px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--text); }
+
+    .sheet-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(16,38,42,0.45);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 20;
+    }
+    .sheet-overlay[hidden] { display: none; }
+    .sheet {
+      width: 100%;
+      max-width: 480px;
+      background: var(--surface);
+      border-radius: 24px 24px 0 0;
+      padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; }
+    .sheet-valor { font-size: 40px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+
+    .campo-rotulo { font-size: 12px; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip-conta, .chip-categoria {
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      border-radius: 20px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .chip-conta.selecionada, .chip-categoria.selecionada {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .teclado { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
+    .tecla {
+      height: 52px;
+      border: none;
+      background: var(--surface-2);
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .tecla.tecla-apagar { color: var(--danger); font-size: 15px; }
+
+    .linha-2 { display: flex; gap: 12px; }
+    .campo-parcelas, .campo-por-parcela { flex: 1; }
+    .caixa-parcelas {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 52px;
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      padding: 0 16px;
+    }
+    .caixa-parcelas span { font-size: 15px; font-weight: 800; color: var(--accent); }
+    .caixa-parcelas .stepper { display: flex; gap: 8px; }
+    .caixa-parcelas button {
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      background: var(--accent-soft);
+      border: none;
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .caixa-por-parcela {
+      display: flex;
+      align-items: center;
+      height: 52px;
+      border-radius: var(--radius-md);
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      padding: 0 16px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .rodape {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      justify-content: center;
+      background: linear-gradient(to top, var(--bg) 60%, transparent);
+      padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0px)) 20px;
+    }
+    .rodape-inner { width: 100%; max-width: 480px; }
+    .rodape .btn-primary { height: 58px; font-size: 16px; width: 100%; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topo">
+      <a href="/pages/home.html" aria-label="Voltar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <div class="topo-titulo">Compra no cartão</div>
+    </div>
+
+    <div class="conteudo">
+      <button type="button" class="valor-area" id="btn-abrir-valor">
+        <div class="valor-rotulo">VALOR TOTAL — toque para digitar</div>
+        <div class="valor-display" id="valor">R$ 0,00</div>
+      </button>
+
+      <div>
+        <div class="campo-rotulo">DESCRIÇÃO</div>
+        <input id="descricao" type="text" placeholder="Ex: farmácia, loja, viagem">
+      </div>
+
+      <div>
+        <div class="campo-rotulo">CARTÃO</div>
+        <div class="chips" id="lista-cartoes-chip"></div>
+      </div>
+
+      <div class="linha-2">
+        <div class="campo-parcelas">
+          <div class="campo-rotulo">PARCELAS</div>
+          <div class="caixa-parcelas">
+            <span id="parcelas-num">1x</span>
+            <div class="stepper">
+              <button type="button" id="btn-menos-parcela">−</button>
+              <button type="button" id="btn-mais-parcela">+</button>
+            </div>
+          </div>
+        </div>
+        <div class="campo-por-parcela">
+          <div class="campo-rotulo">POR PARCELA</div>
+          <div class="caixa-por-parcela" id="valor-parcela">R$ 0,00</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="campo-rotulo">CATEGORIA</div>
+        <div class="chips" id="lista-categorias-chip"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rodape">
+    <div class="rodape-inner">
+      <div id="erro-cartao" class="error-msg"></div>
+      <button id="btn-salvar" type="button" class="btn-primary">Salvar compra</button>
+    </div>
+  </div>
+
+  <div class="sheet-overlay" id="sheet-valor" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-valor" id="sheet-valor-display">R$ 0,00</div>
+      <div class="teclado">
+        <button type="button" class="tecla" data-acao="1">1</button>
+        <button type="button" class="tecla" data-acao="2">2</button>
+        <button type="button" class="tecla" data-acao="3">3</button>
+        <button type="button" class="tecla" data-acao="4">4</button>
+        <button type="button" class="tecla" data-acao="5">5</button>
+        <button type="button" class="tecla" data-acao="6">6</button>
+        <button type="button" class="tecla" data-acao="7">7</button>
+        <button type="button" class="tecla" data-acao="8">8</button>
+        <button type="button" class="tecla" data-acao="9">9</button>
+        <button type="button" class="tecla" data-acao="00">00</button>
+        <button type="button" class="tecla" data-acao="0">0</button>
+        <button type="button" class="tecla tecla-apagar" data-acao="apagar">⌫</button>
+      </div>
+      <button type="button" class="btn-primary" id="btn-concluir-valor">Concluído</button>
+    </div>
+  </div>
+
+  <script type="module" src="../js/cartao.js"></script>
+</body>
+</html>

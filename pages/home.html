@@ -69,7 +69,7 @@
 
     .secao {
       flex: 1;
-      padding: 20px 20px 96px 20px;
+      padding: 20px 20px calc(96px + env(safe-area-inset-bottom, 0px)) 20px;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -112,7 +112,7 @@
       position: fixed;
       right: 50%;
       transform: translateX(190px);
-      bottom: 28px;
+      bottom: calc(96px + env(safe-area-inset-bottom, 0px));
       width: 58px;
       height: 58px;
       border-radius: 20px;
@@ -122,10 +122,40 @@
       justify-content: center;
       box-shadow: 0 10px 24px rgba(14,124,134,0.4);
       text-decoration: none;
+      z-index: 10;
     }
     @media (max-width: 480px) {
       .fab { right: 20px; transform: none; }
     }
+
+    .nav-inferior {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      justify-content: center;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+    }
+    .nav-inferior-inner {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px)) 0;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .nav-item.ativo { color: var(--accent); }
   </style>
 </head>
 <body>
@@ -148,6 +178,19 @@
     <a class="fab" href="/pages/lancar.html" aria-label="Lançar">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     </a>
+
+    <div class="nav-inferior">
+      <div class="nav-inferior-inner">
+        <a class="nav-item ativo" href="/pages/home.html">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1v-9"/></svg>
+          Início
+        </a>
+        <a class="nav-item" href="/pages/cartao.html">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg>
+          Cartão
+        </a>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="../js/home.js"></script>
