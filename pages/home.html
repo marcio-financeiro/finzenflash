@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>FinZen Flash</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <style>
+    body { display: flex; justify-content: center; }
+    .shell {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div style="font-size:18px;font-weight:800;">Login funcionando ✓</div>
+    <div id="usuario" style="color:var(--muted);font-size:14px;"></div>
+    <button id="btn-sair" class="btn-primary" style="max-width:200px;">Sair</button>
+  </div>
+
+  <script type="module">
+    import { supabase, requireAuth } from '../js/supabaseClient.js';
+
+    const user = await requireAuth();
+    if (user) {
+      document.getElementById('usuario').textContent = user.email;
+    }
+
+    document.getElementById('btn-sair').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.href = '/index.html';
+    });
+  </script>
+</body>
+</html>
