@@ -190,7 +190,7 @@ async function salvar(user) {
     return;
   }
 
-  window.location.href = '/pages/home.html';
+  window.location.href = '/pages/cartao.html';
 }
 
 async function init() {

@@ -23,65 +23,18 @@
       min-height: 100dvh;
       display: flex;
       flex-direction: column;
+      position: relative;
     }
     .topo {
+      padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 16px 20px;
       display: flex;
-      align-items: center;
+      flex-direction: column;
       gap: 14px;
-      padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 8px 20px;
     }
-    .topo a { display: flex; color: var(--text); }
-    .topo-titulo { font-size: 17px; font-weight: 800; }
-
-    .conteudo {
-      flex: 1;
-      padding: 12px 20px 20px 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    .valor-area {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      padding: 26px 0;
-      border: none;
-      background: var(--surface);
-      border-radius: var(--radius-lg);
-      width: 100%;
-    }
-    .valor-rotulo { font-size: 12px; color: var(--muted); font-weight: 700; }
-    .valor-display { font-size: 48px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--text); }
-
-    .sheet-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(16,38,42,0.45);
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      z-index: 20;
-    }
-    .sheet-overlay[hidden] { display: none; }
-    .sheet {
-      width: 100%;
-      max-width: 480px;
-      background: var(--surface);
-      border-radius: 24px 24px 0 0;
-      padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; }
-    .sheet-valor { font-size: 40px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
-
-    .campo-rotulo { font-size: 12px; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+    .topo-titulo { font-size: 20px; font-weight: 800; }
 
     .chips { display: flex; gap: 8px; flex-wrap: wrap; }
-    .chip-conta, .chip-categoria {
+    .chip-conta {
       border: 1.5px solid var(--border);
       background: var(--surface);
       color: var(--muted);
@@ -90,153 +43,188 @@
       font-size: 13px;
       font-weight: 700;
     }
-    .chip-conta.selecionada, .chip-categoria.selecionada {
+    .chip-conta.selecionada {
       border-color: var(--accent);
       background: var(--accent-soft);
       color: var(--accent);
     }
 
-    .teclado { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
-    .tecla {
-      height: 52px;
-      border: none;
-      background: var(--surface-2);
-      border-radius: 12px;
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--text);
-    }
-    .tecla.tecla-apagar { color: var(--danger); font-size: 15px; }
-
-    .linha-2 { display: flex; gap: 12px; }
-    .campo-parcelas, .campo-por-parcela { flex: 1; }
-    .caixa-parcelas {
+    .seletor-fatura {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      height: 52px;
-      border-radius: var(--radius-md);
       background: var(--surface);
-      border: 1.5px solid var(--border);
-      padding: 0 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px 6px;
     }
-    .caixa-parcelas span { font-size: 15px; font-weight: 800; color: var(--accent); }
-    .caixa-parcelas .stepper { display: flex; gap: 8px; }
-    .caixa-parcelas button {
-      width: 26px;
-      height: 26px;
-      border-radius: 7px;
-      background: var(--accent-soft);
+    .seletor-fatura button {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
       border: none;
-      color: var(--accent);
-      font-weight: 700;
-      font-size: 15px;
-    }
-    .caixa-por-parcela {
+      background: var(--surface-2);
+      color: var(--text);
       display: flex;
       align-items: center;
-      height: 52px;
+      justify-content: center;
+    }
+    #fatura-atual { font-size: 14px; font-weight: 800; }
+
+    .painel {
+      background: linear-gradient(135deg, var(--accent-grad-1), var(--accent-grad-2));
+      border-radius: var(--radius-lg);
+      padding: 18px 18px 16px 18px;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .painel-linha { display: flex; justify-content: space-between; align-items: flex-end; }
+    .painel-rotulo { font-size: 11px; color: rgba(255,255,255,0.75); font-weight: 700; }
+    .painel-valor { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .painel-venc { font-size: 12px; color: rgba(255,255,255,0.85); font-weight: 600; text-align: right; }
+
+    .limite-barra { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.25); overflow: hidden; }
+    .limite-barra-fill { height: 100%; background: #ffffff; border-radius: 4px; }
+    .limite-legenda { display: flex; justify-content: space-between; font-size: 11px; color: rgba(255,255,255,0.85); font-weight: 600; }
+
+    .secao {
+      flex: 1;
+      padding: 4px 20px 84px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .secao-titulo { font-size: 14px; font-weight: 800; margin-top: 6px; }
+
+    .compra-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background: var(--bg);
-      border: 1.5px solid var(--border);
-      padding: 0 16px;
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--muted);
-      font-variant-numeric: tabular-nums;
+      padding: 12px 14px;
+    }
+    .compra-info { flex: 1; min-width: 0; }
+    .compra-desc { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .compra-parcela { font-size: 12px; color: var(--muted); }
+    .compra-valor { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+    .conta-vazia { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
+
+    .fab {
+      position: fixed;
+      right: 50%;
+      transform: translateX(190px);
+      bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+      width: 58px;
+      height: 58px;
+      border-radius: 20px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 24px rgba(14,124,134,0.4);
+      text-decoration: none;
+      z-index: 10;
+    }
+    @media (max-width: 480px) {
+      .fab { right: 20px; transform: none; }
     }
 
-    .rodape {
+    .nav-inferior {
       position: sticky;
       bottom: 0;
       display: flex;
       justify-content: center;
-      background: var(--bg);
+      background: var(--surface);
       border-top: 1px solid var(--border);
-      padding: 16px 20px calc(16px + env(safe-area-inset-bottom, 0px)) 20px;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
-    .rodape-inner { width: 100%; max-width: 480px; }
-    .rodape .btn-primary { height: 58px; font-size: 16px; width: 100%; }
+    .nav-inferior-inner {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .nav-item.ativo { color: var(--accent); }
   </style>
 </head>
 <body>
   <div class="shell">
     <div class="topo">
-      <a href="/pages/home.html" aria-label="Voltar">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-      </a>
-      <div class="topo-titulo">Compra no cartão</div>
-    </div>
+      <div class="topo-titulo">Cartão</div>
 
-    <div class="conteudo">
-      <button type="button" class="valor-area" id="btn-abrir-valor">
-        <div class="valor-rotulo">VALOR TOTAL — toque para digitar</div>
-        <div class="valor-display" id="valor">R$ 0,00</div>
-      </button>
+      <div class="chips" id="lista-cartoes-chip"></div>
 
-      <div>
-        <div class="campo-rotulo">DESCRIÇÃO</div>
-        <input id="descricao" type="text" placeholder="Ex: farmácia, loja, viagem">
+      <div class="seletor-fatura">
+        <button type="button" id="btn-fatura-anterior" aria-label="Fatura anterior">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span id="fatura-atual">—</span>
+        <button type="button" id="btn-fatura-proxima" aria-label="Próxima fatura">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
       </div>
 
-      <div>
-        <div class="campo-rotulo">CARTÃO</div>
-        <div class="chips" id="lista-cartoes-chip"></div>
-      </div>
-
-      <div class="linha-2">
-        <div class="campo-parcelas">
-          <div class="campo-rotulo">PARCELAS</div>
-          <div class="caixa-parcelas">
-            <span id="parcelas-num">1x</span>
-            <div class="stepper">
-              <button type="button" id="btn-menos-parcela">−</button>
-              <button type="button" id="btn-mais-parcela">+</button>
-            </div>
+      <div class="painel">
+        <div class="painel-linha">
+          <div>
+            <div class="painel-rotulo">TOTAL DA FATURA</div>
+            <div class="painel-valor" id="total-fatura">R$ 0,00</div>
+          </div>
+          <div class="painel-venc" id="venc-fatura"></div>
+        </div>
+        <div>
+          <div class="limite-barra"><div class="limite-barra-fill" id="limite-barra-fill" style="width:0%"></div></div>
+          <div class="limite-legenda">
+            <span id="limite-usado">Usado R$ 0,00</span>
+            <span id="limite-disponivel">Disp. R$ 0,00</span>
           </div>
         </div>
-        <div class="campo-por-parcela">
-          <div class="campo-rotulo">POR PARCELA</div>
-          <div class="caixa-por-parcela" id="valor-parcela">R$ 0,00</div>
-        </div>
-      </div>
-
-      <div>
-        <div class="campo-rotulo">CATEGORIA</div>
-        <div class="chips" id="lista-categorias-chip"></div>
       </div>
     </div>
 
-    <div class="rodape">
-      <div class="rodape-inner">
-        <div id="erro-cartao" class="error-msg"></div>
-        <button id="btn-salvar" type="button" class="btn-primary">Salvar compra</button>
-      </div>
+    <div class="secao">
+      <div class="secao-titulo">Compras da fatura</div>
+      <div id="lista-compras"></div>
     </div>
-  </div>
 
-  <div class="sheet-overlay" id="sheet-valor" hidden>
-    <div class="sheet">
-      <div class="sheet-handle"></div>
-      <div class="sheet-valor" id="sheet-valor-display">R$ 0,00</div>
-      <div class="teclado">
-        <button type="button" class="tecla" data-acao="1">1</button>
-        <button type="button" class="tecla" data-acao="2">2</button>
-        <button type="button" class="tecla" data-acao="3">3</button>
-        <button type="button" class="tecla" data-acao="4">4</button>
-        <button type="button" class="tecla" data-acao="5">5</button>
-        <button type="button" class="tecla" data-acao="6">6</button>
-        <button type="button" class="tecla" data-acao="7">7</button>
-        <button type="button" class="tecla" data-acao="8">8</button>
-        <button type="button" class="tecla" data-acao="9">9</button>
-        <button type="button" class="tecla" data-acao="00">00</button>
-        <button type="button" class="tecla" data-acao="0">0</button>
-        <button type="button" class="tecla tecla-apagar" data-acao="apagar">⌫</button>
+    <a class="fab" href="/pages/comprar-cartao.html" aria-label="Nova compra">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </a>
+
+    <div class="nav-inferior">
+      <div class="nav-inferior-inner">
+        <a class="nav-item" href="/pages/home.html">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1v-9"/></svg>
+          Início
+        </a>
+        <a class="nav-item ativo" href="/pages/cartao.html">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg>
+          Cartão
+        </a>
+        <a class="nav-item" href="/pages/extrato.html">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+          Extrato
+        </a>
       </div>
-      <button type="button" class="btn-primary" id="btn-concluir-valor">Concluído</button>
     </div>
   </div>
 
-  <script type="module" src="../js/cartao.js"></script>
+  <script type="module" src="../js/cartaoHub.js"></script>
 </body>
 </html>
