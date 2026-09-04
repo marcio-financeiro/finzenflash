@@ -1,4 +1,4 @@
-import { supabase, requireAuth } from './supabaseClient.js';
+import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { invoiceRef, addMonthsRef } from './cardService.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -139,6 +139,8 @@ async function recarregar() {
 async function init() {
   const user = await requireAuth();
   if (!user) return;
+
+  configurarBotaoSair();
 
   document.getElementById('btn-fatura-anterior').addEventListener('click', () => {
     if (!faturaRef) return;

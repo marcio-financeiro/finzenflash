@@ -1,4 +1,4 @@
-import { supabase, requireAuth } from './supabaseClient.js';
+import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDia = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' });
@@ -131,6 +131,7 @@ async function init() {
   const user = await requireAuth();
   if (!user) return;
 
+  configurarBotaoSair();
   renderMes();
 
   document.getElementById('btn-mes-anterior').addEventListener('click', () => {

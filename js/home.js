@@ -1,4 +1,4 @@
-import { supabase, requireAuth } from './supabaseClient.js';
+import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDia = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' });
@@ -237,10 +237,7 @@ async function init() {
   }
 }
 
-document.getElementById('btn-sair').addEventListener('click', async () => {
-  await supabase.auth.signOut();
-  window.location.href = '/index.html';
-});
+configurarBotaoSair();
 
 init();
 

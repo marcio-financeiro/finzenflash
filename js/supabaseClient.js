@@ -11,3 +11,10 @@ export async function requireAuth() {
   }
   return data.session.user;
 }
+
+export function configurarBotaoSair() {
+  document.getElementById('btn-sair-nav')?.addEventListener('click', async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/index.html';
+  });
+}
