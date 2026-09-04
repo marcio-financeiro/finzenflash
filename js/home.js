@@ -41,11 +41,20 @@ async function carregarContas(userId) {
   return data ?? [];
 }
 
+function hojeISO() {
+  const hoje = new Date();
+  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
 async function carregarLancamentos(userId) {
+  // O FinZen projeta lançamentos recorrentes com data futura (ex: contas
+  // fixas já lançadas até fevereiro/2027). Sem o filtro de data, essas
+  // entradas futuras aparecem antes dos lançamentos reais mais recentes.
   const { data, error } = await supabase
     .from('transactions')
     .select('id, type, amount, description, date, accounts(nome)')
     .eq('user_id', userId)
+    .lte('date', hojeISO())
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(15);
