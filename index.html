@@ -26,7 +26,7 @@
     }
     .hero {
       background: linear-gradient(135deg, var(--accent-grad-1), var(--accent-grad-2));
-      padding: 48px 28px;
+      padding: calc(48px + env(safe-area-inset-top, 0px)) 28px 48px 28px;
       border-radius: 0 0 28px 28px;
       display: flex;
       justify-content: center;
