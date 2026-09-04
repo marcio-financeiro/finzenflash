@@ -134,6 +134,122 @@
 
     .conta-vazia { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
 
+    .secao-resumo {
+      padding: 4px 20px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .card-resumo {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+    }
+    .card-resumo-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+    .card-resumo-titulo { font-size: 14px; font-weight: 800; }
+    .card-resumo-ordem { display: flex; gap: 4px; flex-shrink: 0; }
+    .card-resumo-ordem button {
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      border: none;
+      background: var(--surface-2);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card-resumo-ordem button:disabled { opacity: 0.3; }
+
+    .ranking-linha { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .ranking-linha:last-child { margin-bottom: 0; }
+    .ranking-nome { width: 78px; flex-shrink: 0; font-size: 12px; color: var(--muted); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ranking-barra-fundo { flex: 1; height: 22px; background: var(--surface-2); border-radius: 11px; overflow: hidden; }
+    .ranking-barra-fill { height: 100%; border-radius: 11px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; min-width: 54px; }
+    .ranking-pct { font-size: 11px; font-weight: 800; color: #ffffff; white-space: nowrap; }
+
+    .economia-linha { display: flex; align-items: center; gap: 18px; }
+    .economia-aro {
+      width: 108px;
+      height: 108px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .economia-aro::before {
+      content: '';
+      position: absolute;
+      inset: 10px;
+      border-radius: 50%;
+      background: var(--surface);
+    }
+    .economia-aro-valor { position: relative; font-size: 19px; font-weight: 800; text-align: center; line-height: 1.15; }
+    .economia-aro-valor small { display: block; font-size: 10px; font-weight: 700; color: var(--muted); margin-top: 1px; }
+    .economia-detalhes { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+    .economia-item { display: flex; align-items: center; gap: 10px; }
+    .economia-icone { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .economia-icone.receita { background: var(--success-soft); }
+    .economia-icone.despesa { background: var(--danger-soft); }
+    .economia-texto-rotulo { font-size: 11px; color: var(--muted); font-weight: 600; }
+    .economia-texto-valor { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .economia-texto-valor.receita { color: var(--success); }
+    .economia-texto-valor.despesa { color: var(--danger); }
+    .economia-valor-total { text-align: center; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .economia-valor-total .valor { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .economia-valor-total .valor.negativo { color: var(--danger); }
+    .economia-valor-total .rotulo { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+
+    .pendentes-abas { display: flex; gap: 8px; margin-bottom: 16px; }
+    .pendentes-aba {
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 2px 10px 2px;
+      border-bottom: 2px solid transparent;
+    }
+    .pendentes-aba.ativa { color: var(--accent); border-bottom-color: var(--accent); }
+    .pendentes-conta { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 14px; }
+    .pendentes-conta button { width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--surface-2); color: var(--text); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .pendentes-conta button:disabled { opacity: 0.3; }
+    .pendentes-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 18px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .pendentes-conteudo { text-align: center; }
+    .pendentes-nome-conta { font-size: 12px; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+    .pendentes-texto { font-size: 14px; line-height: 1.5; }
+    .pendentes-texto strong { font-weight: 800; }
+    .pendentes-total { font-size: 22px; font-weight: 800; margin: 6px 0 16px 0; font-variant-numeric: tabular-nums; }
+    .pendentes-btn {
+      width: 100%;
+      height: 44px;
+      border-radius: var(--radius-md);
+      border: none;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
     .fab {
       position: fixed;
       right: 50%;
@@ -232,6 +348,8 @@
       <div class="secao-titulo">Últimos lançamentos</div>
       <div id="lista-lancamentos"></div>
     </div>
+
+    <div class="secao-resumo" id="secao-resumo"></div>
 
     <a class="fab" href="/pages/lancar.html" aria-label="Lançar">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>

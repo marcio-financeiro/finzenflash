@@ -48,6 +48,7 @@ async function carregarFiltros(userId) {
 
   const selectConta = document.getElementById('filtro-conta');
   selectConta.innerHTML = '<option value="">Todas contas</option>' + contas.map((c) => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+  if (contaFiltro) selectConta.value = contaFiltro;
 
   const selectCategoria = document.getElementById('filtro-categoria');
   selectCategoria.innerHTML = '<option value="">Todas categorias</option>' + categorias.map((c) => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
@@ -132,6 +133,10 @@ async function init() {
   if (!user) return;
 
   configurarBotaoSair();
+
+  const contaUrl = new URLSearchParams(window.location.search).get('conta');
+  if (contaUrl) contaFiltro = contaUrl;
+
   renderMes();
 
   document.getElementById('btn-mes-anterior').addEventListener('click', () => {
