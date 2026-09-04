@@ -3,16 +3,6 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <script>
-    (function () {
-      function h() { return (window.visualViewport ? window.visualViewport.height : window.innerHeight) + 'px'; }
-      document.documentElement.style.setProperty('--app-vh', h());
-      window.addEventListener('resize', function () { document.documentElement.style.setProperty('--app-vh', h()); });
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', function () { document.documentElement.style.setProperty('--app-vh', h()); });
-      }
-    })();
-  </script>
   <title>Lançar — FinZen Flash</title>
   <link rel="icon" href="/img/logo-mark.png">
   <link rel="manifest" href="/manifest.json">
@@ -30,10 +20,9 @@
     .shell {
       width: 100%;
       max-width: 480px;
-      height: var(--app-vh, 100dvh);
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
     }
     .topo {
       display: flex;
@@ -46,16 +35,15 @@
 
     .conteudo {
       flex: 1;
-      min-height: 0;
       padding: 12px 20px 20px 20px;
       display: flex;
       flex-direction: column;
       gap: 20px;
-      overflow-y: auto;
     }
 
     .rodape {
-      flex-shrink: 0;
+      position: sticky;
+      bottom: 0;
       display: flex;
       justify-content: center;
       background: var(--bg);

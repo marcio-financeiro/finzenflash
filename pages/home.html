@@ -3,16 +3,6 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <script>
-    (function () {
-      function h() { return (window.visualViewport ? window.visualViewport.height : window.innerHeight) + 'px'; }
-      document.documentElement.style.setProperty('--app-vh', h());
-      window.addEventListener('resize', function () { document.documentElement.style.setProperty('--app-vh', h()); });
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', function () { document.documentElement.style.setProperty('--app-vh', h()); });
-      }
-    })();
-  </script>
   <title>FinZen Flash</title>
   <link rel="icon" href="/img/logo-mark.png">
   <link rel="manifest" href="/manifest.json">
@@ -30,11 +20,10 @@
     .shell {
       width: 100%;
       max-width: 480px;
-      height: var(--app-vh, 100dvh);
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
       position: relative;
-      overflow: hidden;
     }
     .header {
       background: linear-gradient(135deg, var(--accent-grad-1), var(--accent-grad-2));
@@ -79,13 +68,10 @@
     .conta-saldo { font-size: 15px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
 
     .secao {
-      flex: 1;
-      min-height: 0;
       padding: 20px 20px 84px 20px;
       display: flex;
       flex-direction: column;
       gap: 10px;
-      overflow-y: auto;
     }
     .secao-titulo { font-size: 14px; font-weight: 800; }
     .dia-label { font-size: 13px; color: var(--muted); font-weight: 700; margin-top: 6px; }
@@ -121,8 +107,9 @@
     .conta-vazia { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
 
     .fab {
-      position: absolute;
-      right: 20px;
+      position: fixed;
+      right: 50%;
+      transform: translateX(190px);
       bottom: calc(74px + env(safe-area-inset-bottom, 0px));
       width: 58px;
       height: 58px;
@@ -135,9 +122,13 @@
       text-decoration: none;
       z-index: 10;
     }
+    @media (max-width: 480px) {
+      .fab { right: 20px; transform: none; }
+    }
 
     .nav-inferior {
-      flex-shrink: 0;
+      position: sticky;
+      bottom: 0;
       display: flex;
       justify-content: center;
       background: var(--surface);
