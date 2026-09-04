@@ -23,6 +23,9 @@ function iconReceita() {
 function iconDespesa() {
   return '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M9 12h6"/></svg>';
 }
+function iconCartao() {
+  return '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg>';
+}
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -122,17 +125,55 @@ async function carregarLancamentos(userId) {
   // O FinZen projeta lançamentos recorrentes com data futura (ex: contas
   // fixas já lançadas até fevereiro/2027). Sem o filtro de data, essas
   // entradas futuras aparecem antes dos lançamentos reais mais recentes.
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('id, type, amount, description, date, account_id, accounts(nome)')
-    .eq('user_id', userId)
-    .lte('date', hojeISO())
-    .order('date', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(15);
+  const [{ data: transacoes, error: erroTransacoes }, { data: compras, error: erroCompras }] = await Promise.all([
+    supabase
+      .from('transactions')
+      .select('id, type, amount, description, date, account_id, accounts(nome)')
+      .eq('user_id', userId)
+      .lte('date', hojeISO())
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(15),
+    // Compra no cartão não mexe no saldo da conta (só a fatura paga faz
+    // isso) — aparece aqui só como registro de atividade recente.
+    // parcela_atual=1 filtra pra pegar 1 linha por compra, não 1 por parcela.
+    supabase
+      .from('card_transactions')
+      .select('id, descricao, valor_total, data_compra, card_id, credit_cards(nome)')
+      .eq('user_id', userId)
+      .eq('parcela_atual', 1)
+      .lte('data_compra', hojeISO())
+      .order('data_compra', { ascending: false })
+      .limit(15),
+  ]);
 
-  if (error) throw error;
-  return data ?? [];
+  if (erroTransacoes) throw erroTransacoes;
+  if (erroCompras) throw erroCompras;
+
+  const doConta = (transacoes ?? []).map((t) => ({
+    id: t.id,
+    origem: 'conta',
+    type: t.type,
+    amount: t.amount,
+    description: t.description,
+    date: t.date,
+    accountId: t.account_id,
+    nomeOrigem: t.accounts?.nome ?? '',
+  }));
+
+  const doCartao = (compras ?? []).map((c) => ({
+    id: c.id,
+    origem: 'cartao',
+    amount: c.valor_total,
+    description: c.descricao,
+    date: c.data_compra,
+    cardId: c.card_id,
+    nomeOrigem: c.credit_cards?.nome ?? '',
+  }));
+
+  return [...doConta, ...doCartao]
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+    .slice(0, 15);
 }
 
 function renderContas(contas) {
@@ -176,14 +217,27 @@ function renderLancamentos(lancamentos) {
       diaAtual = l.date;
       html += `<div class="dia-label">${rotuloDia(l.date)}</div>`;
     }
+    if (l.origem === 'cartao') {
+      html += `
+        <div class="lancamento-card" data-id="${l.id}" data-origem="cartao">
+          <div class="lancamento-icone">${iconCartao()}</div>
+          <div class="lancamento-info">
+            <div class="lancamento-desc">${escapeHtml(l.description)}</div>
+            <div class="lancamento-conta">Cartão · ${escapeHtml(l.nomeOrigem)}</div>
+          </div>
+          <div class="lancamento-valor">${fmt.format(Math.abs(l.amount))}</div>
+        </div>
+      `;
+      continue;
+    }
     const receita = l.type === 'receita';
     const sinal = receita ? '+' : '-';
     html += `
-      <div class="lancamento-card" data-id="${l.id}">
+      <div class="lancamento-card" data-id="${l.id}" data-origem="conta">
         <div class="lancamento-icone ${receita ? 'is-receita' : 'is-despesa'}">${receita ? iconReceita() : iconDespesa()}</div>
         <div class="lancamento-info">
           <div class="lancamento-desc">${escapeHtml(l.description)}</div>
-          <div class="lancamento-conta">${escapeHtml(l.accounts?.nome ?? '')}</div>
+          <div class="lancamento-conta">${escapeHtml(l.nomeOrigem)}</div>
         </div>
         <div class="lancamento-valor ${receita ? 'is-receita' : 'is-despesa'}">${sinal}${fmt.format(Math.abs(l.amount))}</div>
       </div>
@@ -191,9 +245,13 @@ function renderLancamentos(lancamentos) {
   }
   container.innerHTML = html;
 
-  container.querySelectorAll('.lancamento-card').forEach((el) => {
-    const lancamento = lancamentos.find((l) => l.id === el.dataset.id);
+  container.querySelectorAll('.lancamento-card[data-origem="conta"]').forEach((el) => {
+    const lancamento = lancamentos.find((l) => l.id === el.dataset.id && l.origem === 'conta');
     if (lancamento) attachToqueSegurar(el, () => abrirSheetLancamento(lancamento));
+  });
+  container.querySelectorAll('.lancamento-card[data-origem="cartao"]').forEach((el) => {
+    const lancamento = lancamentos.find((l) => l.id === el.dataset.id && l.origem === 'cartao');
+    if (lancamento) el.addEventListener('click', () => { window.location.href = `/pages/cartao.html?cartao=${lancamento.cardId}`; });
   });
 }
 
@@ -284,7 +342,7 @@ async function excluirLancamento(lancamento) {
   }
 
   const delta = lancamento.type === 'receita' ? -Number(lancamento.amount) : Number(lancamento.amount);
-  await supabase.rpc('increment_account_balance', { p_account_id: lancamento.account_id, p_delta: delta });
+  await supabase.rpc('increment_account_balance', { p_account_id: lancamento.accountId, p_delta: delta });
 
   fecharSheetLancamento();
   await init();
