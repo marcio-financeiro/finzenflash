@@ -27,24 +27,50 @@
     }
     .header {
       background: linear-gradient(135deg, var(--accent-grad-1), var(--accent-grad-2));
-      padding: calc(36px + env(safe-area-inset-top, 0px)) 20px 22px 20px;
+      padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 22px 20px;
       border-radius: 0 0 28px 28px;
       color: #ffffff;
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
+      flex-direction: column;
+      gap: 16px;
     }
-    .saldo-label { font-size: 12px; color: rgba(255,255,255,0.75); font-weight: 600; }
-    .saldo-valor { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin-top: 2px; font-variant-numeric: tabular-nums; }
-    #btn-sair {
-      background: rgba(255,255,255,0.18);
+    .header-nav { display: flex; align-items: center; gap: 8px; }
+    .header-nav button, #btn-sair {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
       border: none;
+      background: rgba(255,255,255,0.18);
       color: #ffffff;
-      font-size: 12px;
-      font-weight: 700;
-      padding: 8px 14px;
-      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
+    .mes-atual { flex: 1; text-align: center; font-size: 16px; font-weight: 800; }
+
+    .timeline { display: flex; align-items: center; }
+    .timeline-ponto {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.18);
+    }
+    .timeline-ponto.positivo { background: var(--success); }
+    .timeline-ponto.negativo { background: var(--danger); }
+    .timeline-linha { flex: 1; height: 2px; background: rgba(255,255,255,0.35); margin: 0 2px; }
+    .timeline-linha.pontilhada { background: repeating-linear-gradient(90deg, rgba(255,255,255,0.55) 0 4px, transparent 4px 8px); }
+
+    .timeline-valores { display: flex; margin-top: -4px; }
+    .timeline-item { flex: 1; text-align: center; }
+    .timeline-item.destaque .timeline-valor { font-size: 24px; }
+    .timeline-valor { font-weight: 800; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+    .timeline-valor.negativo { color: #ffb4a8; }
+    .timeline-label { font-size: 11px; color: rgba(255,255,255,0.75); font-weight: 600; margin-top: 2px; }
 
     #lista-contas {
       padding: 16px 20px 0 20px;
@@ -68,6 +94,7 @@
     .conta-saldo { font-size: 15px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
 
     .secao {
+      flex: 1;
       padding: 20px 20px 84px 20px;
       display: flex;
       flex-direction: column;
@@ -158,11 +185,44 @@
 <body>
   <div class="shell">
     <div class="header">
-      <div>
-        <div class="saldo-label">Saldo total</div>
-        <div class="saldo-valor" id="saldo-total">R$ 0,00</div>
+      <div class="header-nav">
+        <button type="button" id="btn-mes-anterior" aria-label="Mês anterior">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="mes-atual" id="mes-atual">—</div>
+        <button type="button" id="btn-mes-proximo" aria-label="Próximo mês">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+        <button id="btn-sair" type="button" aria-label="Sair">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        </button>
       </div>
-      <button id="btn-sair" type="button">Sair</button>
+
+      <div class="timeline">
+        <div class="timeline-ponto" id="ponto-inicial">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <div class="timeline-linha"></div>
+        <div class="timeline-ponto" id="ponto-atual"></div>
+        <div class="timeline-linha pontilhada"></div>
+        <div class="timeline-ponto" id="ponto-previsto">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        </div>
+      </div>
+      <div class="timeline-valores">
+        <div class="timeline-item">
+          <div class="timeline-valor" id="valor-inicial">R$ 0,00</div>
+          <div class="timeline-label">Inicial</div>
+        </div>
+        <div class="timeline-item destaque">
+          <div class="timeline-valor" id="valor-atual">R$ 0,00</div>
+          <div class="timeline-label">Saldo atual</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-valor" id="valor-previsto">R$ 0,00</div>
+          <div class="timeline-label">Previsto</div>
+        </div>
+      </div>
     </div>
 
     <div id="lista-contas"></div>
