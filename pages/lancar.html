@@ -35,12 +35,25 @@
 
     .conteudo {
       flex: 1;
-      padding: 12px 20px 20px 20px;
+      padding: 12px 20px calc(108px + env(safe-area-inset-bottom, 0px)) 20px;
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 20px;
       overflow-y: auto;
     }
+
+    .rodape {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      justify-content: center;
+      background: linear-gradient(to top, var(--bg) 60%, transparent);
+      padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0px)) 20px;
+    }
+    .rodape-inner { width: 100%; max-width: 480px; }
+    .rodape .btn-primary { height: 58px; font-size: 16px; width: 100%; }
 
     .toggle-tipo {
       display: flex;
@@ -66,15 +79,15 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 2px;
-      padding: 14px 0;
+      gap: 4px;
+      padding: 26px 0;
       border: none;
       background: var(--surface);
       border-radius: var(--radius-lg);
       width: 100%;
     }
     .valor-rotulo { font-size: 12px; color: var(--muted); font-weight: 700; }
-    .valor-display { font-size: 42px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--text); }
+    .valor-display { font-size: 48px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--text); }
     .valor-display.cor-despesa { color: var(--danger); }
     .valor-display.cor-receita { color: var(--success); }
 
@@ -166,6 +179,11 @@
         <div class="chips" id="lista-categorias-chip"></div>
       </div>
 
+    </div>
+  </div>
+
+  <div class="rodape">
+    <div class="rodape-inner">
       <div id="erro-lancar" class="error-msg"></div>
       <button id="btn-salvar" type="button" class="btn-primary">Salvar lançamento</button>
     </div>
