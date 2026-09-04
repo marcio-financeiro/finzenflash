@@ -52,6 +52,7 @@ async function carregarFiltros(userId) {
 
   const selectCategoria = document.getElementById('filtro-categoria');
   selectCategoria.innerHTML = '<option value="">Todas categorias</option>' + categorias.map((c) => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+  if (categoriaFiltro) selectCategoria.value = categoriaFiltro;
 }
 
 async function carregarLancamentos(userId) {
@@ -134,8 +135,16 @@ async function init() {
 
   configurarBotaoSair();
 
-  const contaUrl = new URLSearchParams(window.location.search).get('conta');
+  const params = new URLSearchParams(window.location.search);
+  const contaUrl = params.get('conta');
   if (contaUrl) contaFiltro = contaUrl;
+  const categoriaUrl = params.get('categoria');
+  if (categoriaUrl) categoriaFiltro = categoriaUrl;
+  const mesUrl = params.get('mes');
+  if (mesUrl && /^\d{4}-\d{2}$/.test(mesUrl)) {
+    const [ano, mes] = mesUrl.split('-').map(Number);
+    mesRef = new Date(ano, mes - 1, 1);
+  }
 
   renderMes();
 

@@ -230,7 +230,7 @@ async function salvarPreferenciasCards(userId, ordem, ocultos) {
 async function carregarRanking(userId, inicio, fim) {
   const { data, error } = await supabase
     .from('transactions')
-    .select('amount, categories(nome)')
+    .select('amount, category_id, categories(nome)')
     .eq('user_id', userId)
     .eq('type', 'despesa')
     .gte('date', inicio)
@@ -239,22 +239,25 @@ async function carregarRanking(userId, inicio, fim) {
 
   const porCategoria = new Map();
   for (const t of data ?? []) {
+    const chave = t.category_id ?? 'sem-categoria';
     const nome = t.categories?.nome ?? 'Sem categoria';
-    porCategoria.set(nome, (porCategoria.get(nome) ?? 0) + Number(t.amount));
+    const atual = porCategoria.get(chave) ?? { nome, valor: 0, categoriaId: t.category_id ?? null };
+    atual.valor += Number(t.amount);
+    porCategoria.set(chave, atual);
   }
 
-  const linhas = [...porCategoria.entries()].sort((a, b) => b[1] - a[1]);
-  const total = linhas.reduce((soma, [, valor]) => soma + valor, 0);
+  const linhas = [...porCategoria.values()].sort((a, b) => b.valor - a.valor);
+  const total = linhas.reduce((soma, l) => soma + l.valor, 0);
 
   let itens = linhas;
   if (linhas.length > 5) {
     const top4 = linhas.slice(0, 4);
-    const outros = linhas.slice(4).reduce((soma, [, valor]) => soma + valor, 0);
-    itens = [...top4, ['Outros', outros]].sort((a, b) => b[1] - a[1]);
+    const valorOutros = linhas.slice(4).reduce((soma, l) => soma + l.valor, 0);
+    itens = [...top4, { nome: 'Outros', valor: valorOutros, categoriaId: null }].sort((a, b) => b.valor - a.valor);
   }
 
   return {
-    itens: itens.map(([nome, valor]) => ({ nome, valor, pct: total > 0 ? (valor / total) * 100 : 0 })),
+    itens: itens.map((l) => ({ ...l, pct: total > 0 ? (l.valor / total) * 100 : 0 })),
   };
 }
 
@@ -397,15 +400,19 @@ function renderConteudoRanking({ itens }) {
   return itens.map((item, i) => {
     const largura = maior > 0 ? (item.valor / maior) * 100 : 0;
     const cor = CORES_RANKING[i % CORES_RANKING.length];
+    const clicavel = !!item.categoriaId;
+    const tag = clicavel ? 'button' : 'div';
+    const atributoTipo = clicavel ? 'type="button"' : '';
+    const atributoDado = clicavel ? `data-categoria-id="${item.categoriaId}"` : '';
     return `
-      <div class="ranking-linha">
+      <${tag} ${atributoTipo} class="ranking-linha ${clicavel ? 'clicavel' : ''}" ${atributoDado}>
         <div class="ranking-nome">${escapeHtml(item.nome)}</div>
         <div class="ranking-barra-fundo">
           <div class="ranking-barra-fill" style="width:${largura}%;background:${cor}">
             <span class="ranking-pct">${item.pct.toFixed(1)}%</span>
           </div>
         </div>
-      </div>
+      </${tag}>
     `;
   }).join('');
 }
@@ -526,6 +533,12 @@ function wireResumoEventos() {
   });
   document.getElementById('btn-ver-pendentes')?.addEventListener('click', () => {
     window.location.href = '/pages/extrato.html';
+  });
+  container.querySelectorAll('.ranking-linha.clicavel').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const refMes = `${mesRef.getFullYear()}-${String(mesRef.getMonth() + 1).padStart(2, '0')}`;
+      window.location.href = `/pages/extrato.html?categoria=${btn.dataset.categoriaId}&mes=${refMes}`;
+    });
   });
   container.querySelectorAll('.cartoes-linha').forEach((btn) => {
     btn.addEventListener('click', () => {
