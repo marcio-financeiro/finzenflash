@@ -79,6 +79,7 @@
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 10px;
     }
+    #lista-contas.tres-contas { grid-template-columns: 1fr 1fr; }
     .conta-card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -86,6 +87,7 @@
       padding: 12px 14px;
       min-width: 0;
     }
+    .conta-card.destaque { grid-row: span 2; display: flex; flex-direction: column; justify-content: center; }
     .conta-nome {
       overflow: hidden;
       text-overflow: ellipsis;

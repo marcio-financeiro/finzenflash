@@ -141,8 +141,21 @@ function renderContas(contas) {
     container.innerHTML = '<div class="conta-vazia">Nenhuma conta cadastrada ainda — cadastre no FinZen.</div>';
     return;
   }
-  container.innerHTML = contas.map((c) => `
-    <div class="conta-card">
+
+  // Com exatamente 3 contas, o grid de 2 colunas sobra um buraco na
+  // terceira célula — em vez disso, a conta de maior saldo (em módulo)
+  // ocupa uma coluna alta e as outras duas ficam empilhadas ao lado.
+  const destacar = contas.length === 3;
+  container.classList.toggle('tres-contas', destacar);
+
+  let lista = contas;
+  if (destacar) {
+    const idxMaior = contas.reduce((maior, c, i, arr) => (Math.abs(c.saldo_atual) > Math.abs(arr[maior].saldo_atual) ? i : maior), 0);
+    lista = [contas[idxMaior], ...contas.filter((_, i) => i !== idxMaior)];
+  }
+
+  container.innerHTML = lista.map((c, i) => `
+    <div class="conta-card ${destacar && i === 0 ? 'destaque' : ''}">
       <div class="conta-nome">${escapeHtml(c.nome).toUpperCase()}</div>
       <div class="conta-saldo">${fmt.format(c.saldo_atual)}</div>
     </div>
