@@ -89,6 +89,66 @@
     .limite-barra-fill { height: 100%; background: #ffffff; border-radius: 4px; }
     .limite-legenda { display: flex; justify-content: space-between; font-size: 11px; color: rgba(255,255,255,0.85); font-weight: 600; }
 
+    .btn-pagar-fatura {
+      width: 100%;
+      height: 44px;
+      border-radius: var(--radius-md);
+      border: none;
+      background: rgba(255,255,255,0.22);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .fatura-paga-aviso {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .btn-pagar-fatura[hidden], .fatura-paga-aviso[hidden] { display: none; }
+
+    .sheet-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(16,38,42,0.45);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 20;
+    }
+    .sheet-overlay[hidden] { display: none; }
+    .sheet {
+      width: 100%;
+      max-width: 480px;
+      background: var(--surface);
+      border-radius: 24px 24px 0 0;
+      padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; }
+    .sheet-titulo { font-size: 16px; font-weight: 800; text-align: center; }
+    .sheet-valor-pagar { font-size: 32px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+    .sheet select {
+      width: 100%;
+      height: 52px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 15px;
+      font-family: inherit;
+      padding: 0 14px;
+    }
+
     .secao {
       flex: 1;
       padding: 4px 20px 84px 20px;
@@ -198,6 +258,14 @@
             <span id="limite-disponivel">Disp. R$ 0,00</span>
           </div>
         </div>
+        <button type="button" class="btn-pagar-fatura" id="btn-pagar-fatura" hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
+          Pagar fatura
+        </button>
+        <div class="fatura-paga-aviso" id="fatura-paga-aviso" hidden>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>
+          Fatura paga
+        </div>
       </div>
     </div>
 
@@ -229,6 +297,20 @@
           Sair
         </button>
       </div>
+    </div>
+  </div>
+
+  <div class="sheet-overlay" id="sheet-pagar" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-titulo">Pagar fatura</div>
+      <div class="sheet-valor-pagar" id="sheet-valor-pagar">R$ 0,00</div>
+      <div>
+        <div class="campo-rotulo" style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px;">CONTA PARA DEBITAR</div>
+        <select id="sheet-select-conta"><option value="">Selecione a conta</option></select>
+      </div>
+      <div id="erro-pagar" class="error-msg"></div>
+      <button type="button" class="btn-primary" id="btn-confirmar-pagamento">Confirmar pagamento</button>
     </div>
   </div>
 
