@@ -34,6 +34,21 @@
       flex-direction: column;
       gap: 16px;
     }
+    .topo-linha { display: flex; align-items: center; justify-content: space-between; }
+    .topo-titulo { font-size: 15px; font-weight: 800; color: rgba(255,255,255,0.9); }
+    .btn-privacidade {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      background: rgba(255,255,255,0.18);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
     .header-nav { display: flex; align-items: center; gap: 8px; }
     .header-nav button {
       width: 32px;
@@ -421,6 +436,11 @@
 <body>
   <div class="shell">
     <div class="header">
+      <div class="topo-linha">
+        <div class="topo-titulo">Início</div>
+        <button type="button" id="btn-privacidade" class="btn-privacidade" aria-label="Ocultar valores"></button>
+      </div>
+
       <div class="header-nav">
         <button type="button" id="btn-mes-anterior" aria-label="Mês anterior">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -429,7 +449,6 @@
         <button type="button" id="btn-mes-proximo" aria-label="Próximo mês">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
         </button>
-        <button type="button" id="btn-privacidade" class="btn-privacidade" aria-label="Ocultar valores"></button>
       </div>
 
       <div class="timeline">
