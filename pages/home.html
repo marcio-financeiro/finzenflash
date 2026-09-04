@@ -135,11 +135,49 @@
     .conta-vazia { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
 
     .secao-resumo {
-      padding: 4px 20px 20px 20px;
+      padding: 16px 20px 8px 20px;
       display: flex;
       flex-direction: column;
       gap: 14px;
     }
+    .secao-resumo-topo { display: flex; align-items: center; justify-content: space-between; }
+    #btn-gerenciar-cards {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      background: var(--surface-2);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #secao-resumo { display: flex; flex-direction: column; gap: 14px; }
+
+    .lista-gerenciar-cards { display: flex; flex-direction: column; gap: 4px; }
+    .item-gerenciar-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    .item-gerenciar-card:last-child { border-bottom: none; }
+    .item-gerenciar-card span { flex: 1; font-size: 14px; font-weight: 700; }
+    .item-gerenciar-card input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); }
+
+    .economia-comparativo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .economia-comparativo.melhor { color: var(--success); }
+    .economia-comparativo.pior { color: var(--danger); }
+
     .card-resumo {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -300,6 +338,29 @@
       font-family: inherit;
     }
     .nav-item.ativo { color: var(--accent); }
+
+    .sheet-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(16,38,42,0.45);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 20;
+    }
+    .sheet-overlay[hidden] { display: none; }
+    .sheet {
+      width: 100%;
+      max-width: 480px;
+      background: var(--surface);
+      border-radius: 24px 24px 0 0;
+      padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; }
+    .sheet-titulo { font-size: 16px; font-weight: 800; text-align: center; }
   </style>
 </head>
 <body>
@@ -344,12 +405,20 @@
 
     <div id="lista-contas"></div>
 
+    <div class="secao-resumo">
+      <div class="secao-resumo-topo">
+        <div class="secao-titulo">Resumo</div>
+        <button type="button" id="btn-gerenciar-cards" aria-label="Gerenciar cards">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+      <div id="secao-resumo"></div>
+    </div>
+
     <div class="secao">
       <div class="secao-titulo">Últimos lançamentos</div>
       <div id="lista-lancamentos"></div>
     </div>
-
-    <div class="secao-resumo" id="secao-resumo"></div>
 
     <a class="fab" href="/pages/lancar.html" aria-label="Lançar">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -374,6 +443,15 @@
           Sair
         </button>
       </div>
+    </div>
+  </div>
+
+  <div class="sheet-overlay" id="sheet-cards" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-titulo">Cards do Resumo</div>
+      <div class="lista-gerenciar-cards" id="lista-gerenciar-cards"></div>
+      <button type="button" class="btn-primary" id="btn-concluir-cards">Concluído</button>
     </div>
   </div>
 

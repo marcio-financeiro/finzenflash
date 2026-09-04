@@ -8,8 +8,10 @@ let mesRef = new Date();
 mesRef.setDate(1);
 
 const CARDS_PADRAO = ['ranking', 'economia', 'pendentes'];
+const LABELS_CARDS = { ranking: 'Ranking categorias (Despesas)', economia: 'Economia mensal', pendentes: 'Pendências' };
 const CORES_RANKING = ['#0E7C86', '#8b5cf6', '#94a3b8', '#38bdf8', '#f59e0b'];
 let ordemCards = [...CARDS_PADRAO];
+let cardsOcultos = new Set();
 let pendentesContaIndex = 0;
 let pendentesTipo = 'despesa';
 
@@ -175,7 +177,7 @@ function renderLancamentos(lancamentos) {
   container.innerHTML = html;
 }
 
-async function carregarOrdemCards(userId) {
+async function carregarPreferenciasCards(userId) {
   const { data } = await supabase
     .from('user_settings')
     .select('setting_value')
@@ -183,23 +185,31 @@ async function carregarOrdemCards(userId) {
     .eq('setting_key', 'flash_home_cards_order')
     .maybeSingle();
 
-  let ordem = [];
+  let bruto = null;
   try {
-    ordem = data?.setting_value ? JSON.parse(data.setting_value) : [];
+    bruto = data?.setting_value ? JSON.parse(data.setting_value) : null;
   } catch {
-    ordem = [];
+    bruto = null;
   }
-  ordem = ordem.filter((id) => CARDS_PADRAO.includes(id));
+  // Compatibilidade com o formato antigo (array simples, sem cards ocultos).
+  const ordemBruta = Array.isArray(bruto) ? bruto : (Array.isArray(bruto?.ordem) ? bruto.ordem : []);
+  const ocultosBrutos = Array.isArray(bruto?.ocultos) ? bruto.ocultos : [];
+
+  const ordem = ordemBruta.filter((id) => CARDS_PADRAO.includes(id));
   for (const id of CARDS_PADRAO) {
     if (!ordem.includes(id)) ordem.push(id);
   }
-  return ordem.length > 0 ? ordem : [...CARDS_PADRAO];
+  const ocultos = new Set(ocultosBrutos.filter((id) => CARDS_PADRAO.includes(id)));
+  return { ordem, ocultos };
 }
 
-async function salvarOrdemCards(userId, ordem) {
+async function salvarPreferenciasCards(userId, ordem, ocultos) {
   await supabase
     .from('user_settings')
-    .upsert({ user_id: userId, setting_key: 'flash_home_cards_order', setting_value: JSON.stringify(ordem) }, { onConflict: 'user_id,setting_key' });
+    .upsert(
+      { user_id: userId, setting_key: 'flash_home_cards_order', setting_value: JSON.stringify({ ordem, ocultos: [...ocultos] }) },
+      { onConflict: 'user_id,setting_key' },
+    );
 }
 
 async function carregarRanking(userId, inicio, fim) {
@@ -251,7 +261,7 @@ async function carregarEconomia(userId, inicio, fim) {
   return { receitas, despesas };
 }
 
-async function carregarPendentes(userId, conta, tipo) {
+async function carregarPendentes(userId, conta, tipo, inicio, fim) {
   if (!conta) return { conta: null, tipo, count: 0, total: 0 };
   const { data, error } = await supabase
     .from('transactions')
@@ -259,7 +269,9 @@ async function carregarPendentes(userId, conta, tipo) {
     .eq('user_id', userId)
     .eq('account_id', conta.id)
     .eq('type', tipo)
-    .eq('status', 'pendente');
+    .eq('status', 'pendente')
+    .gte('date', inicio)
+    .lte('date', fim);
   if (error) throw error;
 
   const total = (data ?? []).reduce((soma, t) => soma + Number(t.amount), 0);
@@ -306,11 +318,26 @@ function renderConteudoRanking({ itens }) {
   }).join('');
 }
 
-function renderConteudoEconomia({ receitas, despesas }) {
+function renderConteudoEconomia({ receitas, despesas, anterior }) {
   const economia = receitas - despesas;
   const pct = receitas > 0 ? (economia / receitas) * 100 : 0;
   const pctAro = Math.max(0, Math.min(100, pct));
   const corAro = economia >= 0 ? 'var(--success)' : 'var(--danger)';
+
+  let comparativoHtml = '';
+  if (anterior && (anterior.receitas > 0 || anterior.despesas > 0)) {
+    const economiaAnterior = anterior.receitas - anterior.despesas;
+    const pctAnterior = anterior.receitas > 0 ? (economiaAnterior / anterior.receitas) * 100 : 0;
+    const deltaPts = Math.round(pct - pctAnterior);
+    const melhor = deltaPts >= 0;
+    comparativoHtml = `
+      <div class="economia-comparativo ${melhor ? 'melhor' : 'pior'}">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${melhor ? '<path d="M12 19V5M5 12l7-7 7 7"/>' : '<path d="M12 5v14M5 12l7 7 7-7"/>'}</svg>
+        ${Math.abs(deltaPts)} pts vs mês anterior
+      </div>
+    `;
+  }
+
   return `
     <div class="economia-linha">
       <div class="economia-aro" style="background:conic-gradient(${corAro} ${pctAro}%, var(--surface-2) 0)">
@@ -340,6 +367,7 @@ function renderConteudoEconomia({ receitas, despesas }) {
     <div class="economia-valor-total">
       <div class="valor ${economia < 0 ? 'negativo' : ''}">${fmt.format(economia)}</div>
       <div class="rotulo">Valor economizado</div>
+      ${comparativoHtml}
     </div>
   `;
 }
@@ -385,18 +413,19 @@ let usuarioAtual = null;
 function renderResumoCards() {
   const container = document.getElementById('secao-resumo');
   if (!container) return;
-  const total = ordemCards.length;
+  const visiveis = ordemCards.filter((id) => !cardsOcultos.has(id));
+  const total = visiveis.length;
   let html = '';
-  ordemCards.forEach((id, i) => {
+  visiveis.forEach((id, i) => {
     if (id === 'ranking' && cacheResumo.ranking) {
-      html += renderCardWrapper('ranking', 'Ranking categorias (Despesas)', renderConteudoRanking(cacheResumo.ranking), i, total);
+      html += renderCardWrapper('ranking', LABELS_CARDS.ranking, renderConteudoRanking(cacheResumo.ranking), i, total);
     } else if (id === 'economia' && cacheResumo.economia) {
-      html += renderCardWrapper('economia', 'Economia mensal', renderConteudoEconomia(cacheResumo.economia), i, total);
+      html += renderCardWrapper('economia', LABELS_CARDS.economia, renderConteudoEconomia(cacheResumo.economia), i, total);
     } else if (id === 'pendentes' && cacheResumo.pendentes) {
-      html += renderCardWrapper('pendentes', 'Pendências', renderConteudoPendentes(cacheResumo.pendentes, contasCache.length > 1), i, total);
+      html += renderCardWrapper('pendentes', LABELS_CARDS.pendentes, renderConteudoPendentes(cacheResumo.pendentes, contasCache.length > 1), i, total);
     }
   });
-  container.innerHTML = html;
+  container.innerHTML = html || '<div class="conta-vazia">Nenhum card ativo — toque no ⚙ acima para exibir algum.</div>';
   wireResumoEventos();
 }
 
@@ -429,23 +458,53 @@ function wireResumoEventos() {
 }
 
 function moverCard(id, delta) {
+  const visiveis = ordemCards.filter((x) => !cardsOcultos.has(x));
+  const vi = visiveis.indexOf(id);
+  const vj = vi + delta;
+  if (vi < 0 || vj < 0 || vj >= visiveis.length) return;
+  const outroId = visiveis[vj];
   const i = ordemCards.indexOf(id);
-  const j = i + delta;
-  if (i < 0 || j < 0 || j >= ordemCards.length) return;
+  const j = ordemCards.indexOf(outroId);
   [ordemCards[i], ordemCards[j]] = [ordemCards[j], ordemCards[i]];
   renderResumoCards();
-  if (usuarioAtual) salvarOrdemCards(usuarioAtual.id, ordemCards);
+  persistirPreferenciasCards();
+}
+
+function persistirPreferenciasCards() {
+  if (usuarioAtual) salvarPreferenciasCards(usuarioAtual.id, ordemCards, cardsOcultos);
+}
+
+function abrirSheetCards() {
+  const lista = document.getElementById('lista-gerenciar-cards');
+  lista.innerHTML = CARDS_PADRAO.map((id) => `
+    <label class="item-gerenciar-card">
+      <input type="checkbox" data-id="${id}" ${cardsOcultos.has(id) ? '' : 'checked'}>
+      <span>${escapeHtml(LABELS_CARDS[id])}</span>
+    </label>
+  `).join('');
+  lista.querySelectorAll('input[type="checkbox"]').forEach((chk) => {
+    chk.addEventListener('change', () => {
+      if (chk.checked) cardsOcultos.delete(chk.dataset.id);
+      else cardsOcultos.add(chk.dataset.id);
+      renderResumoCards();
+      persistirPreferenciasCards();
+    });
+  });
+  document.getElementById('sheet-cards').hidden = false;
 }
 
 async function recarregarResumoMensal() {
   try {
     const { inicio, fim } = limitesMes(mesRef);
-    const [ranking, economia] = await Promise.all([
+    const mesAnteriorRef = new Date(mesRef.getFullYear(), mesRef.getMonth() - 1, 1);
+    const { inicio: inicioAnt, fim: fimAnt } = limitesMes(mesAnteriorRef);
+    const [ranking, economia, economiaAnterior] = await Promise.all([
       carregarRanking(usuarioAtual.id, inicio, fim),
       carregarEconomia(usuarioAtual.id, inicio, fim),
+      carregarEconomia(usuarioAtual.id, inicioAnt, fimAnt),
     ]);
     cacheResumo.ranking = ranking;
-    cacheResumo.economia = economia;
+    cacheResumo.economia = { ...economia, anterior: economiaAnterior };
     renderResumoCards();
   } catch (err) {
     console.error(err);
@@ -455,7 +514,8 @@ async function recarregarResumoMensal() {
 async function recarregarCardPendentes() {
   try {
     const conta = contasCache[pendentesContaIndex] ?? null;
-    cacheResumo.pendentes = await carregarPendentes(usuarioAtual.id, conta, pendentesTipo);
+    const { inicio, fim } = limitesMes(mesRef);
+    cacheResumo.pendentes = await carregarPendentes(usuarioAtual.id, conta, pendentesTipo, inicio, fim);
     renderResumoCards();
   } catch (err) {
     console.error(err);
@@ -509,22 +569,30 @@ async function init() {
     renderMes();
     recarregarTimeline(user);
     recarregarResumoMensal();
+    recarregarCardPendentes();
   });
   document.getElementById('btn-mes-proximo').addEventListener('click', () => {
     mesRef.setMonth(mesRef.getMonth() + 1);
     renderMes();
     recarregarTimeline(user);
     recarregarResumoMensal();
+    recarregarCardPendentes();
   });
 
+  document.getElementById('btn-gerenciar-cards').addEventListener('click', abrirSheetCards);
+  const sheetCards = document.getElementById('sheet-cards');
+  document.getElementById('btn-concluir-cards').addEventListener('click', () => { sheetCards.hidden = true; });
+  sheetCards.addEventListener('click', (e) => { if (e.target === sheetCards) sheetCards.hidden = true; });
+
   try {
-    const [contas, lancamentos, ordem] = await Promise.all([
+    const [contas, lancamentos, preferencias] = await Promise.all([
       carregarContas(user.id),
       carregarLancamentos(user.id),
-      carregarOrdemCards(user.id),
+      carregarPreferenciasCards(user.id),
     ]);
     contasCache = contas;
-    ordemCards = ordem;
+    ordemCards = preferencias.ordem;
+    cardsOcultos = preferencias.ocultos;
     pendentesContaIndex = 0;
     pendentesTipo = 'despesa';
 
