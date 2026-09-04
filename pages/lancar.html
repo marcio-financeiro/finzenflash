@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Lançar — FinZen Flash</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0E7C86">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FinZen Flash">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <style>
+    body { display: flex; justify-content: center; }
+    .shell {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+    .topo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 8px 20px;
+    }
+    .topo a { display: flex; color: var(--text); }
+    .topo-titulo { font-size: 17px; font-weight: 800; }
+
+    .conteudo {
+      flex: 1;
+      padding: 12px 20px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow-y: auto;
+    }
+
+    .toggle-tipo {
+      display: flex;
+      background: var(--surface-2);
+      border-radius: 14px;
+      padding: 4px;
+      gap: 4px;
+    }
+    .toggle-tipo button {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 10px 0;
+      border-radius: 11px;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--muted);
+    }
+    .toggle-tipo button.ativo-despesa { background: var(--danger-soft); color: var(--danger); }
+    .toggle-tipo button.ativo-receita { background: var(--success-soft); color: var(--success); }
+
+    .valor-area { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; }
+    .valor-rotulo { font-size: 12px; color: var(--muted); font-weight: 700; }
+    .valor-display { font-size: 42px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+    .valor-display.cor-despesa { color: var(--danger); }
+    .valor-display.cor-receita { color: var(--success); }
+
+    .campo-rotulo { font-size: 12px; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip-conta, .chip-categoria {
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      border-radius: 20px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .chip-conta.selecionada { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+    .chip-categoria.selecionada { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+
+    .teclado { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
+    .tecla {
+      height: 52px;
+      border: none;
+      background: var(--surface-2);
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .tecla.tecla-apagar { color: var(--danger); font-size: 15px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topo">
+      <a href="/pages/home.html" aria-label="Voltar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <div class="topo-titulo">Lançar</div>
+    </div>
+
+    <div class="conteudo">
+      <div class="toggle-tipo">
+        <button type="button" id="btn-despesa">Despesa</button>
+        <button type="button" id="btn-receita">Receita</button>
+      </div>
+
+      <div class="valor-area">
+        <div class="valor-rotulo">VALOR</div>
+        <div class="valor-display" id="valor">R$ 0,00</div>
+      </div>
+
+      <div>
+        <div class="campo-rotulo">DESCRIÇÃO</div>
+        <input id="descricao" type="text" placeholder="Ex: mercado, uber, salário">
+      </div>
+
+      <div>
+        <div class="campo-rotulo">CONTA</div>
+        <div class="chips" id="lista-contas-chip"></div>
+      </div>
+
+      <div>
+        <div class="campo-rotulo">CATEGORIA</div>
+        <div class="chips" id="lista-categorias-chip"></div>
+      </div>
+
+      <div class="teclado">
+        <button type="button" class="tecla" data-acao="1">1</button>
+        <button type="button" class="tecla" data-acao="2">2</button>
+        <button type="button" class="tecla" data-acao="3">3</button>
+        <button type="button" class="tecla" data-acao="4">4</button>
+        <button type="button" class="tecla" data-acao="5">5</button>
+        <button type="button" class="tecla" data-acao="6">6</button>
+        <button type="button" class="tecla" data-acao="7">7</button>
+        <button type="button" class="tecla" data-acao="8">8</button>
+        <button type="button" class="tecla" data-acao="9">9</button>
+        <button type="button" class="tecla" data-acao="00">00</button>
+        <button type="button" class="tecla" data-acao="0">0</button>
+        <button type="button" class="tecla tecla-apagar" data-acao="apagar">⌫</button>
+      </div>
+
+      <div id="erro-lancar" class="error-msg"></div>
+      <button id="btn-salvar" type="button" class="btn-primary">Salvar lançamento</button>
+    </div>
+  </div>
+
+  <script type="module" src="../js/lancar.js"></script>
+</body>
+</html>
