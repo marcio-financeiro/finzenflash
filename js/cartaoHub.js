@@ -79,12 +79,24 @@ async function carregarCompras() {
   if (!cartaoSelecionado || !faturaRef) return [];
   const { data, error } = await supabase
     .from('card_transactions')
-    .select('id, descricao, valor_parcela, parcela_atual, parcelas, data_compra, status')
+    .select('id, descricao, valor_parcela, parcela_atual, parcelas, data_compra, status, purchase_group_id')
     .eq('card_id', cartaoSelecionado)
     .eq('fatura_referencia', faturaRef)
     .order('data_compra', { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+async function grupoTemParcelaPaga(grupoId) {
+  if (!grupoId) return false;
+  const { data, error } = await supabase
+    .from('card_transactions')
+    .select('id')
+    .eq('purchase_group_id', grupoId)
+    .eq('status', 'paga')
+    .limit(1);
+  if (error) throw error;
+  return (data ?? []).length > 0;
 }
 
 async function carregarContasBancarias(userId) {
@@ -137,7 +149,7 @@ function renderCompras(compras) {
     return;
   }
   container.innerHTML = compras.map((c) => `
-    <div class="compra-card">
+    <div class="compra-card" data-id="${c.id}">
       <div class="compra-info">
         <div class="compra-desc">${escapeHtml(c.descricao)}</div>
         <div class="compra-parcela">${c.parcelas > 1 ? `Parcela ${c.parcela_atual}/${c.parcelas}` : 'À vista'}</div>
@@ -145,6 +157,130 @@ function renderCompras(compras) {
       <div class="compra-valor">${fmt.format(Number(c.valor_parcela))}</div>
     </div>
   `).join('');
+
+  container.querySelectorAll('.compra-card').forEach((el) => {
+    const compra = compras.find((c) => c.id === el.dataset.id);
+    if (compra) attachToqueSegurar(el, () => abrirSheetCompra(compra));
+  });
+}
+
+function attachToqueSegurar(el, aoAcionar) {
+  let timer = null;
+  let moveu = false;
+  const iniciar = () => {
+    moveu = false;
+    timer = setTimeout(() => {
+      if (!moveu) {
+        el.classList.remove('pressionando');
+        aoAcionar();
+      }
+    }, 500);
+    el.classList.add('pressionando');
+  };
+  const cancelar = () => {
+    clearTimeout(timer);
+    timer = null;
+    el.classList.remove('pressionando');
+  };
+  const mover = () => { moveu = true; cancelar(); };
+  el.addEventListener('touchstart', iniciar, { passive: true });
+  el.addEventListener('touchend', cancelar);
+  el.addEventListener('touchmove', mover, { passive: true });
+  el.addEventListener('touchcancel', cancelar);
+  el.addEventListener('mousedown', iniciar);
+  el.addEventListener('mouseup', cancelar);
+  el.addEventListener('mouseleave', cancelar);
+}
+
+async function abrirSheetCompra(compra) {
+  const conteudo = document.getElementById('sheet-compra-conteudo');
+
+  if (compra.status === 'paga') {
+    conteudo.innerHTML = `
+      <div class="sheet-titulo">${escapeHtml(compra.descricao)}</div>
+      <div class="sheet-aviso">Essa parcela já foi paga — não é possível editar ou excluir.</div>
+      <button type="button" class="sheet-acao-btn" id="btn-fechar-sheet-compra">Fechar</button>
+    `;
+    document.getElementById('btn-fechar-sheet-compra').addEventListener('click', fecharSheetCompra);
+    document.getElementById('sheet-compra').hidden = false;
+    return;
+  }
+
+  conteudo.innerHTML = `<div class="sheet-titulo">Verificando…</div>`;
+  document.getElementById('sheet-compra').hidden = false;
+
+  let bloqueado = false;
+  try {
+    bloqueado = await grupoTemParcelaPaga(compra.purchase_group_id);
+  } catch (err) {
+    console.error(err);
+  }
+
+  if (bloqueado) {
+    conteudo.innerHTML = `
+      <div class="sheet-titulo">${escapeHtml(compra.descricao)}</div>
+      <div class="sheet-aviso">Essa compra já tem parcela paga em outra fatura — não é possível editar ou excluir.</div>
+      <button type="button" class="sheet-acao-btn" id="btn-fechar-sheet-compra">Fechar</button>
+    `;
+    document.getElementById('btn-fechar-sheet-compra').addEventListener('click', fecharSheetCompra);
+    return;
+  }
+
+  conteudo.innerHTML = `
+    <div class="sheet-titulo">${escapeHtml(compra.descricao)}</div>
+    <button type="button" class="sheet-acao-btn" id="btn-editar-compra">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+      Editar
+    </button>
+    <button type="button" class="sheet-acao-btn perigo" id="btn-excluir-compra">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+      Excluir
+    </button>
+    <button type="button" class="sheet-acao-btn" id="btn-cancelar-sheet-compra">Cancelar</button>
+  `;
+
+  document.getElementById('btn-editar-compra').addEventListener('click', () => {
+    window.location.href = `/pages/comprar-cartao.html?grupo=${compra.purchase_group_id}`;
+  });
+  document.getElementById('btn-excluir-compra').addEventListener('click', () => confirmarExclusaoCompra(compra));
+  document.getElementById('btn-cancelar-sheet-compra').addEventListener('click', fecharSheetCompra);
+}
+
+function confirmarExclusaoCompra(compra) {
+  const conteudo = document.getElementById('sheet-compra-conteudo');
+  conteudo.innerHTML = `
+    <div class="sheet-titulo">Excluir "${escapeHtml(compra.descricao)}"?</div>
+    <div class="sheet-aviso">Remove todas as parcelas dessa compra. Essa ação não pode ser desfeita.</div>
+    <button type="button" class="sheet-acao-btn perigo" id="btn-confirmar-exclusao-compra">Excluir compra</button>
+    <button type="button" class="sheet-acao-btn" id="btn-cancelar-sheet-compra">Cancelar</button>
+  `;
+  document.getElementById('btn-confirmar-exclusao-compra').addEventListener('click', () => excluirCompra(compra));
+  document.getElementById('btn-cancelar-sheet-compra').addEventListener('click', fecharSheetCompra);
+}
+
+function fecharSheetCompra() {
+  document.getElementById('sheet-compra').hidden = true;
+}
+
+async function excluirCompra(compra) {
+  const btn = document.getElementById('btn-confirmar-exclusao-compra');
+  btn.disabled = true;
+  btn.textContent = 'Excluindo...';
+
+  const { error } = await supabase
+    .from('card_transactions')
+    .delete()
+    .eq('purchase_group_id', compra.purchase_group_id)
+    .eq('user_id', usuarioAtual.id);
+
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Excluir compra';
+    return;
+  }
+
+  fecharSheetCompra();
+  await recarregar();
 }
 
 function renderResumo(totalFatura, limiteUsado) {
@@ -275,6 +411,9 @@ async function init() {
   document.getElementById('btn-confirmar-pagamento').addEventListener('click', confirmarPagamento);
   const sheetPagar = document.getElementById('sheet-pagar');
   sheetPagar.addEventListener('click', (e) => { if (e.target === sheetPagar) sheetPagar.hidden = true; });
+
+  const sheetCompra = document.getElementById('sheet-compra');
+  sheetCompra.addEventListener('click', (e) => { if (e.target === sheetCompra) fecharSheetCompra(); });
 
   try {
     contasBancarias = await carregarContasBancarias(user.id);

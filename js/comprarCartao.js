@@ -6,6 +6,7 @@ let categoriaSelecionada = null;
 let cartoes = [];
 let categorias = [];
 let parcelas = 1;
+let compraOriginal = null;
 
 function formatarValorDigitado(valorCentavos) {
   return (valorCentavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -123,7 +124,7 @@ async function carregarCartoesECategorias(userId) {
 
   cartoes = dadosCartoes ?? [];
   categorias = dadosCategorias ?? [];
-  cartaoSelecionado = cartoes[0]?.id ?? null;
+  cartaoSelecionado = compraOriginal?.card_id ?? (cartoes[0]?.id ?? null);
 
   renderCartoes();
   renderCategorias();
@@ -155,13 +156,31 @@ async function salvar(user) {
   }
 
   const btn = document.getElementById('btn-salvar');
+  const textoBotaoPadrao = compraOriginal ? 'Salvar alterações' : 'Salvar compra';
   btn.disabled = true;
   btn.textContent = 'Salvando...';
 
-  const dataCompra = hojeISO();
+  // Editar preserva a data da compra original (a fatura em que ela cai
+  // continua a mesma referência) e reusa o mesmo purchase_group_id —
+  // as parcelas antigas são apagadas e recriadas do zero.
+  const dataCompra = compraOriginal ? compraOriginal.data_compra : hojeISO();
+  const grupo = compraOriginal ? compraOriginal.purchase_group_id : novoGrupoCompra();
   const referenciaBase = invoiceRef(dataCompra, cartao.fechamento_dia, cartao.vencimento_dia);
-  const grupo = novoGrupoCompra();
   const valorParcela = Math.round((valorTotal / parcelas) * 100) / 100;
+
+  if (compraOriginal) {
+    const { error: erroDelete } = await supabase
+      .from('card_transactions')
+      .delete()
+      .eq('purchase_group_id', compraOriginal.purchase_group_id)
+      .eq('user_id', user.id);
+    if (erroDelete) {
+      erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
+      btn.disabled = false;
+      btn.textContent = textoBotaoPadrao;
+      return;
+    }
+  }
 
   const registros = Array.from({ length: parcelas }, (_, i) => ({
     user_id: user.id,
@@ -186,7 +205,7 @@ async function salvar(user) {
   if (error) {
     erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
     btn.disabled = false;
-    btn.textContent = 'Salvar compra';
+    btn.textContent = textoBotaoPadrao;
     return;
   }
 
@@ -198,8 +217,30 @@ async function init() {
   if (!user) return;
 
   configurarTecladoValor();
-  configurarParcelas();
   document.getElementById('btn-salvar').addEventListener('click', () => salvar(user));
+
+  const grupoUrl = new URLSearchParams(window.location.search).get('grupo');
+  if (grupoUrl) {
+    const { data, error } = await supabase
+      .from('card_transactions')
+      .select('purchase_group_id, card_id, category_id, descricao, valor_total, parcelas, data_compra')
+      .eq('purchase_group_id', grupoUrl)
+      .eq('user_id', user.id)
+      .limit(1)
+      .single();
+
+    if (!error && data) {
+      compraOriginal = data;
+      document.getElementById('topo-titulo').textContent = 'Editar compra';
+      document.getElementById('btn-salvar').textContent = 'Salvar alterações';
+      document.getElementById('descricao').value = data.descricao ?? '';
+      categoriaSelecionada = data.category_id;
+      parcelas = data.parcelas;
+      atualizarDisplaysValor(String(Math.round(Number(data.valor_total) * 100)));
+    }
+  }
+
+  configurarParcelas();
 
   try {
     await carregarCartoesECategorias(user.id);
