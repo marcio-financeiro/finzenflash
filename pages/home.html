@@ -76,7 +76,7 @@
     #lista-contas {
       padding: 16px 20px 0 20px;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 10px;
     }
     .conta-card {
@@ -86,13 +86,13 @@
       padding: 12px 14px;
       min-width: 0;
     }
-    .conta-nome, .conta-saldo {
+    .conta-nome {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
     .conta-nome { font-size: 11px; color: var(--muted); font-weight: 700; }
-    .conta-saldo { font-size: 15px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .conta-saldo { font-size: 15px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
     .secao {
       flex: 1;
