@@ -1,5 +1,6 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { invoiceRef, addMonthsRef } from './cardService.js';
+import { configurarBotaoPrivacidade } from './privacidade.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtMesAno = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
@@ -154,7 +155,7 @@ function renderCompras(compras) {
         <div class="compra-desc">${escapeHtml(c.descricao)}</div>
         <div class="compra-parcela">${c.parcelas > 1 ? `Parcela ${c.parcela_atual}/${c.parcelas}` : 'À vista'}</div>
       </div>
-      <div class="compra-valor">${fmt.format(Number(c.valor_parcela))}</div>
+      <div class="compra-valor valor-sensivel">${fmt.format(Number(c.valor_parcela))}</div>
     </div>
   `).join('');
 
@@ -393,6 +394,7 @@ async function init() {
 
   usuarioAtual = user;
   configurarBotaoSair();
+  configurarBotaoPrivacidade('btn-privacidade');
 
   document.getElementById('btn-fatura-anterior').addEventListener('click', () => {
     if (!faturaRef) return;

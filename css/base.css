@@ -64,3 +64,13 @@ button:disabled {
   text-align: center;
   min-height: 18px;
 }
+
+.valor-sensivel { transition: filter 0.15s; }
+body.modo-privado .valor-sensivel {
+  filter: blur(7px);
+  user-select: none;
+}
+
+.btn-privacidade svg .olho-fechado { display: none; }
+.btn-privacidade.ativo svg .olho-aberto { display: none; }
+.btn-privacidade.ativo svg .olho-fechado { display: block; }

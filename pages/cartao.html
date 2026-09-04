@@ -31,7 +31,19 @@
       flex-direction: column;
       gap: 14px;
     }
+    .topo-linha { display: flex; align-items: center; justify-content: space-between; }
     .topo-titulo { font-size: 20px; font-weight: 800; }
+    .btn-privacidade {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      background: var(--surface-2);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
     .chips { display: flex; gap: 8px; flex-wrap: wrap; }
     .chip-conta {
@@ -252,7 +264,10 @@
 <body>
   <div class="shell">
     <div class="topo">
-      <div class="topo-titulo">Cartão</div>
+      <div class="topo-linha">
+        <div class="topo-titulo">Cartão</div>
+        <button type="button" id="btn-privacidade" class="btn-privacidade" aria-label="Ocultar valores"></button>
+      </div>
 
       <div class="chips" id="lista-cartoes-chip"></div>
 
@@ -270,15 +285,15 @@
         <div class="painel-linha">
           <div>
             <div class="painel-rotulo">TOTAL DA FATURA</div>
-            <div class="painel-valor" id="total-fatura">R$ 0,00</div>
+            <div class="painel-valor valor-sensivel" id="total-fatura">R$ 0,00</div>
           </div>
           <div class="painel-venc" id="venc-fatura"></div>
         </div>
         <div>
           <div class="limite-barra"><div class="limite-barra-fill" id="limite-barra-fill" style="width:0%"></div></div>
           <div class="limite-legenda">
-            <span id="limite-usado">Usado R$ 0,00</span>
-            <span id="limite-disponivel">Disp. R$ 0,00</span>
+            <span id="limite-usado" class="valor-sensivel">Usado R$ 0,00</span>
+            <span id="limite-disponivel" class="valor-sensivel">Disp. R$ 0,00</span>
           </div>
         </div>
         <button type="button" class="btn-pagar-fatura" id="btn-pagar-fatura" hidden>
@@ -327,7 +342,7 @@
     <div class="sheet">
       <div class="sheet-handle"></div>
       <div class="sheet-titulo">Pagar fatura</div>
-      <div class="sheet-valor-pagar" id="sheet-valor-pagar">R$ 0,00</div>
+      <div class="sheet-valor-pagar valor-sensivel" id="sheet-valor-pagar">R$ 0,00</div>
       <div>
         <div class="campo-rotulo" style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px;">CONTA PARA DEBITAR</div>
         <select id="sheet-select-conta"><option value="">Selecione a conta</option></select>

@@ -30,7 +30,19 @@
       flex-direction: column;
       gap: 14px;
     }
+    .topo-linha { display: flex; align-items: center; justify-content: space-between; }
     .topo-titulo { font-size: 20px; font-weight: 800; }
+    .btn-privacidade {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      background: var(--surface-2);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
     .seletor-mes {
       display: flex;
@@ -152,7 +164,10 @@
 <body>
   <div class="shell">
     <div class="topo">
-      <div class="topo-titulo">Extrato</div>
+      <div class="topo-linha">
+        <div class="topo-titulo">Extrato</div>
+        <button type="button" id="btn-privacidade" class="btn-privacidade" aria-label="Ocultar valores"></button>
+      </div>
 
       <div class="seletor-mes">
         <button type="button" id="btn-mes-anterior" aria-label="Mês anterior">
@@ -172,11 +187,11 @@
       <div class="resumo">
         <div class="resumo-card entradas">
           <div class="resumo-rotulo">ENTRADAS</div>
-          <div class="resumo-valor" id="total-entradas">R$ 0,00</div>
+          <div class="resumo-valor valor-sensivel" id="total-entradas">R$ 0,00</div>
         </div>
         <div class="resumo-card saidas">
           <div class="resumo-rotulo">SAÍDAS</div>
-          <div class="resumo-valor" id="total-saidas">R$ 0,00</div>
+          <div class="resumo-valor valor-sensivel" id="total-saidas">R$ 0,00</div>
         </div>
       </div>
     </div>

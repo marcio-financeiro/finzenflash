@@ -1,5 +1,6 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { invoiceRef } from './cardService.js';
+import { configurarBotaoPrivacidade } from './privacidade.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDia = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' });
@@ -198,7 +199,7 @@ function renderContas(contas) {
   container.innerHTML = lista.map((c, i) => `
     <div class="conta-card ${destacar && i === 0 ? 'destaque' : ''}">
       <div class="conta-nome">${escapeHtml(c.nome).toUpperCase()}</div>
-      <div class="conta-saldo ${c.saldo_atual < 0 ? 'negativo' : ''}">${fmt.format(c.saldo_atual)}</div>
+      <div class="conta-saldo valor-sensivel ${c.saldo_atual < 0 ? 'negativo' : ''}">${fmt.format(c.saldo_atual)}</div>
     </div>
   `).join('');
 }
@@ -225,7 +226,7 @@ function renderLancamentos(lancamentos) {
             <div class="lancamento-desc">${escapeHtml(l.description)}</div>
             <div class="lancamento-conta">Cartão · ${escapeHtml(l.nomeOrigem)}</div>
           </div>
-          <div class="lancamento-valor">${fmt.format(Math.abs(l.amount))}</div>
+          <div class="lancamento-valor valor-sensivel">${fmt.format(Math.abs(l.amount))}</div>
         </div>
       `;
       continue;
@@ -239,7 +240,7 @@ function renderLancamentos(lancamentos) {
           <div class="lancamento-desc">${escapeHtml(l.description)}</div>
           <div class="lancamento-conta">${escapeHtml(l.nomeOrigem)}</div>
         </div>
-        <div class="lancamento-valor ${receita ? 'is-receita' : 'is-despesa'}">${sinal}${fmt.format(Math.abs(l.amount))}</div>
+        <div class="lancamento-valor valor-sensivel ${receita ? 'is-receita' : 'is-despesa'}">${sinal}${fmt.format(Math.abs(l.amount))}</div>
       </div>
     `;
   }
@@ -516,7 +517,7 @@ function renderConteudoCartoes({ linhas, total }) {
       <div class="cartoes-info">
         <div class="cartoes-nome">${escapeHtml(cartao.nome)}</div>
         <div class="cartoes-detalhe"><span>Fechamento</span><span>${rotuloFechamento(fechamento)}</span></div>
-        <div class="cartoes-detalhe"><span>Próxima fatura</span><span>${fmt.format(proximaFatura)}</span></div>
+        <div class="cartoes-detalhe"><span>Próxima fatura</span><span class="valor-sensivel">${fmt.format(proximaFatura)}</span></div>
       </div>
     </button>
   `).join('');
@@ -524,7 +525,7 @@ function renderConteudoCartoes({ linhas, total }) {
     <div class="cartoes-lista">${itensHtml}</div>
     <div class="cartoes-total">
       <div class="rotulo">Total</div>
-      <div class="valor">${fmt.format(total)}</div>
+      <div class="valor valor-sensivel">${fmt.format(total)}</div>
     </div>
   `;
 }
@@ -605,7 +606,7 @@ function renderConteudoEconomia({ receitas, despesas, anterior }) {
           </div>
           <div>
             <div class="economia-texto-rotulo">Receitas consideradas</div>
-            <div class="economia-texto-valor receita">${fmt.format(receitas)}</div>
+            <div class="economia-texto-valor valor-sensivel receita">${fmt.format(receitas)}</div>
           </div>
         </div>
         <div class="economia-item">
@@ -614,13 +615,13 @@ function renderConteudoEconomia({ receitas, despesas, anterior }) {
           </div>
           <div>
             <div class="economia-texto-rotulo">Despesas consideradas</div>
-            <div class="economia-texto-valor despesa">${fmt.format(despesas)}</div>
+            <div class="economia-texto-valor valor-sensivel despesa">${fmt.format(despesas)}</div>
           </div>
         </div>
       </div>
     </div>
     <div class="economia-valor-total">
-      <div class="valor ${economia < 0 ? 'negativo' : ''}">${fmt.format(economia)}</div>
+      <div class="valor valor-sensivel ${economia < 0 ? 'negativo' : ''}">${fmt.format(economia)}</div>
       <div class="rotulo">Valor economizado</div>
       ${comparativoHtml}
     </div>
@@ -639,7 +640,7 @@ function renderConteudoPendentes({ tipo, count, total }) {
         ? `<div class="conta-vazia">Nenhuma ${tipo === 'despesa' ? 'despesa' : 'receita'} pendente.</div>`
         : `
           <div class="pendentes-texto">Você tem <strong>${count} ${textoTipo} pendentes</strong><br>no total de</div>
-          <div class="pendentes-total">${fmt.format(total)}</div>
+          <div class="pendentes-total valor-sensivel">${fmt.format(total)}</div>
         `}
       <button type="button" class="pendentes-btn" id="btn-ver-pendentes">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
@@ -827,6 +828,7 @@ async function init() {
   if (!user) return;
 
   renderMes();
+  configurarBotaoPrivacidade('btn-privacidade');
 
   usuarioAtual = user;
 

@@ -1,4 +1,5 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
+import { configurarBotaoPrivacidade } from './privacidade.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDia = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' });
@@ -107,7 +108,7 @@ function renderLista(lancamentos) {
           <div class="lancamento-desc">${escapeHtml(l.description)}</div>
           <div class="lancamento-conta">${escapeHtml(l.accounts?.nome ?? '')}</div>
         </div>
-        <div class="lancamento-valor ${receita ? 'is-receita' : 'is-despesa'}">${sinal}${fmt.format(Math.abs(l.amount))}</div>
+        <div class="lancamento-valor valor-sensivel ${receita ? 'is-receita' : 'is-despesa'}">${sinal}${fmt.format(Math.abs(l.amount))}</div>
       </div>
     `;
   }
@@ -134,6 +135,7 @@ async function init() {
   if (!user) return;
 
   configurarBotaoSair();
+  configurarBotaoPrivacidade('btn-privacidade');
 
   const params = new URLSearchParams(window.location.search);
   const contaUrl = params.get('conta');
