@@ -1,7 +1,7 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { invoiceRef, addMonthsRef } from './cardService.js';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
-import { ativarArrastarParaFechar } from './sheetGestos.js';
+import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtMesAno = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
