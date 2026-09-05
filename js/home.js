@@ -220,7 +220,7 @@ function renderContas(contas) {
   container.innerHTML = lista.map((c, i) => `
     <div class="conta-card ${destacar && i === 0 ? 'destaque' : ''}">
       <div class="conta-nome">${escapeHtml(c.nome).toUpperCase()}</div>
-      <div class="conta-saldo valor-sensivel ${c.saldo_atual < 0 ? 'negativo' : ''}">${fmt.format(c.saldo_atual || 0)}</div>
+      <div class="conta-saldo valor-sensivel ${c.saldo_atual < 0 ? 'negativo' : ''}">${fmt.format(Number(c.saldo_atual) || 0)}</div>
     </div>
   `).join('');
 }
