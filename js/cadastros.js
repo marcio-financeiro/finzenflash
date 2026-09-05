@@ -149,7 +149,7 @@ function renderContas(container) {
   }
   container.innerHTML = contas.map((c) => `
     <button type="button" class="item-cadastro ${c.active ? '' : 'item-inativo'}" data-tipo="conta" data-id="${c.id}">
-      <div class="item-avatar" style="background:${c.color || '#4f8ef7'}">${c.icon || inicial(c.nome)}</div>
+      <div class="item-avatar" style="background:${c.color || '#0E7C86'}">${c.icon || inicial(c.nome)}</div>
       <div class="item-info">
         <div class="item-nome">${escapeHtml(c.nome)}${c.active ? '' : '<span class="badge-inativo">inativa</span>'}</div>
         <div class="item-detalhe">${escapeHtml(c.tipo || '')}${c.bank ? ` · ${escapeHtml(c.bank)}` : ''} · ${fmt.format(c.saldo_atual || 0)}</div>
@@ -166,7 +166,7 @@ function renderCartoes(container) {
   }
   container.innerHTML = cartoes.map((c) => `
     <button type="button" class="item-cadastro ${c.ativo ? '' : 'item-inativo'}" data-tipo="cartao" data-id="${c.id}">
-      <div class="item-avatar" style="background:${c.cor || '#7c5cfc'}">${inicial(c.nome)}</div>
+      <div class="item-avatar" style="background:${c.cor || '#14A3AE'}">${inicial(c.nome)}</div>
       <div class="item-info">
         <div class="item-nome">${escapeHtml(c.nome)}${c.ativo ? '' : '<span class="badge-inativo">inativo</span>'}</div>
         <div class="item-detalhe">${escapeHtml(c.banco || '')}${c.bandeira ? ` · ${escapeHtml(c.bandeira)}` : ''} · Limite ${fmt.format(c.limite || 0)} · Fecha ${c.fechamento_dia ?? '-'} / Vence ${c.vencimento_dia ?? '-'}</div>
@@ -344,7 +344,7 @@ function formConta(c) {
     ${campoSelect('f-moeda', 'Moeda', [{ valor: 'BRL', texto: 'BRL — Real' }, { valor: 'USD', texto: 'USD — Dólar' }], c?.currency || 'BRL')}
     ${campoTexto('f-saldo', 'Saldo atual', c ? String(c.saldo_atual ?? 0).replace('.', ',') : '0', '0,00')}
     <div class="form-linha">
-      <div class="field"><label for="f-cor">Cor</label><input type="color" id="f-cor" value="${c?.color || '#4f8ef7'}"></div>
+      <div class="field"><label for="f-cor">Cor</label><input type="color" id="f-cor" value="${c?.color || '#0E7C86'}"></div>
       ${campoSelect('f-ativo', 'Status', [{ valor: 'true', texto: 'Ativa' }, { valor: 'false', texto: 'Inativa' }], String(c?.active !== false))}
     </div>
     <div class="error-msg" id="erro-form"></div>
@@ -365,7 +365,7 @@ function formCartao(c) {
       ${campoTexto('f-vencimento', 'Dia de vencimento', c?.vencimento_dia, 'Ex: 27')}
     </div>
     <div class="form-linha">
-      <div class="field"><label for="f-cor">Cor</label><input type="color" id="f-cor" value="${c?.cor || '#7c5cfc'}"></div>
+      <div class="field"><label for="f-cor">Cor</label><input type="color" id="f-cor" value="${c?.cor || '#14A3AE'}"></div>
       ${campoSelect('f-ativo', 'Status', [{ valor: 'true', texto: 'Ativo' }, { valor: 'false', texto: 'Inativo' }], String(c?.ativo !== false))}
     </div>
     <div class="error-msg" id="erro-form"></div>
