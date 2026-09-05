@@ -17,10 +17,18 @@ const TIPOS_ATIVO = [
   { valor: 'renda_fixa', texto: 'Renda Fixa' },
 ];
 const CORES_DONUT = ['#0E7C86', '#14A3AE', '#c9963f', '#d9583a', '#8ea198', '#1E9E6E'];
+const TIPOS_PROVENTO = [
+  { valor: 'dividendo', texto: 'Dividendo' },
+  { valor: 'jcp', texto: 'JCP' },
+  { valor: 'rendimento', texto: 'Rendimento FII' },
+  { valor: 'cupom', texto: 'Cupom / Juros' },
+];
 
 let usuarioAtual = null;
 let ativos = [];
 let contas = [];
+let todasContas = [];
+let dividendos = [];
 let dolarAtual = DEFAULT_USD_BRL;
 let chartDonut = null;
 let chartEvolucao = null;
@@ -118,13 +126,35 @@ async function carregarAtivos(userId) {
   ativos = data ?? [];
 }
 
-async function carregarProventos(userId) {
+async function carregarTodasContas(userId) {
+  const { data, error } = await supabase
+    .from('accounts')
+    .select('id, nome, currency, saldo_atual')
+    .eq('user_id', userId).eq('active', true)
+    .order('nome');
+  if (error) throw error;
+  todasContas = data ?? [];
+}
+
+async function carregarDividendos(userId) {
   const { data, error } = await supabase
     .from('dividends')
-    .select('valor_total')
-    .eq('user_id', userId);
+    .select('*')
+    .eq('user_id', userId)
+    .order('data_pagamento', { ascending: false });
   if (error) throw error;
-  return (data ?? []).reduce((soma, d) => soma + Number(d.valor_total), 0);
+  dividendos = data ?? [];
+}
+
+function calcularKpisProventos() {
+  const hoje = new Date();
+  const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+  const anoAtual = String(hoje.getFullYear());
+
+  const mes = dividendos.filter((d) => d.data_pagamento?.startsWith(mesAtual)).reduce((s, d) => s + Number(d.valor_total), 0);
+  const ano = dividendos.filter((d) => d.data_pagamento?.startsWith(anoAtual)).reduce((s, d) => s + Number(d.valor_total), 0);
+  const total = dividendos.reduce((s, d) => s + Number(d.valor_total), 0);
+  return { mes, ano, total };
 }
 
 async function carregarHistoricoPatrimonio(userId) {
@@ -157,6 +187,12 @@ function renderKpis({ aplicadoBRL, atualBRL, proventos }) {
   kpiRent.textContent = fmtPct(rentabilidade);
   kpiRent.classList.toggle('positivo', rentabilidade > 0);
   kpiRent.classList.toggle('negativo', rentabilidade < 0);
+}
+
+function renderProventosMiniKpis({ mes, ano, total }) {
+  document.getElementById('div-mes').textContent = fmt.format(mes);
+  document.getElementById('div-ano').textContent = fmt.format(ano);
+  document.getElementById('div-total').textContent = fmt.format(total);
 }
 
 async function renderDonut() {
@@ -281,18 +317,19 @@ async function recarregarTudo() {
   const aplicadoBRL = ativos.reduce((s, a) => s + calcBRL(a, calcAplicado(a)), 0);
   const atualBRL = ativos.reduce((s, a) => s + calcBRL(a, calcAtual(a)), 0);
 
-  let proventos = 0;
   let historico = [];
   try {
-    [proventos, historico] = await Promise.all([
-      carregarProventos(usuarioAtual.id),
-      carregarHistoricoPatrimonio(usuarioAtual.id),
+    await Promise.all([
+      carregarDividendos(usuarioAtual.id),
+      carregarHistoricoPatrimonio(usuarioAtual.id).then((h) => { historico = h; }),
     ]);
   } catch (err) {
     console.error(err);
   }
 
-  renderKpis({ aplicadoBRL, atualBRL, proventos });
+  const kpisProventos = calcularKpisProventos();
+  renderKpis({ aplicadoBRL, atualBRL, proventos: kpisProventos.total });
+  renderProventosMiniKpis(kpisProventos);
   renderPosicoes();
   // Falha ao carregar o Chart.js (rede instável, bloqueio etc.) não pode
   // apagar o que já carregou certinho acima (KPIs e posições).
@@ -409,6 +446,178 @@ async function salvarEdicaoPosicao(id) {
   document.getElementById('sheet-form').hidden = true;
   await carregarAtivos(usuarioAtual.id);
   await recarregarTudo();
+}
+
+// ── Sheet: histórico de proventos ──
+async function abrirSheetListaProventos() {
+  const container = document.getElementById('lista-proventos-itens');
+  container.innerHTML = '<div class="conta-vazia">Carregando...</div>';
+  document.getElementById('sheet-lista-proventos').hidden = false;
+
+  if (dividendos.length === 0) {
+    container.innerHTML = '<div class="conta-vazia">Nenhum provento registrado ainda.</div>';
+    return;
+  }
+
+  container.innerHTML = dividendos.map((d) => {
+    const conta = todasContas.find((c) => c.id === d.account_id);
+    return `
+      <button type="button" class="posicao-item" data-id="${d.id}">
+        <div class="posicao-icone">${escapeHtml((d.ticker || '?').slice(0, 4))}</div>
+        <div class="posicao-info">
+          <div class="posicao-ticker">${escapeHtml(d.ticker)}</div>
+          <div class="posicao-detalhe">${tipoProventoLabel(d.tipo)} · ${escapeHtml(conta?.nome ?? '-')} · ${fmtDataCurta(d.data_pagamento)}</div>
+        </div>
+        <div class="posicao-valores">
+          <div class="posicao-valor valor-sensivel positivo">+${fmt.format(d.valor_total)}</div>
+        </div>
+      </button>
+    `;
+  }).join('');
+
+  container.querySelectorAll('.posicao-item').forEach((el) => {
+    const dividendo = dividendos.find((d) => d.id === el.dataset.id);
+    if (dividendo) el.addEventListener('click', () => confirmarExclusaoProvento(dividendo));
+  });
+}
+
+function tipoProventoLabel(t) {
+  return TIPOS_PROVENTO.find((o) => o.valor === t)?.texto ?? t ?? '-';
+}
+
+function fmtDataCurta(iso) {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y.slice(2)}`;
+}
+
+function confirmarExclusaoProvento(dividendo) {
+  const conteudo = document.getElementById('sheet-acao-provento-conteudo');
+  conteudo.innerHTML = `
+    <div class="sheet-titulo">Excluir provento de ${escapeHtml(dividendo.ticker)}?</div>
+    <div style="font-size:13px;color:var(--muted);text-align:center;margin-top:-8px;">Remove só o registro aqui — não estorna o saldo já creditado na conta.</div>
+    <button type="button" class="sheet-acao-btn perigo" id="btn-confirmar-excluir-provento">Excluir</button>
+    <button type="button" class="sheet-acao-btn" id="btn-cancelar-acao-provento">Cancelar</button>
+  `;
+  document.getElementById('btn-confirmar-excluir-provento').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-confirmar-excluir-provento');
+    btn.disabled = true;
+    btn.textContent = 'Excluindo...';
+    const { error } = await supabase.from('dividends').delete().eq('id', dividendo.id).eq('user_id', usuarioAtual.id);
+    if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+    document.getElementById('sheet-acao-provento').hidden = true;
+    await carregarDividendos(usuarioAtual.id);
+    renderProventosMiniKpis(calcularKpisProventos());
+    await abrirSheetListaProventos();
+  });
+  document.getElementById('btn-cancelar-acao-provento').addEventListener('click', () => { document.getElementById('sheet-acao-provento').hidden = true; });
+  document.getElementById('sheet-acao-provento').hidden = false;
+}
+
+// ── Sheet: registrar provento ──
+function abrirSheetFormDividendo() {
+  const conteudo = document.getElementById('sheet-form-conteudo');
+  conteudo.innerHTML = `
+    <div class="sheet-titulo">Registrar provento</div>
+    ${campoSelect('f-div-ativo', 'Ativo', [{ valor: '', texto: 'Selecione o ativo' }, ...ativos.map((a) => ({ valor: a.id, texto: a.ticker }))], '')}
+    ${campoSelect('f-div-tipo', 'Tipo', TIPOS_PROVENTO, 'dividendo')}
+    <div class="form-linha">
+      ${campoTexto('f-div-valor-cota', 'Valor por cota', '', '0,00')}
+      ${campoTexto('f-div-qtd-cotas', 'Qtd cotas na data', '', 'Preenchido automaticamente')}
+    </div>
+    ${campoSelect('f-div-moeda', 'Moeda do recebimento', [{ valor: 'BRL', texto: 'BRL — Real' }, { valor: 'USD', texto: 'USD — Dólar' }], 'BRL')}
+    ${campoTexto('f-div-valor-total', 'Ou valor total recebido', '', '0,00')}
+    ${campoSelect('f-div-conta', 'Conta de destino', [{ valor: '', texto: 'Selecione a conta' }, ...todasContas.map((c) => ({ valor: c.id, texto: c.nome }))], '')}
+    <div class="form-linha">
+      <div class="field"><label for="f-div-data">Data de pagamento</label><input type="date" id="f-div-data" value="${hojeISO()}"></div>
+    </div>
+    ${campoTexto('f-div-obs', 'Observação (opcional)', '', '')}
+    <div class="error-msg" id="erro-form"></div>
+    <button type="button" class="btn-primary" id="btn-salvar-form">Registrar provento</button>
+    <button type="button" class="sheet-acao-btn" id="btn-cancelar-form">Cancelar</button>
+  `;
+
+  document.getElementById('f-div-ativo').addEventListener('change', (e) => {
+    const ativo = ativos.find((a) => a.id === e.target.value);
+    if (ativo) document.getElementById('f-div-qtd-cotas').value = String(ativo.quantidade).replace('.', ',');
+  });
+  document.getElementById('btn-cancelar-form').addEventListener('click', () => { document.getElementById('sheet-form').hidden = true; });
+  document.getElementById('btn-salvar-form').addEventListener('click', salvarDividendo);
+  document.getElementById('sheet-form').hidden = false;
+}
+
+async function salvarDividendo() {
+  const erroEl = document.getElementById('erro-form');
+  erroEl.textContent = '';
+
+  const ativoId = document.getElementById('f-div-ativo').value;
+  const tipo = document.getElementById('f-div-tipo').value;
+  const valorCota = lerValorMonetario(document.getElementById('f-div-valor-cota').value);
+  const qtdCotas = lerValorMonetario(document.getElementById('f-div-qtd-cotas').value);
+  const moedaDiv = document.getElementById('f-div-moeda').value;
+  const valorTotalInformado = lerValorMonetario(document.getElementById('f-div-valor-total').value);
+  const contaId = document.getElementById('f-div-conta').value;
+  const dataPag = document.getElementById('f-div-data').value || hojeISO();
+  const obs = document.getElementById('f-div-obs').value.trim();
+
+  const valorTotalMoeda = valorTotalInformado || valorCota * qtdCotas;
+
+  if (!ativoId || !tipo || !valorTotalMoeda || !contaId) {
+    erroEl.textContent = 'Preencha ativo, tipo, valor e conta.';
+    return;
+  }
+
+  const ativo = ativos.find((a) => a.id === ativoId);
+  const conta = todasContas.find((c) => c.id === contaId);
+  if (!ativo || !conta) { erroEl.textContent = 'Ativo ou conta não encontrados.'; return; }
+
+  const totalUSD = moedaDiv === 'USD' ? valorTotalMoeda : 0;
+  const totalBRL = moedaDiv === 'USD' ? valorTotalMoeda * dolarAtual : valorTotalMoeda;
+  const qtd = qtdCotas || Number(ativo.quantidade);
+  const valorCotaBRL = qtd > 0 ? totalBRL / qtd : 0;
+  const contaMoeda = conta.currency || 'BRL';
+  const valorConta = contaMoeda === 'USD' ? totalUSD : totalBRL;
+
+  const btn = document.getElementById('btn-salvar-form');
+  btn.disabled = true;
+  btn.textContent = 'Registrando...';
+
+  try {
+    const { data: divRow, error: erroDiv } = await supabase.from('dividends').insert({
+      user_id: usuarioAtual.id, investment_id: ativoId, ticker: ativo.ticker,
+      tipo, valor_por_cota: valorCotaBRL, quantidade_cotas: qtd,
+      valor_total: totalBRL, account_id: contaId, data_pagamento: dataPag,
+      observacao: obs || null,
+    }).select('id').single();
+    if (erroDiv) throw erroDiv;
+
+    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', { p_account_id: contaId, p_delta: valorConta });
+    if (erroSaldo) throw erroSaldo;
+
+    const { data: catInv } = await supabase.from('categories')
+      .select('id').eq('user_id', usuarioAtual.id).eq('tipo', 'receita')
+      .ilike('nome', 'Investimentos').limit(1).maybeSingle();
+
+    const { data: txRow } = await supabase.from('transactions').insert({
+      user_id: usuarioAtual.id, account_id: contaId, category_id: catInv?.id ?? null,
+      type: 'receita', amount: valorConta,
+      description: `Dividendo ${ativo.ticker} (${tipoProventoLabel(tipo)})`,
+      date: dataPag, status: 'pago',
+      notes: obs || `Provento de ${ativo.ticker}`,
+    }).select('id').single();
+
+    if (txRow?.id) {
+      await supabase.from('dividends').update({ transaction_id: txRow.id }).eq('id', divRow.id).eq('user_id', usuarioAtual.id);
+    }
+
+    document.getElementById('sheet-form').hidden = true;
+    await Promise.all([carregarDividendos(usuarioAtual.id), carregarTodasContas(usuarioAtual.id), carregarContas(usuarioAtual.id)]);
+    renderProventosMiniKpis(calcularKpisProventos());
+  } catch (err) {
+    console.error(err);
+    erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
+    btn.disabled = false;
+    btn.textContent = 'Registrar provento';
+  }
 }
 
 // ── Sheet: novo lançamento (aporte/venda) ──
@@ -571,6 +780,8 @@ async function init() {
   usuarioAtual = user;
 
   document.getElementById('btn-novo-lancamento').addEventListener('click', (e) => { e.preventDefault(); abrirSheetLancamento(); });
+  document.getElementById('btn-novo-provento').addEventListener('click', abrirSheetFormDividendo);
+  document.getElementById('btn-ver-proventos').addEventListener('click', abrirSheetListaProventos);
 
   const sheetForm = document.getElementById('sheet-form');
   sheetForm.addEventListener('click', (e) => { if (e.target === sheetForm) sheetForm.hidden = true; });
@@ -580,9 +791,17 @@ async function init() {
   sheetAcaoPosicao.addEventListener('click', (e) => { if (e.target === sheetAcaoPosicao) fecharSheetAcaoPosicao(); });
   ativarArrastarParaFechar(sheetAcaoPosicao);
 
+  const sheetListaProventos = document.getElementById('sheet-lista-proventos');
+  sheetListaProventos.addEventListener('click', (e) => { if (e.target === sheetListaProventos) sheetListaProventos.hidden = true; });
+  ativarArrastarParaFechar(sheetListaProventos);
+
+  const sheetAcaoProvento = document.getElementById('sheet-acao-provento');
+  sheetAcaoProvento.addEventListener('click', (e) => { if (e.target === sheetAcaoProvento) sheetAcaoProvento.hidden = true; });
+  ativarArrastarParaFechar(sheetAcaoProvento);
+
   try {
     await carregarDolar(user.id);
-    await Promise.all([carregarContas(user.id), carregarAtivos(user.id)]);
+    await Promise.all([carregarContas(user.id), carregarTodasContas(user.id), carregarAtivos(user.id)]);
     await recarregarTudo();
   } catch (err) {
     console.error(err);
