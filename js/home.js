@@ -696,13 +696,21 @@ async function salvarMetasEditadas() {
 // somar as compras do cartão pelo dia da compra contaria o mesmo gasto
 // duas vezes quando compra e pagamento caem no mesmo mês.
 async function carregarMapaCalor(userId, inicio, fim, idCategoriaFatura) {
-  const [{ data, error }, { data: compras, error: erroCompras }] = await Promise.all([
+  const [{ data, error }, { data: pendentes, error: erroPendentes }, { data: compras, error: erroCompras }] = await Promise.all([
     supabase
       .from('transactions')
       .select('date, amount, category_id')
       .eq('user_id', userId)
       .eq('type', 'despesa')
       .eq('status', 'pago')
+      .gte('date', inicio)
+      .lte('date', fim),
+    supabase
+      .from('transactions')
+      .select('date, amount, category_id')
+      .eq('user_id', userId)
+      .eq('type', 'despesa')
+      .eq('status', 'pendente')
       .gte('date', inicio)
       .lte('date', fim),
     supabase
@@ -713,6 +721,7 @@ async function carregarMapaCalor(userId, inicio, fim, idCategoriaFatura) {
       .lte('data_compra', fim),
   ]);
   if (error) throw error;
+  if (erroPendentes) throw erroPendentes;
   if (erroCompras) throw erroCompras;
 
   const porDia = new Map();
@@ -726,16 +735,24 @@ async function carregarMapaCalor(userId, inicio, fim, idCategoriaFatura) {
     porDia.set(dia, (porDia.get(dia) ?? 0) + Number(c.valor_parcela));
   }
 
+  const porDiaPendente = new Map();
+  for (const t of pendentes ?? []) {
+    if (t.category_id === idCategoriaFatura) continue;
+    const dia = Number(t.date.slice(8, 10));
+    porDiaPendente.set(dia, (porDiaPendente.get(dia) ?? 0) + Number(t.amount));
+  }
+
   const [ano, mes] = inicio.split('-').map(Number);
   const totalDias = new Date(ano, mes, 0).getDate();
   const primeiroDiaSemana = new Date(ano, mes - 1, 1).getDay();
   const maior = Math.max(0, ...porDia.values());
+  const maiorPendente = Math.max(0, ...porDiaPendente.values());
   let pico = null;
   for (const [dia, valor] of porDia) {
     if (!pico || valor > pico.valor) pico = { dia, valor };
   }
 
-  return { ano, mes, totalDias, primeiroDiaSemana, porDia, maior, pico };
+  return { ano, mes, totalDias, primeiroDiaSemana, porDia, porDiaPendente, maior, maiorPendente, pico };
 }
 
 async function carregarFaturasMesCorrente(userId, ref) {
@@ -1062,16 +1079,26 @@ function renderConteudoMetas({ categorias, totalPlanejado, totalGasto }) {
   `;
 }
 
-function renderConteudoMapaCalor({ totalDias, primeiroDiaSemana, porDia, maior, pico }) {
+function renderConteudoMapaCalor({ totalDias, primeiroDiaSemana, porDia, porDiaPendente, maior, maiorPendente, pico }) {
   const celulasVazias = Array.from({ length: primeiroDiaSemana }, () => '<div></div>');
   const cabecalho = DIAS_SEMANA.map((d) => `<div class="mapa-calor-semana">${d}</div>`).join('');
 
   const dias = [];
   for (let dia = 1; dia <= totalDias; dia++) {
     const valor = porDia.get(dia) ?? 0;
-    const intensidade = maior > 0 ? valor / maior : 0;
-    const cor = corIntensidade(intensidade);
-    const textoValor = valor > 0 ? formatCompacto(valor) : '';
+    const valorPendente = porDiaPendente?.get(dia) ?? 0;
+    let cor;
+    let textoValor;
+    if (valor > 0) {
+      cor = corIntensidade(valor / maior);
+      textoValor = formatCompacto(valor);
+    } else if (valorPendente > 0) {
+      cor = corIntensidadePendente(valorPendente / maiorPendente);
+      textoValor = formatCompacto(valorPendente);
+    } else {
+      cor = 'var(--surface-2)';
+      textoValor = '';
+    }
     dias.push(`
       <div class="mapa-calor-dia" style="background:${cor}">
         <div class="numero">${dia}</div>
@@ -1086,6 +1113,10 @@ function renderConteudoMapaCalor({ totalDias, primeiroDiaSemana, porDia, maior, 
   return `
     <div class="mapa-calor-grid">${cabecalho}${celulasVazias.join('')}${dias.join('')}</div>
     <div class="mapa-calor-legenda">menos ${legenda} mais</div>
+    <div class="mapa-calor-legenda">
+      <div class="mapa-calor-legenda-ponto" style="background:${corIntensidadePendente(0.85)}"></div>
+      contas pendentes (ainda não pagas)
+    </div>
     ${pico ? `<div class="mapa-calor-pico valor-sensivel">Pico do mês: dia ${pico.dia} (${fmt.format(pico.valor)})</div>` : ''}
   `;
 }
@@ -1096,6 +1127,14 @@ function corIntensidade(intensidade) {
   if (intensidade < 0.5) return 'rgba(217,112,90,0.6)';
   if (intensidade < 0.8) return 'rgba(217,112,90,0.85)';
   return 'var(--danger)';
+}
+
+function corIntensidadePendente(intensidade) {
+  if (intensidade <= 0) return 'var(--surface-2)';
+  if (intensidade < 0.25) return 'rgba(201,150,63,0.35)';
+  if (intensidade < 0.5) return 'rgba(201,150,63,0.6)';
+  if (intensidade < 0.8) return 'rgba(201,150,63,0.85)';
+  return '#C9963F';
 }
 
 function formatCompacto(valor) {
