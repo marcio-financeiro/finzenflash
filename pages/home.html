@@ -374,6 +374,22 @@
     .metas-barra-fill { height: 100%; border-radius: 4px; background: var(--accent); }
     .metas-barra-fill.estourou { background: var(--danger); }
 
+    .metas-editar-linha { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--border); }
+    .metas-editar-linha:last-child { border-bottom: none; }
+    .metas-editar-nome { font-size: 14px; font-weight: 700; flex: 1; }
+    .metas-editar-input {
+      width: 110px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      padding: 0 10px;
+      font-size: 14px;
+      font-family: inherit;
+      text-align: right;
+    }
+
     .mapa-calor-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
     .mapa-calor-semana { text-align: center; font-size: 10px; color: var(--muted); font-weight: 700; }
     .mapa-calor-dia {
@@ -599,6 +615,17 @@
     </div>
   </div>
 
+  <div class="sheet-overlay" id="sheet-editar-metas" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-titulo">Editar metas do mês</div>
+      <div class="sheet-aviso">Defina o limite de gasto por categoria. Deixe em branco para remover a meta.</div>
+      <div class="lista-gerenciar-cards" id="lista-editar-metas"></div>
+      <button type="button" class="btn-primary" id="btn-salvar-metas">Salvar metas</button>
+      <button type="button" class="sheet-acao-btn" id="btn-cancelar-metas">Cancelar</button>
+    </div>
+  </div>
+
   <div class="sheet-overlay" id="sheet-lancamento" hidden>
     <div class="sheet">
       <div class="sheet-handle"></div>
@@ -606,6 +633,6 @@
     </div>
   </div>
 
-  <script type="module" src="../js/home.js?v=7"></script>
+  <script type="module" src="../js/home.js?v=8"></script>
 </body>
 </html>

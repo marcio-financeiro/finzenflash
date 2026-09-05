@@ -597,6 +597,91 @@ function fimMesRef(ref) {
   return `${ano}-${String(mes).padStart(2, '0')}-${new Date(ano, mes, 0).getDate()}`;
 }
 
+async function carregarOrcamentosDoMes(userId, ref) {
+  const { data, error } = await supabase
+    .from('budgets')
+    .select('id, category_id, valor_planejado')
+    .eq('user_id', userId)
+    .eq('mes_referencia', ref);
+  if (error) throw error;
+  return data ?? [];
+}
+
+function lerValorMonetario(bruto) {
+  const normalizado = String(bruto ?? '').trim().replace(/\./g, '').replace(',', '.');
+  const numero = Number(normalizado);
+  return Number.isFinite(numero) ? numero : 0;
+}
+
+async function abrirSheetEditarMetas() {
+  const lista = document.getElementById('lista-editar-metas');
+  lista.innerHTML = '<div class="conta-vazia">Carregando...</div>';
+  document.getElementById('sheet-editar-metas').hidden = false;
+
+  const ref = refMesString(mesRef);
+  // "Fatura de Cartão" é um lançamento interno (ver carregarRanking), não
+  // uma categoria de gasto real — não faz sentido definir meta pra ela.
+  const categorias = categoriasDespesaCache.filter((c) => c.nome !== 'Fatura de Cartão');
+
+  let orcamentos = [];
+  try {
+    orcamentos = await carregarOrcamentosDoMes(usuarioAtual.id, ref);
+  } catch (err) {
+    console.error(err);
+    lista.innerHTML = '<div class="conta-vazia">Não foi possível carregar as metas.</div>';
+    return;
+  }
+  const porCategoria = new Map(orcamentos.map((o) => [o.category_id, o]));
+
+  if (categorias.length === 0) {
+    lista.innerHTML = '<div class="conta-vazia">Nenhuma categoria de despesa cadastrada.</div>';
+    return;
+  }
+
+  lista.innerHTML = categorias.map((c) => {
+    const existente = porCategoria.get(c.id);
+    const valor = existente ? Number(existente.valor_planejado) : 0;
+    const valorTexto = valor > 0 ? valor.toFixed(2).replace('.', ',') : '';
+    return `
+      <div class="metas-editar-linha">
+        <span class="metas-editar-nome">${escapeHtml(c.nome)}</span>
+        <input type="text" inputmode="decimal" class="metas-editar-input" data-categoria-id="${c.id}" data-orcamento-id="${existente?.id ?? ''}" value="${valorTexto}" placeholder="0,00">
+      </div>
+    `;
+  }).join('');
+}
+
+async function salvarMetasEditadas() {
+  const ref = refMesString(mesRef);
+  const btn = document.getElementById('btn-salvar-metas');
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  const operacoes = [...document.querySelectorAll('.metas-editar-input')].map((input) => {
+    const categoriaId = input.dataset.categoriaId;
+    const orcamentoId = input.dataset.orcamentoId || null;
+    const valor = lerValorMonetario(input.value);
+
+    if (valor > 0 && !orcamentoId) {
+      return supabase.from('budgets').insert({ user_id: usuarioAtual.id, category_id: categoriaId, mes_referencia: ref, valor_planejado: valor });
+    }
+    if (valor > 0 && orcamentoId) {
+      return supabase.from('budgets').update({ valor_planejado: valor }).eq('id', orcamentoId).eq('user_id', usuarioAtual.id);
+    }
+    if (valor <= 0 && orcamentoId) {
+      return supabase.from('budgets').delete().eq('id', orcamentoId).eq('user_id', usuarioAtual.id);
+    }
+    return Promise.resolve();
+  });
+
+  await Promise.all(operacoes);
+
+  btn.disabled = false;
+  btn.textContent = 'Salvar metas';
+  document.getElementById('sheet-editar-metas').hidden = true;
+  await recarregarResumoMensal();
+}
+
 async function carregarMapaCalor(userId, inicio, fim) {
   const { data, error } = await supabase
     .from('transactions')
@@ -746,6 +831,12 @@ const BTN_CONFIG_RANKING = `
   </button>
 `;
 
+const BTN_EDITAR_METAS = `
+  <button type="button" class="btn-editar-metas" aria-label="Editar metas por categoria">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+  </button>
+`;
+
 function renderConteudoRanking({ itens }) {
   if (itens.length === 0) {
     return '<div class="conta-vazia">Sem despesas neste mês.</div>';
@@ -840,7 +931,7 @@ function renderConteudoEconomia({ receitas, despesas, anterior }) {
 
 function renderConteudoMetas({ categorias, totalPlanejado, totalGasto }) {
   if (totalPlanejado === 0) {
-    return '<div class="conta-vazia">Nenhuma meta definida para este mês — defina no FinZen.</div>';
+    return '<div class="conta-vazia">Nenhuma meta definida para este mês — toque no ✎ acima para definir.</div>';
   }
 
   const pct = Math.round((totalGasto / totalPlanejado) * 100);
@@ -963,7 +1054,7 @@ function renderResumoCards() {
     } else if (id === 'cartoes' && cacheResumo.cartoes) {
       html += renderCardWrapper('cartoes', LABELS_CARDS.cartoes, renderConteudoCartoes(cacheResumo.cartoes), i, total);
     } else if (id === 'metas' && cacheResumo.metas) {
-      html += renderCardWrapper('metas', LABELS_CARDS.metas, renderConteudoMetas(cacheResumo.metas), i, total);
+      html += renderCardWrapper('metas', LABELS_CARDS.metas, renderConteudoMetas(cacheResumo.metas), i, total, BTN_EDITAR_METAS);
     } else if (id === 'mapacalor' && cacheResumo.mapacalor) {
       html += renderCardWrapper('mapacalor', LABELS_CARDS.mapacalor, renderConteudoMapaCalor(cacheResumo.mapacalor), i, total);
     }
@@ -1001,6 +1092,7 @@ function wireResumoEventos() {
     });
   });
   container.querySelector('.btn-config-ranking')?.addEventListener('click', abrirSheetCategoriasRanking);
+  container.querySelector('.btn-editar-metas')?.addEventListener('click', abrirSheetEditarMetas);
 }
 
 function abrirSheetCategoriasRanking() {
@@ -1195,6 +1287,12 @@ async function init() {
   document.getElementById('btn-concluir-categorias-ranking').addEventListener('click', () => { sheetCategoriasRanking.hidden = true; });
   sheetCategoriasRanking.addEventListener('click', (e) => { if (e.target === sheetCategoriasRanking) sheetCategoriasRanking.hidden = true; });
   ativarArrastarParaFechar(sheetCategoriasRanking);
+
+  const sheetEditarMetas = document.getElementById('sheet-editar-metas');
+  document.getElementById('btn-cancelar-metas').addEventListener('click', () => { sheetEditarMetas.hidden = true; });
+  document.getElementById('btn-salvar-metas').addEventListener('click', salvarMetasEditadas);
+  sheetEditarMetas.addEventListener('click', (e) => { if (e.target === sheetEditarMetas) sheetEditarMetas.hidden = true; });
+  ativarArrastarParaFechar(sheetEditarMetas);
 
   const sheetLancamento = document.getElementById('sheet-lancamento');
   sheetLancamento.addEventListener('click', (e) => { if (e.target === sheetLancamento) fecharSheetLancamento(); });
