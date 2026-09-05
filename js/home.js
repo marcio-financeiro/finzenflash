@@ -1,6 +1,7 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { invoiceRef } from './cardService.js';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
+import { ativarArrastarParaFechar } from './sheetGestos.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDia = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' });
@@ -21,6 +22,9 @@ const LABELS_CARDS = {
   mapacalor: 'Mapa de calor (gastos por dia)',
 };
 const CORES_RANKING = ['#0E7C86', '#8b5cf6', '#94a3b8', '#38bdf8', '#f59e0b'];
+// Pseudo-id pra permitir esconder o bloco "Outros" (5ª+ categoria agrupada)
+// do ranking — não é uma categoria real, não existe na tabela categories.
+const OUTROS_ID = '__outros__';
 const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 let ordemCards = [...CARDS_PADRAO];
 let cardsOcultos = new Set();
@@ -517,8 +521,12 @@ async function carregarRanking(userId, inicio, fim, inicioAnt, fimAnt, refMes, r
   let itens = linhas;
   if (linhas.length > 5) {
     const top4 = linhas.slice(0, 4);
-    const valorOutros = linhas.slice(4).reduce((soma, l) => soma + l.valor, 0);
-    itens = [...top4, { nome: 'Outros', valor: valorOutros, categoriaId: null, chave: null }].sort((a, b) => b.valor - a.valor);
+    if (categoriasOcultas.has(OUTROS_ID)) {
+      itens = top4;
+    } else {
+      const valorOutros = linhas.slice(4).reduce((soma, l) => soma + l.valor, 0);
+      itens = [...top4, { nome: 'Outros', valor: valorOutros, categoriaId: null, chave: null }].sort((a, b) => b.valor - a.valor);
+    }
   }
 
   return {
@@ -1000,7 +1008,12 @@ function abrirSheetCategoriasRanking() {
   // "Fatura de Cartão" já é sempre excluída do ranking (ver carregarRanking)
   // — as compras do cartão entram pelas categorias reais, então listar essa
   // categoria aqui só confundiria (marcar/desmarcar não faria diferença).
-  const categorias = categoriasDespesaCache.filter((c) => c.nome !== 'Fatura de Cartão');
+  // "Outros" não é uma categoria real (é o agrupado da 5ª categoria em
+  // diante), mas entra na lista como opção pra dar pra escondê-lo também.
+  const categorias = [
+    ...categoriasDespesaCache.filter((c) => c.nome !== 'Fatura de Cartão'),
+    { id: OUTROS_ID, nome: 'Outros (demais categorias agrupadas)' },
+  ];
   if (categorias.length === 0) {
     lista.innerHTML = '<div class="conta-vazia">Nenhuma categoria de despesa cadastrada.</div>';
   } else {
@@ -1176,13 +1189,16 @@ async function init() {
   const sheetCards = document.getElementById('sheet-cards');
   document.getElementById('btn-concluir-cards').addEventListener('click', () => { sheetCards.hidden = true; });
   sheetCards.addEventListener('click', (e) => { if (e.target === sheetCards) sheetCards.hidden = true; });
+  ativarArrastarParaFechar(sheetCards);
 
   const sheetCategoriasRanking = document.getElementById('sheet-categorias-ranking');
   document.getElementById('btn-concluir-categorias-ranking').addEventListener('click', () => { sheetCategoriasRanking.hidden = true; });
   sheetCategoriasRanking.addEventListener('click', (e) => { if (e.target === sheetCategoriasRanking) sheetCategoriasRanking.hidden = true; });
+  ativarArrastarParaFechar(sheetCategoriasRanking);
 
   const sheetLancamento = document.getElementById('sheet-lancamento');
   sheetLancamento.addEventListener('click', (e) => { if (e.target === sheetLancamento) fecharSheetLancamento(); });
+  ativarArrastarParaFechar(sheetLancamento);
 
   try {
     const [contas, lancamentos, preferencias, categoriasDespesa, categoriasOcultas] = await Promise.all([

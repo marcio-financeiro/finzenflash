@@ -1,6 +1,7 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { invoiceRef, addMonthsRef } from './cardService.js';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
+import { ativarArrastarParaFechar } from './sheetGestos.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtMesAno = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
@@ -414,9 +415,11 @@ async function init() {
   document.getElementById('btn-confirmar-pagamento').addEventListener('click', confirmarPagamento);
   const sheetPagar = document.getElementById('sheet-pagar');
   sheetPagar.addEventListener('click', (e) => { if (e.target === sheetPagar) sheetPagar.hidden = true; });
+  ativarArrastarParaFechar(sheetPagar);
 
   const sheetCompra = document.getElementById('sheet-compra');
   sheetCompra.addEventListener('click', (e) => { if (e.target === sheetCompra) fecharSheetCompra(); });
+  ativarArrastarParaFechar(sheetCompra);
 
   try {
     contasBancarias = await carregarContasBancarias(user.id);
