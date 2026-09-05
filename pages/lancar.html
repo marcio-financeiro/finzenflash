@@ -140,6 +140,32 @@
       color: var(--text);
     }
     .tecla.tecla-apagar { color: var(--danger); font-size: 15px; }
+
+    .toggle-linha {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+    }
+    .toggle-linha span { font-size: 14px; font-weight: 700; }
+    .toggle-linha input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); }
+
+    .form-linha { display: flex; gap: 10px; margin-top: 12px; }
+    .form-linha .field { flex: 1; }
+    .field select, .field input[type="date"] {
+      height: 52px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 14px;
+      font-size: 15px;
+      font-family: inherit;
+      width: 100%;
+    }
   </style>
 </head>
 <body>
@@ -177,6 +203,30 @@
         <div class="chips" id="lista-categorias-chip"></div>
       </div>
 
+      <div id="secao-recorrencia">
+        <div class="campo-rotulo">REPETIR</div>
+        <label class="toggle-linha">
+          <span>Repetir este lançamento</span>
+          <input type="checkbox" id="chk-recorrente">
+        </label>
+        <div id="opcoes-recorrencia" hidden>
+          <div class="form-linha">
+            <div class="field">
+              <label for="recorrencia-frequencia">Frequência</label>
+              <select id="recorrencia-frequencia">
+                <option value="mensal">Mensal</option>
+                <option value="semanal">Semanal</option>
+                <option value="anual">Anual</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="recorrencia-ate">Repetir até (opcional)</label>
+              <input type="date" id="recorrencia-ate">
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <div class="rodape">
@@ -209,6 +259,6 @@
     </div>
   </div>
 
-  <script type="module" src="../js/lancar.js"></script>
+  <script type="module" src="../js/lancar.js?v=2"></script>
 </body>
 </html>

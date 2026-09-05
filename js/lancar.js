@@ -183,7 +183,7 @@ async function salvar(user) {
   const hoje = new Date();
   const dataISO = new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
-  const { error: erroInsercao } = await supabase.from('transactions').insert({
+  const dadosNovo = {
     user_id: user.id,
     account_id: contaSelecionada,
     category_id: categoriaSelecionada,
@@ -191,7 +191,19 @@ async function salvar(user) {
     amount: valor,
     description: descricao,
     date: dataISO,
-  });
+  };
+
+  // O cron diário do FinZen (api/recurring-cron.js) gera as ocorrências
+  // futuras a partir desse lançamento "modelo" — não precisa de nada além
+  // dessas flags, o resto é automático e compartilhado entre os dois apps.
+  if (document.getElementById('chk-recorrente')?.checked) {
+    dadosNovo.is_recurring = true;
+    dadosNovo.recurrence_active = true;
+    dadosNovo.recurrence_frequency = document.getElementById('recorrencia-frequencia').value;
+    dadosNovo.recurrence_until = document.getElementById('recorrencia-ate').value || null;
+  }
+
+  const { error: erroInsercao } = await supabase.from('transactions').insert(dadosNovo);
 
   if (erroInsercao) {
     erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
@@ -224,9 +236,15 @@ async function init() {
   document.getElementById('btn-despesa').addEventListener('click', () => selecionarTipo('despesa'));
   document.getElementById('btn-receita').addEventListener('click', () => selecionarTipo('receita'));
   document.getElementById('btn-salvar').addEventListener('click', () => salvar(user));
+  document.getElementById('chk-recorrente').addEventListener('change', (e) => {
+    document.getElementById('opcoes-recorrencia').hidden = !e.target.checked;
+  });
 
   const idUrl = new URLSearchParams(window.location.search).get('id');
   if (idUrl) {
+    // Editar uma ocorrência específica não deveria virar um novo "modelo"
+    // de recorrência — some com a opção nesse caso.
+    document.getElementById('secao-recorrencia').hidden = true;
     const { data, error } = await supabase
       .from('transactions')
       .select('id, account_id, category_id, type, amount, description')

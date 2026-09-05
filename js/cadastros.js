@@ -11,6 +11,9 @@ let usuarioAtual = null;
 let contas = [];
 let cartoes = [];
 let categorias = [];
+let recorrentes = [];
+
+const LABELS_FREQUENCIA = { mensal: 'Mensal', semanal: 'Semanal', anual: 'Anual' };
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -61,11 +64,25 @@ async function carregarCategorias(userId) {
   return data ?? [];
 }
 
+async function carregarRecorrentes(userId) {
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('id, description, amount, type, recurrence_frequency, recurrence_active, recurrence_until')
+    .eq('user_id', userId)
+    .eq('is_recurring', true)
+    .is('parent_transaction_id', null)
+    .order('recurrence_active', { ascending: false })
+    .order('description');
+  if (error) throw error;
+  return (data ?? []).map((r) => ({ ...r, nome: r.description }));
+}
+
 async function recarregarTudo() {
-  [contas, cartoes, categorias] = await Promise.all([
+  [contas, cartoes, categorias, recorrentes] = await Promise.all([
     carregarContas(usuarioAtual.id),
     carregarCartoes(usuarioAtual.id),
     carregarCategorias(usuarioAtual.id),
+    carregarRecorrentes(usuarioAtual.id),
   ]);
   renderLista();
 }
@@ -74,7 +91,25 @@ function renderLista() {
   const container = document.getElementById('lista-cadastros');
   if (abaAtiva === 'contas') return renderContas(container);
   if (abaAtiva === 'cartoes') return renderCartoes(container);
+  if (abaAtiva === 'recorrentes') return renderRecorrentes(container);
   renderCategorias(container);
+}
+
+function renderRecorrentes(container) {
+  if (recorrentes.length === 0) {
+    container.innerHTML = '<div class="conta-vazia">Nenhum lançamento recorrente. Crie um marcando "Repetir" ao lançar.</div>';
+    return;
+  }
+  container.innerHTML = recorrentes.map((r) => `
+    <button type="button" class="item-cadastro ${r.recurrence_active ? '' : 'item-inativo'}" data-tipo="recorrente" data-id="${r.id}">
+      <div class="item-avatar" style="background:${r.type === 'receita' ? 'var(--success)' : 'var(--danger)'}">${r.type === 'receita' ? '↑' : '↓'}</div>
+      <div class="item-info">
+        <div class="item-nome">${escapeHtml(r.description)}${r.recurrence_active ? '' : '<span class="badge-inativo">pausada</span>'}</div>
+        <div class="item-detalhe">${LABELS_FREQUENCIA[r.recurrence_frequency] || 'Mensal'} · ${fmt.format(r.amount || 0)}${r.recurrence_until ? ` · até ${r.recurrence_until.split('-').reverse().join('/')}` : ''}</div>
+      </div>
+    </button>
+  `).join('');
+  wireItens();
 }
 
 function renderContas(container) {
@@ -147,6 +182,7 @@ function wireItens() {
 function encontrarItem(tipo, id) {
   if (tipo === 'conta') return contas.find((c) => c.id === id);
   if (tipo === 'cartao') return cartoes.find((c) => c.id === id);
+  if (tipo === 'recorrente') return recorrentes.find((c) => c.id === id);
   return categorias.find((c) => c.id === id);
 }
 
@@ -156,8 +192,15 @@ function fecharSheet(id) {
 
 function abrirSheetAcoes(tipo, item) {
   const conteudo = document.getElementById('sheet-acoes-conteudo');
+  const botaoPausar = tipo === 'recorrente' ? `
+    <button type="button" class="sheet-acao-btn" id="btn-pausar-item">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${item.recurrence_active ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>' : '<path d="M5 3l16 9-16 9V3Z"/>'}</svg>
+      ${item.recurrence_active ? 'Pausar' : 'Retomar'}
+    </button>
+  ` : '';
   conteudo.innerHTML = `
     <div class="sheet-titulo">${escapeHtml(item.nome)}</div>
+    ${botaoPausar}
     <button type="button" class="sheet-acao-btn" id="btn-editar-item">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
       Editar
@@ -168,6 +211,7 @@ function abrirSheetAcoes(tipo, item) {
     </button>
     <button type="button" class="sheet-acao-btn" id="btn-cancelar-acoes">Cancelar</button>
   `;
+  document.getElementById('btn-pausar-item')?.addEventListener('click', () => alternarRecorrente(item));
   document.getElementById('btn-editar-item').addEventListener('click', () => {
     fecharSheet('sheet-acoes');
     abrirSheetForm(tipo, item);
@@ -177,12 +221,29 @@ function abrirSheetAcoes(tipo, item) {
   document.getElementById('sheet-acoes').hidden = false;
 }
 
+async function alternarRecorrente(item) {
+  const btn = document.getElementById('btn-pausar-item');
+  btn.disabled = true;
+  const { error } = await supabase
+    .from('transactions')
+    .update({ recurrence_active: !item.recurrence_active })
+    .eq('id', item.id)
+    .eq('user_id', usuarioAtual.id);
+  if (error) {
+    btn.disabled = false;
+    return;
+  }
+  fecharSheet('sheet-acoes');
+  await recarregarTudo();
+}
+
 function confirmarExclusao(tipo, item) {
   const conteudo = document.getElementById('sheet-acoes-conteudo');
   const avisos = {
     conta: 'Todas as movimentações desta conta serão perdidas.',
     cartao: 'Faturas e compras associadas serão perdidas.',
     categoria: 'Lançamentos com essa categoria ficam sem categoria.',
+    recorrente: 'Para de gerar novos lançamentos. Ocorrências já geradas continuam existindo.',
   };
   conteudo.innerHTML = `
     <div class="sheet-titulo">Excluir "${escapeHtml(item.nome)}"?</div>
@@ -198,7 +259,7 @@ async function excluirItem(tipo, item) {
   const btn = document.getElementById('btn-confirmar-exclusao');
   btn.disabled = true;
   btn.textContent = 'Excluindo...';
-  const tabela = { conta: 'accounts', cartao: 'credit_cards', categoria: 'categories' }[tipo];
+  const tabela = { conta: 'accounts', cartao: 'credit_cards', categoria: 'categories', recorrente: 'transactions' }[tipo];
   const { error } = await supabase.from(tabela).delete().eq('id', item.id).eq('user_id', usuarioAtual.id);
   if (error) {
     btn.disabled = false;
@@ -236,6 +297,7 @@ function abrirSheetForm(tipo, item) {
   const conteudo = document.getElementById('sheet-form-conteudo');
   if (tipo === 'conta') conteudo.innerHTML = formConta(item);
   else if (tipo === 'cartao') conteudo.innerHTML = formCartao(item);
+  else if (tipo === 'recorrente') conteudo.innerHTML = formRecorrente(item);
   else conteudo.innerHTML = formCategoria(item);
 
   document.getElementById('btn-cancelar-form').addEventListener('click', () => fecharSheet('sheet-form'));
@@ -295,6 +357,19 @@ function formCategoria(c) {
   `;
 }
 
+function formRecorrente(r) {
+  return `
+    <div class="sheet-titulo">Editar recorrência</div>
+    ${campoTexto('f-nome', 'Descrição', r?.description, 'Ex: Aluguel')}
+    ${campoTexto('f-valor', 'Valor', r ? String(r.amount ?? 0).replace('.', ',') : '0', '0,00')}
+    ${campoSelect('f-frequencia', 'Frequência', [{ valor: 'mensal', texto: 'Mensal' }, { valor: 'semanal', texto: 'Semanal' }, { valor: 'anual', texto: 'Anual' }], r?.recurrence_frequency || 'mensal')}
+    ${campoTexto('f-ate', 'Repetir até (opcional, AAAA-MM-DD)', r?.recurrence_until, '2027-12-31')}
+    <div class="error-msg" id="erro-form"></div>
+    <button type="button" class="btn-primary" id="btn-salvar-form">Salvar</button>
+    <button type="button" class="sheet-acao-btn" id="btn-cancelar-form">Cancelar</button>
+  `;
+}
+
 function lerValorMonetario(id) {
   const bruto = document.getElementById(id).value.trim();
   const normalizado = bruto.replace(/\./g, '').replace(',', '.');
@@ -343,6 +418,14 @@ async function salvarForm(tipo, item) {
       cor: document.getElementById('f-cor').value,
       ativo: document.getElementById('f-ativo').value === 'true',
     };
+  } else if (tipo === 'recorrente') {
+    tabela = 'transactions';
+    dados = {
+      description: nome,
+      amount: lerValorMonetario('f-valor'),
+      recurrence_frequency: document.getElementById('f-frequencia').value,
+      recurrence_until: document.getElementById('f-ate').value.trim() || null,
+    };
   } else {
     tabela = 'categories';
     dados = {
@@ -389,6 +472,10 @@ async function init() {
   });
 
   document.getElementById('btn-novo').addEventListener('click', () => {
+    if (abaAtiva === 'recorrentes') {
+      window.location.href = '/pages/lancar.html';
+      return;
+    }
     const tipo = { contas: 'conta', cartoes: 'cartao', categorias: 'categoria' }[abaAtiva];
     abrirSheetForm(tipo, null);
   });
