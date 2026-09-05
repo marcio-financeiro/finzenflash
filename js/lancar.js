@@ -191,6 +191,10 @@ async function salvar(user) {
     amount: valor,
     description: descricao,
     date: dataISO,
+    // Sem isso o banco usa o default 'confirmado', que não é nem 'pago'
+    // nem 'pendente' — some do Mapa de calor, Metas e Pendências. O
+    // FinZen principal sempre grava 'pago' num lançamento imediato.
+    status: 'pago',
   };
 
   // O cron diário do FinZen (api/recurring-cron.js) gera as ocorrências
