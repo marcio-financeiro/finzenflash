@@ -28,6 +28,7 @@ const OUTROS_ID = '__outros__';
 const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 let ordemCards = [...CARDS_PADRAO];
 let cardsOcultos = new Set();
+let cardsColapsados = new Set();
 let pendentesTipo = 'despesa';
 
 function iconReceita() {
@@ -382,20 +383,22 @@ async function carregarPreferenciasCards(userId) {
   // Compatibilidade com o formato antigo (array simples, sem cards ocultos).
   const ordemBruta = Array.isArray(bruto) ? bruto : (Array.isArray(bruto?.ordem) ? bruto.ordem : []);
   const ocultosBrutos = Array.isArray(bruto?.ocultos) ? bruto.ocultos : [];
+  const colapsadosBrutos = Array.isArray(bruto?.colapsados) ? bruto.colapsados : [];
 
   const ordem = ordemBruta.filter((id) => CARDS_PADRAO.includes(id));
   for (const id of CARDS_PADRAO) {
     if (!ordem.includes(id)) ordem.push(id);
   }
   const ocultos = new Set(ocultosBrutos.filter((id) => CARDS_PADRAO.includes(id)));
-  return { ordem, ocultos };
+  const colapsados = new Set(colapsadosBrutos.filter((id) => CARDS_PADRAO.includes(id)));
+  return { ordem, ocultos, colapsados };
 }
 
-async function salvarPreferenciasCards(userId, ordem, ocultos) {
+async function salvarPreferenciasCards(userId, ordem, ocultos, colapsados) {
   await supabase
     .from('user_settings')
     .upsert(
-      { user_id: userId, setting_key: 'flash_home_cards_order', setting_value: JSON.stringify({ ordem, ocultos: [...ocultos] }) },
+      { user_id: userId, setting_key: 'flash_home_cards_order', setting_value: JSON.stringify({ ordem, ocultos: [...ocultos], colapsados: [...colapsados] }) },
       { onConflict: 'user_id,setting_key' },
     );
 }
@@ -824,10 +827,14 @@ function renderConteudoCartoes({ linhas, total }) {
 }
 
 function renderCardWrapper(id, titulo, conteudoHtml, index, total, extraBotaoHtml = '') {
+  const colapsado = cardsColapsados.has(id);
   return `
-    <div class="card-resumo" data-card="${id}">
+    <div class="card-resumo ${colapsado ? 'colapsado' : ''}" data-card="${id}">
       <div class="card-resumo-topo">
-        <div class="card-resumo-titulo">${escapeHtml(titulo)}</div>
+        <button type="button" class="card-resumo-titulo-btn" data-toggle-colapso="${id}">
+          <svg class="card-resumo-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          <span class="card-resumo-titulo">${escapeHtml(titulo)}</span>
+        </button>
         <div class="card-resumo-ordem">
           ${extraBotaoHtml}
           <button type="button" class="btn-mover-cima" data-id="${id}" ${index === 0 ? 'disabled' : ''} aria-label="Mover para cima">
@@ -838,7 +845,7 @@ function renderCardWrapper(id, titulo, conteudoHtml, index, total, extraBotaoHtm
           </button>
         </div>
       </div>
-      ${conteudoHtml}
+      <div class="card-resumo-conteudo" ${colapsado ? 'hidden' : ''}>${conteudoHtml}</div>
     </div>
   `;
 }
@@ -1083,6 +1090,9 @@ function renderResumoCards() {
 
 function wireResumoEventos() {
   const container = document.getElementById('secao-resumo');
+  container.querySelectorAll('[data-toggle-colapso]').forEach((btn) => {
+    btn.addEventListener('click', () => alternarColapso(btn.dataset.toggleColapso));
+  });
   container.querySelectorAll('.btn-mover-cima').forEach((btn) => {
     btn.addEventListener('click', () => moverCard(btn.dataset.id, -1));
   });
@@ -1159,7 +1169,14 @@ function moverCard(id, delta) {
 }
 
 function persistirPreferenciasCards() {
-  if (usuarioAtual) salvarPreferenciasCards(usuarioAtual.id, ordemCards, cardsOcultos);
+  if (usuarioAtual) salvarPreferenciasCards(usuarioAtual.id, ordemCards, cardsOcultos, cardsColapsados);
+}
+
+function alternarColapso(id) {
+  if (cardsColapsados.has(id)) cardsColapsados.delete(id);
+  else cardsColapsados.add(id);
+  renderResumoCards();
+  persistirPreferenciasCards();
 }
 
 function abrirSheetCards() {
@@ -1327,6 +1344,7 @@ async function init() {
     contasCache = contas;
     ordemCards = preferencias.ordem;
     cardsOcultos = preferencias.ocultos;
+    cardsColapsados = preferencias.colapsados;
     categoriasDespesaCache = categoriasDespesa;
     categoriasOcultasRanking = categoriasOcultas;
     pendentesTipo = 'despesa';

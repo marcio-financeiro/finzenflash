@@ -209,7 +209,11 @@
       padding: 16px;
     }
     .card-resumo-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
-    .card-resumo-titulo { font-size: 14px; font-weight: 800; }
+    .card-resumo.colapsado .card-resumo-topo { margin-bottom: 0; }
+    .card-resumo-titulo-btn { display: flex; align-items: center; gap: 8px; background: none; border: none; padding: 0; font-family: inherit; min-width: 0; }
+    .card-resumo-titulo { font-size: 14px; font-weight: 800; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card-resumo-chevron { flex-shrink: 0; color: var(--muted); transition: transform 0.2s; }
+    .card-resumo.colapsado .card-resumo-chevron { transform: rotate(-90deg); }
     .card-resumo-ordem { display: flex; gap: 4px; flex-shrink: 0; }
     .card-resumo-ordem button {
       width: 26px;
@@ -659,6 +663,6 @@
     </div>
   </div>
 
-  <script type="module" src="../js/home.js?v=9"></script>
+  <script type="module" src="../js/home.js?v=10"></script>
 </body>
 </html>
