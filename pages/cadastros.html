@@ -33,31 +33,54 @@
     }
     .topo-titulo { font-size: 20px; font-weight: 800; }
 
-    .abas { display: flex; gap: 8px; overflow-x: auto; }
-    .aba {
-      flex-shrink: 0;
-      border: 1.5px solid var(--border);
-      background: var(--surface);
-      color: var(--muted);
-      border-radius: 20px;
-      padding: 9px 14px;
-      font-size: 13px;
-      font-weight: 700;
-      font-family: inherit;
-      text-align: center;
-      white-space: nowrap;
-    }
-    .aba.ativa { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
-
     .secao {
       flex: 1;
-      padding: 4px 20px 84px 20px;
+      padding: 4px 20px 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .grupo-titulo { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin: 10px 0 2px 0; }
+    .grupo-titulo:first-child { margin-top: 0; }
+
+    .grupo-cadastro {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .grupo-cabecalho {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px 16px;
+    }
+    .grupo-titulo-btn { display: flex; align-items: center; gap: 8px; background: none; border: none; padding: 0; font-family: inherit; min-width: 0; }
+    .grupo-nome { font-size: 15px; font-weight: 800; }
+    .grupo-contagem { font-size: 11px; color: var(--muted); font-weight: 700; background: var(--surface-2); padding: 2px 8px; border-radius: 10px; }
+    .grupo-chevron { flex-shrink: 0; color: var(--muted); transition: transform 0.2s; }
+    .grupo-cadastro.colapsado .grupo-chevron { transform: rotate(-90deg); }
+    .grupo-cadastro.colapsado .grupo-cabecalho { padding-bottom: 14px; }
+    .btn-add-grupo {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      border: none;
+      background: var(--accent-soft);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .grupo-conteudo {
+      padding: 0 16px 14px 16px;
       display: flex;
       flex-direction: column;
       gap: 8px;
     }
-    .grupo-titulo { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin: 10px 0 2px 0; }
-    .grupo-titulo:first-child { margin-top: 0; }
+    .grupo-cadastro.colapsado .grupo-conteudo { display: none; }
 
     .item-cadastro {
       display: flex;
@@ -91,26 +114,6 @@
     .badge-inativo { font-size: 10px; font-weight: 800; color: var(--danger); background: var(--danger-soft); padding: 2px 7px; border-radius: 10px; }
 
     .conta-vazia { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
-
-    .fab {
-      position: fixed;
-      right: 50%;
-      transform: translateX(190px);
-      bottom: calc(74px + env(safe-area-inset-bottom, 0px));
-      width: 58px;
-      height: 58px;
-      border-radius: 20px;
-      background: var(--accent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 10px 24px rgba(14,124,134,0.4);
-      border: none;
-      z-index: 10;
-    }
-    @media (max-width: 480px) {
-      .fab { right: 20px; transform: none; }
-    }
 
     .nav-inferior {
       position: sticky;
@@ -205,21 +208,65 @@
   <div class="shell">
     <div class="topo">
       <div class="topo-titulo">Cadastros</div>
-      <div class="abas">
-        <button type="button" class="aba ativa" data-aba="contas">Contas</button>
-        <button type="button" class="aba" data-aba="cartoes">Cartões</button>
-        <button type="button" class="aba" data-aba="categorias">Categorias</button>
-        <button type="button" class="aba" data-aba="recorrentes">Recorrentes</button>
-      </div>
     </div>
 
     <div class="secao">
-      <div id="lista-cadastros"></div>
-    </div>
+      <div class="grupo-cadastro" data-grupo="contas">
+        <div class="grupo-cabecalho">
+          <button type="button" class="grupo-titulo-btn" data-toggle-grupo="contas">
+            <svg class="grupo-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            <span class="grupo-nome">Contas</span>
+            <span class="grupo-contagem" id="contagem-contas">0</span>
+          </button>
+          <button type="button" class="btn-add-grupo" data-add-grupo="conta" aria-label="Nova conta">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div class="grupo-conteudo" id="lista-contas"></div>
+      </div>
 
-    <button type="button" class="fab" id="btn-novo" aria-label="Novo cadastro">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-    </button>
+      <div class="grupo-cadastro" data-grupo="cartoes">
+        <div class="grupo-cabecalho">
+          <button type="button" class="grupo-titulo-btn" data-toggle-grupo="cartoes">
+            <svg class="grupo-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            <span class="grupo-nome">Cartões</span>
+            <span class="grupo-contagem" id="contagem-cartoes">0</span>
+          </button>
+          <button type="button" class="btn-add-grupo" data-add-grupo="cartao" aria-label="Novo cartão">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div class="grupo-conteudo" id="lista-cartoes"></div>
+      </div>
+
+      <div class="grupo-cadastro" data-grupo="categorias">
+        <div class="grupo-cabecalho">
+          <button type="button" class="grupo-titulo-btn" data-toggle-grupo="categorias">
+            <svg class="grupo-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            <span class="grupo-nome">Categorias</span>
+            <span class="grupo-contagem" id="contagem-categorias">0</span>
+          </button>
+          <button type="button" class="btn-add-grupo" data-add-grupo="categoria" aria-label="Nova categoria">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div class="grupo-conteudo" id="lista-categorias"></div>
+      </div>
+
+      <div class="grupo-cadastro" data-grupo="recorrentes">
+        <div class="grupo-cabecalho">
+          <button type="button" class="grupo-titulo-btn" data-toggle-grupo="recorrentes">
+            <svg class="grupo-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            <span class="grupo-nome">Recorrentes</span>
+            <span class="grupo-contagem" id="contagem-recorrentes">0</span>
+          </button>
+          <button type="button" class="btn-add-grupo" data-add-grupo="recorrente" aria-label="Novo lançamento recorrente">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div class="grupo-conteudo" id="lista-recorrentes"></div>
+      </div>
+    </div>
 
     <div class="nav-inferior">
       <div class="nav-inferior-inner">
@@ -261,6 +308,6 @@
     </div>
   </div>
 
-  <script type="module" src="../js/cadastros.js?v=2"></script>
+  <script type="module" src="../js/cadastros.js?v=3"></script>
 </body>
 </html>

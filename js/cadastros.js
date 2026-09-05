@@ -6,8 +6,8 @@ const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' 
 const TIPOS_CONTA = ['Conta Corrente', 'Conta Digital', 'Conta Poupança', 'Conta Internacional', 'Carteira'];
 const BANDEIRAS = ['Visa', 'Mastercard', 'Elo', 'Amex', 'Hipercard'];
 
-let abaAtiva = 'contas';
 let usuarioAtual = null;
+let gruposColapsados = new Set();
 let contas = [];
 let cartoes = [];
 let categorias = [];
@@ -23,6 +23,32 @@ function escapeHtml(str) {
 
 function inicial(nome) {
   return escapeHtml((nome || '?').trim().charAt(0).toUpperCase());
+}
+
+const CHAVE_COLAPSO = 'flash_cadastros_colapsados';
+
+function carregarGruposColapsados() {
+  try {
+    const bruto = JSON.parse(localStorage.getItem(CHAVE_COLAPSO) || '[]');
+    return new Set(Array.isArray(bruto) ? bruto : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function salvarGruposColapsados() {
+  try {
+    localStorage.setItem(CHAVE_COLAPSO, JSON.stringify([...gruposColapsados]));
+  } catch {
+    // localStorage indisponível — o toggle ainda funciona nesta sessão.
+  }
+}
+
+function alternarGrupo(grupo) {
+  if (gruposColapsados.has(grupo)) gruposColapsados.delete(grupo);
+  else gruposColapsados.add(grupo);
+  document.querySelector(`.grupo-cadastro[data-grupo="${grupo}"]`)?.classList.toggle('colapsado', gruposColapsados.has(grupo));
+  salvarGruposColapsados();
 }
 
 async function carregarContas(userId) {
@@ -88,11 +114,15 @@ async function recarregarTudo() {
 }
 
 function renderLista() {
-  const container = document.getElementById('lista-cadastros');
-  if (abaAtiva === 'contas') return renderContas(container);
-  if (abaAtiva === 'cartoes') return renderCartoes(container);
-  if (abaAtiva === 'recorrentes') return renderRecorrentes(container);
-  renderCategorias(container);
+  renderContas(document.getElementById('lista-contas'));
+  renderCartoes(document.getElementById('lista-cartoes'));
+  renderCategorias(document.getElementById('lista-categorias'));
+  renderRecorrentes(document.getElementById('lista-recorrentes'));
+
+  document.getElementById('contagem-contas').textContent = contas.length;
+  document.getElementById('contagem-cartoes').textContent = cartoes.length;
+  document.getElementById('contagem-categorias').textContent = categorias.length;
+  document.getElementById('contagem-recorrentes').textContent = recorrentes.length;
 }
 
 function renderRecorrentes(container) {
@@ -454,12 +484,6 @@ async function salvarForm(tipo, item) {
   await recarregarTudo();
 }
 
-function trocarAba(nova) {
-  abaAtiva = nova;
-  document.querySelectorAll('.aba').forEach((el) => el.classList.toggle('ativa', el.dataset.aba === nova));
-  renderLista();
-}
-
 async function init() {
   configurarBotaoSair();
 
@@ -467,17 +491,24 @@ async function init() {
   if (!user) return;
   usuarioAtual = user;
 
-  document.querySelectorAll('.aba').forEach((el) => {
-    el.addEventListener('click', () => trocarAba(el.dataset.aba));
+  gruposColapsados = carregarGruposColapsados();
+  document.querySelectorAll('.grupo-cadastro').forEach((el) => {
+    el.classList.toggle('colapsado', gruposColapsados.has(el.dataset.grupo));
   });
 
-  document.getElementById('btn-novo').addEventListener('click', () => {
-    if (abaAtiva === 'recorrentes') {
-      window.location.href = '/pages/lancar.html';
-      return;
-    }
-    const tipo = { contas: 'conta', cartoes: 'cartao', categorias: 'categoria' }[abaAtiva];
-    abrirSheetForm(tipo, null);
+  document.querySelectorAll('[data-toggle-grupo]').forEach((btn) => {
+    btn.addEventListener('click', () => alternarGrupo(btn.dataset.toggleGrupo));
+  });
+
+  document.querySelectorAll('[data-add-grupo]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tipo = btn.dataset.addGrupo;
+      if (tipo === 'recorrente') {
+        window.location.href = '/pages/lancar.html';
+        return;
+      }
+      abrirSheetForm(tipo, null);
+    });
   });
 
   const sheetForm = document.getElementById('sheet-form');
@@ -492,7 +523,6 @@ async function init() {
     await recarregarTudo();
   } catch (err) {
     console.error(err);
-    document.getElementById('lista-cadastros').innerHTML = '<div class="conta-vazia">Não foi possível carregar os cadastros.</div>';
   }
 }
 
