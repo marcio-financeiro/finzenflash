@@ -281,6 +281,25 @@ async function renderGraficoEvolucao({ aplicadoBRL, atualBRL }, historico) {
   });
 }
 
+function renderPosicaoItem(a) {
+  const aplicado = calcAplicado(a);
+  const atual = calcAtual(a);
+  const pct = aplicado > 0 ? ((atual - aplicado) / aplicado) * 100 : 0;
+  return `
+    <button type="button" class="posicao-item" data-id="${a.id}">
+      <div class="posicao-icone">${escapeHtml((a.ticker || '?').slice(0, 4))}</div>
+      <div class="posicao-info">
+        <div class="posicao-ticker">${escapeHtml(a.ticker)}</div>
+        <div class="posicao-detalhe">${tipoLabel(a.tipo)} · ${Number(a.quantidade)} cotas</div>
+      </div>
+      <div class="posicao-valores">
+        <div class="posicao-valor valor-sensivel">${fmt.format(calcBRL(a, atual))}</div>
+        <div class="posicao-var ${pct >= 0 ? 'positivo' : 'negativo'}">${fmtPct(pct)}</div>
+      </div>
+    </button>
+  `;
+}
+
 function renderPosicoes() {
   const container = document.getElementById('lista-posicoes');
   if (ativos.length === 0) {
@@ -288,29 +307,49 @@ function renderPosicoes() {
     return;
   }
 
-  container.innerHTML = ativos.map((a) => {
-    const aplicado = calcAplicado(a);
-    const atual = calcAtual(a);
-    const pct = aplicado > 0 ? ((atual - aplicado) / aplicado) * 100 : 0;
-    return `
-      <button type="button" class="posicao-item" data-id="${a.id}">
-        <div class="posicao-icone">${escapeHtml((a.ticker || '?').slice(0, 4))}</div>
-        <div class="posicao-info">
-          <div class="posicao-ticker">${escapeHtml(a.ticker)}</div>
-          <div class="posicao-detalhe">${tipoLabel(a.tipo)} · ${Number(a.quantidade)} cotas</div>
-        </div>
-        <div class="posicao-valores">
-          <div class="posicao-valor valor-sensivel">${fmt.format(calcBRL(a, atual))}</div>
-          <div class="posicao-var ${pct >= 0 ? 'positivo' : 'negativo'}">${fmtPct(pct)}</div>
-        </div>
-      </button>
-    `;
-  }).join('');
+  const porClasse = new Map();
+  for (const a of ativos) {
+    const chave = classeKey(a.tipo);
+    if (!porClasse.has(chave)) porClasse.set(chave, []);
+    porClasse.get(chave).push(a);
+  }
+
+  const grupos = [...porClasse.entries()].sort((x, y) => {
+    const totalX = x[1].reduce((s, a) => s + calcBRL(a, calcAtual(a)), 0);
+    const totalY = y[1].reduce((s, a) => s + calcBRL(a, calcAtual(a)), 0);
+    return totalY - totalX;
+  });
+
+  container.innerHTML = grupos.map(([classe, itens]) => `
+    <div class="posicao-classe-titulo">${escapeHtml(classe)}</div>
+    ${itens.map(renderPosicaoItem).join('')}
+  `).join('');
 
   container.querySelectorAll('.posicao-item').forEach((el) => {
     const ativo = ativos.find((a) => a.id === el.dataset.id);
     if (ativo) el.addEventListener('click', () => abrirSheetAcaoPosicao(ativo));
   });
+}
+
+function carregarColapsoPosicoes() {
+  try {
+    return localStorage.getItem('flash_investimentos_posicoes_colapsado') === '1';
+  } catch {
+    return false;
+  }
+}
+
+function salvarColapsoPosicoes(colapsado) {
+  try {
+    localStorage.setItem('flash_investimentos_posicoes_colapsado', colapsado ? '1' : '0');
+  } catch {
+    // localStorage indisponível — o toggle ainda funciona nesta sessão.
+  }
+}
+
+function aplicarColapsoPosicoes(colapsado) {
+  document.getElementById('btn-toggle-posicoes').classList.toggle('colapsado', colapsado);
+  document.getElementById('lista-posicoes-wrap').hidden = colapsado;
 }
 
 async function recarregarTudo() {
@@ -782,6 +821,13 @@ async function init() {
   document.getElementById('btn-novo-lancamento').addEventListener('click', (e) => { e.preventDefault(); abrirSheetLancamento(); });
   document.getElementById('btn-novo-provento').addEventListener('click', abrirSheetFormDividendo);
   document.getElementById('btn-ver-proventos').addEventListener('click', abrirSheetListaProventos);
+
+  aplicarColapsoPosicoes(carregarColapsoPosicoes());
+  document.getElementById('btn-toggle-posicoes').addEventListener('click', () => {
+    const colapsado = !document.getElementById('lista-posicoes-wrap').hidden;
+    aplicarColapsoPosicoes(colapsado);
+    salvarColapsoPosicoes(colapsado);
+  });
 
   const sheetForm = document.getElementById('sheet-form');
   sheetForm.addEventListener('click', (e) => { if (e.target === sheetForm) sheetForm.hidden = true; });

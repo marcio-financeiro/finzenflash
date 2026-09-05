@@ -24,7 +24,7 @@
       display: flex;
       flex-direction: column;
       position: relative;
-      padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+      padding-bottom: calc(156px + env(safe-area-inset-bottom, 0px));
     }
     .topo {
       padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 16px 20px;
@@ -82,6 +82,11 @@
       justify-content: center;
       flex-shrink: 0;
     }
+    .card-titulo-btn { display: flex; align-items: center; gap: 8px; background: none; border: none; padding: 0; font-family: inherit; color: var(--text); }
+    .card-chevron { color: var(--muted); transition: transform 0.2s; flex-shrink: 0; }
+    .card-titulo-btn.colapsado .card-chevron { transform: rotate(-90deg); }
+    .posicao-classe-titulo { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; margin: 14px 0 4px 0; }
+    .posicao-classe-titulo:first-child { margin-top: 0; }
 
     .mini-kpi-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
     .mini-kpi { text-align: center; }
@@ -315,8 +320,15 @@
       </div>
 
       <div class="card">
-        <div class="card-titulo">Posições</div>
-        <div id="lista-posicoes"><div class="conta-vazia">Carregando...</div></div>
+        <div class="card-cabecalho">
+          <button type="button" class="card-titulo-btn" id="btn-toggle-posicoes">
+            <svg class="card-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            <span class="card-titulo">Posições</span>
+          </button>
+        </div>
+        <div id="lista-posicoes-wrap">
+          <div id="lista-posicoes"><div class="conta-vazia">Carregando...</div></div>
+        </div>
       </div>
 
       <div class="card">
