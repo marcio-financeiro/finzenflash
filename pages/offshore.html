@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Investimentos — FinZen Flash</title>
+  <title>Offshore — FinZen Flash</title>
   <link rel="icon" href="/img/logo-mark.png">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0E7C86">
@@ -56,10 +56,7 @@
       min-width: 0;
     }
     .kpi-rotulo { font-size: 11px; color: var(--muted); font-weight: 700; }
-    .kpi-valor { font-size: 17px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .kpi-valor.positivo { color: var(--success); }
-    .kpi-valor.negativo { color: var(--danger); }
-    .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 6px; display: flex; justify-content: space-between; }
+    .kpi-valor { font-size: 20px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .card {
       background: var(--surface);
@@ -67,9 +64,8 @@
       border-radius: var(--radius-lg);
       padding: 16px;
     }
-    .card-titulo { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
     .card-cabecalho { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-    .card-cabecalho .card-titulo { margin-bottom: 0; }
+    .card-titulo { font-size: 14px; font-weight: 800; }
     .btn-add-card {
       width: 28px;
       height: 28px;
@@ -82,29 +78,10 @@
       justify-content: center;
       flex-shrink: 0;
     }
-    .card-titulo-btn { display: flex; align-items: center; gap: 8px; background: none; border: none; padding: 0; font-family: inherit; color: var(--text); }
-    .card-chevron { color: var(--muted); transition: transform 0.2s; flex-shrink: 0; }
-    .card-titulo-btn.colapsado .card-chevron { transform: rotate(-90deg); }
-    .posicao-classe-titulo { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; margin: 14px 0 4px 0; }
-    .posicao-classe-titulo:first-child { margin-top: 0; }
 
-    .mini-kpi-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-    .mini-kpi { text-align: center; }
-    .mini-kpi-rotulo { font-size: 10px; color: var(--muted); font-weight: 700; }
-    .mini-kpi-valor { font-size: 13px; font-weight: 800; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .lista-proventos { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+    .conta-vazia { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0; }
 
-    .donut-linha { display: flex; align-items: center; gap: 16px; }
-    .donut-wrap { width: 130px; height: 130px; flex-shrink: 0; position: relative; }
-    .donut-legenda { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-    .donut-legenda-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-    .donut-ponto { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
-    .donut-nome { flex: 1; color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .donut-pct { color: var(--muted); font-weight: 700; }
-
-    .grafico-wrap { height: 200px; }
-
-    .posicao-item {
+    .ciclo-item {
       display: flex;
       align-items: center;
       gap: 12px;
@@ -119,37 +96,43 @@
       font-family: inherit;
       color: var(--text);
     }
-    .posicao-item:last-child { border-bottom: none; }
-    .posicao-icone {
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
-      background: var(--accent-soft);
-      color: var(--accent);
+    .ciclo-item:last-child { border-bottom: none; }
+    .ciclo-status-ponto { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .ciclo-info { flex: 1; min-width: 0; }
+    .ciclo-plataforma { font-size: 14px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ciclo-detalhe { font-size: 12px; color: var(--muted); }
+    .ciclo-dias { font-size: 13px; font-weight: 800; color: var(--muted); white-space: nowrap; }
+
+    .he-item {
       display: flex;
       align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      font-weight: 800;
-      font-size: 12px;
+      gap: 12px;
+      padding: 12px 4px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      background: none;
+      border-left: none;
+      border-right: none;
+      border-top: none;
+      width: 100%;
+      font-family: inherit;
+      color: var(--text);
     }
-    .posicao-info { flex: 1; min-width: 0; }
-    .posicao-ticker { font-size: 14px; font-weight: 800; }
-    .posicao-detalhe { font-size: 12px; color: var(--muted); }
-    .posicao-valores { text-align: right; }
-    .posicao-valor { font-size: 14px; font-weight: 800; white-space: nowrap; }
-    .posicao-valor.positivo { color: var(--success); }
-    .posicao-var { font-size: 11px; font-weight: 700; white-space: nowrap; }
-    .posicao-var.positivo { color: var(--success); }
-    .posicao-var.negativo { color: var(--danger); }
+    .he-item:last-child { border-bottom: none; }
+    .he-info { flex: 1; min-width: 0; }
+    .he-data { font-size: 14px; font-weight: 800; }
+    .he-detalhe { font-size: 12px; color: var(--muted); }
+    .he-valor { font-size: 14px; font-weight: 800; color: var(--success); white-space: nowrap; }
 
-    .conta-vazia { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0; }
+    .historico-tabela { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .historico-tabela th { text-align: left; color: var(--muted); font-weight: 700; padding: 0 6px 8px 6px; font-size: 11px; }
+    .historico-tabela td { padding: 8px 6px; border-top: 1px solid var(--border); }
+    .historico-tabela-wrap { overflow-x: auto; }
 
     .fab {
       position: fixed;
       bottom: calc(84px + env(safe-area-inset-bottom, 0px));
-      left: 50%;
-      transform: translateX(150px);
+      right: 26px;
       width: 56px;
       height: 56px;
       border-radius: 50%;
@@ -160,9 +143,6 @@
       justify-content: center;
       box-shadow: 0 8px 20px rgba(14,124,134,0.35);
       z-index: 15;
-    }
-    @media (max-width: 480px) {
-      .fab { left: auto; right: 26px; transform: none; }
     }
 
     .nav-inferior {
@@ -222,6 +202,7 @@
     }
     .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; flex-shrink: 0; }
     .sheet-titulo { font-size: 16px; font-weight: 800; text-align: center; flex-shrink: 0; }
+    .sheet-aviso { font-size: 13px; color: var(--muted); text-align: center; margin-top: -8px; flex-shrink: 0; }
     .sheet-acao-btn {
       width: 100%;
       height: 52px;
@@ -239,31 +220,21 @@
     }
     .sheet-acao-btn.perigo { border-color: var(--danger); color: var(--danger); }
 
-    .toggle-tipo {
+    .toggle-linha {
       display: flex;
-      background: var(--surface-2);
-      border-radius: 14px;
-      padding: 4px;
-      gap: 4px;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
     }
-    .toggle-tipo button {
-      flex: 1;
-      border: none;
-      background: transparent;
-      padding: 10px 0;
-      border-radius: 11px;
-      font-size: 13px;
-      font-weight: 800;
-      color: var(--muted);
-      font-family: inherit;
-    }
-    .toggle-tipo button.ativo-compra { background: var(--success-soft); color: var(--success); }
-    .toggle-tipo button.ativo-venda { background: var(--danger-soft); color: var(--danger); }
+    .toggle-linha span { font-size: 14px; font-weight: 700; }
+    .toggle-linha input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); }
 
     .form-linha { display: flex; gap: 10px; }
     .form-linha .field { flex: 1; }
-    .field select {
-      height: 52px;
+    .field select, .field textarea {
       border-radius: var(--radius-md);
       border: 1.5px solid var(--border);
       background: var(--surface);
@@ -273,120 +244,64 @@
       font-family: inherit;
       width: 100%;
     }
-
-    .cotacao-linha {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-    .cotacao-status { font-size: 11px; color: var(--muted); }
-    .btn-atualizar-cotacao {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: none;
-      border: none;
-      color: var(--accent);
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 800;
-      padding: 4px 0;
-    }
-    .btn-atualizar-cotacao svg.girando { animation: girar 0.8s linear infinite; }
-    @keyframes girar { to { transform: rotate(360deg); } }
+    .field select { height: 52px; }
+    .field textarea { padding: 12px 14px; resize: vertical; min-height: 60px; }
   </style>
 </head>
 <body>
   <div class="shell">
     <div class="topo">
-      <div class="topo-titulo">Investimentos</div>
+      <div class="topo-titulo">Offshore</div>
       <button type="button" class="btn-privacidade" id="btn-privacidade" aria-label="Ocultar valores"></button>
     </div>
 
     <div class="conteudo">
-      <div class="cotacao-linha">
-        <div class="cotacao-status" id="cotacao-status">Cotações não atualizadas ainda</div>
-        <button type="button" class="btn-atualizar-cotacao" id="btn-atualizar-cotacao">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v6h6"/><path d="M4.5 13a8 8 0 1 0 2.5-6.5L4 10"/></svg>
-          Atualizar
-        </button>
-      </div>
-
       <div class="kpi-grid">
         <div class="kpi-card">
-          <div class="kpi-rotulo">PATRIMÔNIO TOTAL</div>
-          <div class="kpi-valor valor-sensivel" id="kpi-patrimonio">R$ 0,00</div>
-          <div class="kpi-sub"><span>Investido</span><span class="valor-sensivel" id="kpi-investido">R$ 0,00</span></div>
+          <div class="kpi-rotulo">DIAS EMBARCADO (ANO)</div>
+          <div class="kpi-valor" id="kpi-dias-emb">0d</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-rotulo">LUCRO TOTAL</div>
-          <div class="kpi-valor valor-sensivel" id="kpi-lucro">R$ 0,00</div>
-          <div class="kpi-sub"><span>Capital</span><span class="valor-sensivel" id="kpi-ganho-capital">R$ 0,00</span></div>
+          <div class="kpi-rotulo">DIAS EM CASA (ANO)</div>
+          <div class="kpi-valor" id="kpi-dias-casa">0d</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-rotulo">PROVENTOS RECEBIDOS</div>
-          <div class="kpi-valor valor-sensivel" id="kpi-proventos">R$ 0,00</div>
-          <div class="kpi-sub"><span>Total acumulado</span><span></span></div>
+          <div class="kpi-rotulo">CICLOS CONCLUÍDOS</div>
+          <div class="kpi-valor" id="kpi-ciclos">0</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-rotulo">RENTABILIDADE</div>
-          <div class="kpi-valor" id="kpi-rentabilidade">0,00%</div>
-          <div class="kpi-sub"><span>Sobre o investido</span><span></span></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-titulo">Evolução do Patrimônio</div>
-        <div class="grafico-wrap"><canvas id="chart-evolucao"></canvas></div>
-      </div>
-
-      <div class="card">
-        <div class="card-titulo">Ativos na Carteira</div>
-        <div class="donut-linha">
-          <div class="donut-wrap"><canvas id="chart-donut"></canvas></div>
-          <div class="donut-legenda" id="donut-legenda"></div>
+          <div class="kpi-rotulo">HE DO CICLO ATUAL</div>
+          <div class="kpi-valor" id="kpi-he">0,0h</div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-cabecalho">
-          <button type="button" class="card-titulo-btn" id="btn-toggle-posicoes">
-            <svg class="card-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-            <span class="card-titulo">Posições</span>
-          </button>
-        </div>
-        <div id="lista-posicoes-wrap">
-          <div id="lista-posicoes"><div class="conta-vazia">Carregando...</div></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-cabecalho">
-          <div class="card-titulo">Proventos</div>
-          <button type="button" class="btn-add-card" id="btn-novo-provento" aria-label="Registrar provento">
+          <div class="card-titulo">Ciclos de embarque</div>
+          <button type="button" class="btn-add-card" id="btn-novo-ciclo" aria-label="Novo ciclo">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           </button>
         </div>
-        <div class="mini-kpi-grid">
-          <div class="mini-kpi">
-            <div class="mini-kpi-rotulo">NO MÊS</div>
-            <div class="mini-kpi-valor valor-sensivel" id="div-mes">R$ 0,00</div>
-          </div>
-          <div class="mini-kpi">
-            <div class="mini-kpi-rotulo">NO ANO</div>
-            <div class="mini-kpi-valor valor-sensivel" id="div-ano">R$ 0,00</div>
-          </div>
-          <div class="mini-kpi">
-            <div class="mini-kpi-rotulo">TOTAL</div>
-            <div class="mini-kpi-valor valor-sensivel" id="div-total">R$ 0,00</div>
-          </div>
+        <div id="lista-ciclos"><div class="conta-vazia">Carregando...</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-cabecalho">
+          <div class="card-titulo">Horas extras / sobreaviso</div>
+          <button type="button" class="btn-add-card" id="btn-nova-he" aria-label="Registrar horas">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
         </div>
-        <button type="button" class="sheet-acao-btn" id="btn-ver-proventos">Ver histórico completo</button>
+        <div id="lista-he"><div class="conta-vazia">Carregando...</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-titulo" style="margin-bottom:12px;">Histórico por plataforma</div>
+        <div id="lista-historico"><div class="conta-vazia">Carregando...</div></div>
       </div>
     </div>
 
-    <a class="fab" href="#" id="btn-novo-lancamento" aria-label="Adicionar lançamento">
+    <a class="fab" href="#" id="btn-novo-ciclo-fab" aria-label="Novo ciclo">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     </a>
 
@@ -408,11 +323,11 @@
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="7" cy="18" r="2" fill="currentColor" stroke="none"/></svg>
           Cadastros
         </a>
-        <a class="nav-item ativo" href="/pages/investimentos.html">
+        <a class="nav-item" href="/pages/investimentos.html">
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
           Investir
         </a>
-        <a class="nav-item" href="/pages/offshore.html">
+        <a class="nav-item ativo" href="/pages/offshore.html">
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="21"/><path d="M5 13a7 7 0 0 0 14 0"/><line x1="5" y1="13" x2="3" y2="13"/><line x1="19" y1="13" x2="21" y2="13"/></svg>
           Offshore
         </a>
@@ -431,28 +346,20 @@
     </div>
   </div>
 
-  <div class="sheet-overlay" id="sheet-acao-posicao" hidden>
+  <div class="sheet-overlay" id="sheet-acao-ciclo" hidden>
     <div class="sheet">
       <div class="sheet-handle"></div>
-      <div id="sheet-acao-posicao-conteudo"></div>
+      <div id="sheet-acao-ciclo-conteudo"></div>
     </div>
   </div>
 
-  <div class="sheet-overlay" id="sheet-lista-proventos" hidden>
+  <div class="sheet-overlay" id="sheet-acao-he" hidden>
     <div class="sheet">
       <div class="sheet-handle"></div>
-      <div class="sheet-titulo">Histórico de proventos</div>
-      <div class="lista-proventos" id="lista-proventos-itens"></div>
+      <div id="sheet-acao-he-conteudo"></div>
     </div>
   </div>
 
-  <div class="sheet-overlay" id="sheet-acao-provento" hidden>
-    <div class="sheet">
-      <div class="sheet-handle"></div>
-      <div id="sheet-acao-provento-conteudo"></div>
-    </div>
-  </div>
-
-  <script type="module" src="../js/investimentos.js"></script>
+  <script type="module" src="../js/offshore.js"></script>
 </body>
 </html>
