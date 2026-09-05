@@ -1111,7 +1111,8 @@ function renderConteudoMetas({ categorias, totalPlanejado, totalGasto }) {
   `;
 }
 
-function renderConteudoMapaCalor({ totalDias, primeiroDiaSemana, porDia, porDiaPendente, maior, maiorPendente, pico }) {
+function renderConteudoMapaCalor({ ano, mes, totalDias, primeiroDiaSemana, porDia, porDiaPendente, maior, maiorPendente, pico }) {
+  const nomeMes = fmtMes.format(new Date(ano, mes - 1, 1)).replace(/^\w/, (c) => c.toUpperCase());
   const celulasVazias = Array.from({ length: primeiroDiaSemana }, () => '<div></div>');
   const cabecalho = DIAS_SEMANA.map((d) => `<div class="mapa-calor-semana">${d}</div>`).join('');
 
@@ -1149,6 +1150,7 @@ function renderConteudoMapaCalor({ totalDias, primeiroDiaSemana, porDia, porDiaP
       <div class="mapa-calor-legenda-ponto" style="background:${corIntensidadePendente(0.85)}"></div>
       contas pendentes (ainda não pagas)
     </div>
+    <div class="mapa-calor-legenda mapa-calor-mes-atual">${nomeMes} · ${ano}</div>
     ${pico ? `<div class="mapa-calor-pico valor-sensivel">Pico do mês: dia ${pico.dia} (${fmt.format(pico.valor)})</div>` : ''}
   `;
 }
