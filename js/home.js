@@ -715,7 +715,7 @@ async function carregarMapaCalor(userId, inicio, fim, idCategoriaFatura) {
       .lte('date', fim),
     supabase
       .from('card_transactions')
-      .select('data_compra, valor_parcela')
+      .select('data_compra, valor_parcela, status')
       .eq('user_id', userId)
       .gte('data_compra', inicio)
       .lte('data_compra', fim),
@@ -730,16 +730,20 @@ async function carregarMapaCalor(userId, inicio, fim, idCategoriaFatura) {
     const dia = Number(t.date.slice(8, 10));
     porDia.set(dia, (porDia.get(dia) ?? 0) + Number(t.amount));
   }
-  for (const c of compras ?? []) {
-    const dia = Number(c.data_compra.slice(8, 10));
-    porDia.set(dia, (porDia.get(dia) ?? 0) + Number(c.valor_parcela));
-  }
 
   const porDiaPendente = new Map();
   for (const t of pendentes ?? []) {
     if (t.category_id === idCategoriaFatura) continue;
     const dia = Number(t.date.slice(8, 10));
     porDiaPendente.set(dia, (porDiaPendente.get(dia) ?? 0) + Number(t.amount));
+  }
+
+  // Compra com fatura aberta (não paga) entra como pendente (âmbar); só
+  // vira "realizada" (vermelho) quando a fatura correspondente for paga.
+  for (const c of compras ?? []) {
+    const dia = Number(c.data_compra.slice(8, 10));
+    const alvo = c.status === 'paga' ? porDia : porDiaPendente;
+    alvo.set(dia, (alvo.get(dia) ?? 0) + Number(c.valor_parcela));
   }
 
   const [ano, mes] = inicio.split('-').map(Number);
