@@ -31,7 +31,39 @@
       padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 8px 20px;
     }
     .topo a { display: flex; color: var(--text); }
-    .topo-titulo { font-size: 17px; font-weight: 800; }
+    .topo-titulo { font-size: 17px; font-weight: 800; flex: 1; }
+    .btn-historico { display: flex; color: var(--text); background: none; border: none; padding: 4px; }
+
+    .historico-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 4px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      background: none;
+      border-left: none;
+      border-right: none;
+      border-top: none;
+      width: 100%;
+      font-family: inherit;
+    }
+    .historico-item:last-child { border-bottom: none; }
+    .historico-icone {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .historico-info { flex: 1; min-width: 0; }
+    .historico-desc { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .historico-contas { font-size: 12px; color: var(--muted); }
+    .historico-valor { font-size: 14px; font-weight: 800; white-space: nowrap; }
 
     .conteudo {
       flex: 1;
@@ -82,6 +114,7 @@
     .sheet {
       width: 100%;
       max-width: 480px;
+      max-height: calc(85vh - env(safe-area-inset-top, 0px));
       background: var(--surface);
       border-radius: 24px 24px 0 0;
       padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px;
@@ -89,8 +122,28 @@
       flex-direction: column;
       gap: 16px;
     }
-    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; flex-shrink: 0; }
+    .sheet-titulo { font-size: 16px; font-weight: 800; text-align: center; flex-shrink: 0; }
     .sheet-valor { font-size: 40px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+    .lista-historico { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+    .conta-vazia { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0; }
+    .sheet-aviso { font-size: 13px; color: var(--muted); text-align: center; margin-top: -8px; flex-shrink: 0; }
+    .sheet-acao-btn {
+      width: 100%;
+      height: 52px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .sheet-acao-btn.perigo { border-color: var(--danger); color: var(--danger); }
 
     .campo-rotulo { font-size: 12px; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
 
@@ -127,6 +180,9 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </a>
       <div class="topo-titulo">Transferir entre contas</div>
+      <button type="button" class="btn-historico" id="btn-historico" aria-label="Histórico de transferências">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+      </button>
     </div>
 
     <div class="conteudo">
@@ -185,6 +241,21 @@
     </div>
   </div>
 
-  <script type="module" src="../js/transferir.js"></script>
+  <div class="sheet-overlay" id="sheet-historico" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-titulo">Histórico de transferências</div>
+      <div class="lista-historico" id="lista-historico"></div>
+    </div>
+  </div>
+
+  <div class="sheet-overlay" id="sheet-acao-historico" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div id="sheet-acao-historico-conteudo"></div>
+    </div>
+  </div>
+
+  <script type="module" src="../js/transferir.js?v=2"></script>
 </body>
 </html>
