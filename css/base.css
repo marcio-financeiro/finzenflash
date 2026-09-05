@@ -39,6 +39,10 @@ button:disabled {
 
 .btn-primary {
   height: 54px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius-md);
   border: none;
   background: var(--accent);
