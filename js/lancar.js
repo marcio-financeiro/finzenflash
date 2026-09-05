@@ -7,6 +7,11 @@ let contas = [];
 let categorias = [];
 let lancamentoOriginal = null;
 
+function hojeISO() {
+  const hoje = new Date();
+  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
 function formatarValorDigitado(valorCentavos) {
   const reais = valorCentavos / 100;
   return reais.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -145,6 +150,8 @@ async function salvar(user) {
   btn.disabled = true;
   btn.textContent = 'Salvando...';
 
+  const dataEscolhida = document.getElementById('data').value || hojeISO();
+
   if (lancamentoOriginal) {
     const { error: erroUpdate } = await supabase.from('transactions').update({
       account_id: contaSelecionada,
@@ -152,6 +159,7 @@ async function salvar(user) {
       type: tipo,
       amount: valor,
       description: descricao,
+      date: dataEscolhida,
     }).eq('id', lancamentoOriginal.id).eq('user_id', user.id);
 
     if (erroUpdate) {
@@ -161,27 +169,28 @@ async function salvar(user) {
       return;
     }
 
-    // Desfaz o efeito do lançamento original na conta antiga e aplica o
-    // novo valor/tipo na conta escolhida — cobre também troca de conta.
-    const deltaReverso = lancamentoOriginal.type === 'receita' ? -Number(lancamentoOriginal.amount) : Number(lancamentoOriginal.amount);
-    await supabase.rpc('increment_account_balance', { p_account_id: lancamentoOriginal.account_id, p_delta: deltaReverso });
+    // Uma conta pendente não afetou o saldo quando foi criada — editá-la
+    // (sem mexer no status) não deve afetar o saldo agora também.
+    if (lancamentoOriginal.status === 'pago') {
+      // Desfaz o efeito do lançamento original na conta antiga e aplica o
+      // novo valor/tipo na conta escolhida — cobre também troca de conta.
+      const deltaReverso = lancamentoOriginal.type === 'receita' ? -Number(lancamentoOriginal.amount) : Number(lancamentoOriginal.amount);
+      await supabase.rpc('increment_account_balance', { p_account_id: lancamentoOriginal.account_id, p_delta: deltaReverso });
 
-    const deltaNovo = tipo === 'receita' ? valor : -valor;
-    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', { p_account_id: contaSelecionada, p_delta: deltaNovo });
+      const deltaNovo = tipo === 'receita' ? valor : -valor;
+      const { error: erroSaldo } = await supabase.rpc('increment_account_balance', { p_account_id: contaSelecionada, p_delta: deltaNovo });
 
-    if (erroSaldo) {
-      erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
-      btn.disabled = false;
-      btn.textContent = textoBotaoPadrao;
-      return;
+      if (erroSaldo) {
+        erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
+        btn.disabled = false;
+        btn.textContent = textoBotaoPadrao;
+        return;
+      }
     }
 
     window.location.href = '/pages/home.html';
     return;
   }
-
-  const hoje = new Date();
-  const dataISO = new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
   const dadosNovo = {
     user_id: user.id,
@@ -190,11 +199,11 @@ async function salvar(user) {
     type: tipo,
     amount: valor,
     description: descricao,
-    date: dataISO,
+    date: dataEscolhida,
+    // Data futura = conta que ainda não venceu: fica pendente até ser paga.
     // Sem isso o banco usa o default 'confirmado', que não é nem 'pago'
-    // nem 'pendente' — some do Mapa de calor, Metas e Pendências. O
-    // FinZen principal sempre grava 'pago' num lançamento imediato.
-    status: 'pago',
+    // nem 'pendente' — some do Mapa de calor, Metas e Pendências.
+    status: dataEscolhida > hojeISO() ? 'pendente' : 'pago',
   };
 
   // O cron diário do FinZen (api/recurring-cron.js) gera as ocorrências
@@ -216,17 +225,20 @@ async function salvar(user) {
     return;
   }
 
-  const delta = tipo === 'receita' ? valor : -valor;
-  const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
-    p_account_id: contaSelecionada,
-    p_delta: delta,
-  });
+  // Conta pendente (data futura) só entra no saldo quando for paga de fato.
+  if (dadosNovo.status === 'pago') {
+    const delta = tipo === 'receita' ? valor : -valor;
+    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
+      p_account_id: contaSelecionada,
+      p_delta: delta,
+    });
 
-  if (erroSaldo) {
-    erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
-    btn.disabled = false;
-    btn.textContent = textoBotaoPadrao;
-    return;
+    if (erroSaldo) {
+      erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
+      btn.disabled = false;
+      btn.textContent = textoBotaoPadrao;
+      return;
+    }
   }
 
   window.location.href = '/pages/home.html';
@@ -251,7 +263,7 @@ async function init() {
     document.getElementById('secao-recorrencia').hidden = true;
     const { data, error } = await supabase
       .from('transactions')
-      .select('id, account_id, category_id, type, amount, description')
+      .select('id, account_id, category_id, type, amount, description, date, status')
       .eq('id', idUrl)
       .eq('user_id', user.id)
       .single();
@@ -261,9 +273,14 @@ async function init() {
       document.getElementById('topo-titulo').textContent = 'Editar lançamento';
       document.getElementById('btn-salvar').textContent = 'Salvar alterações';
       document.getElementById('descricao').value = data.description ?? '';
+      document.getElementById('data').value = data.date ?? hojeISO();
       categoriaSelecionada = data.category_id;
       atualizarDisplaysValor(String(Math.round(Number(data.amount) * 100)));
     }
+  }
+
+  if (!lancamentoOriginal) {
+    document.getElementById('data').value = hojeISO();
   }
 
   selecionarTipo(lancamentoOriginal?.type ?? 'despesa');
