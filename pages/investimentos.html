@@ -273,6 +273,28 @@
       font-family: inherit;
       width: 100%;
     }
+
+    .cotacao-linha {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .cotacao-status { font-size: 11px; color: var(--muted); }
+    .btn-atualizar-cotacao {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 4px 0;
+    }
+    .btn-atualizar-cotacao svg.girando { animation: girar 0.8s linear infinite; }
+    @keyframes girar { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -283,6 +305,14 @@
     </div>
 
     <div class="conteudo">
+      <div class="cotacao-linha">
+        <div class="cotacao-status" id="cotacao-status">Cotações não atualizadas ainda</div>
+        <button type="button" class="btn-atualizar-cotacao" id="btn-atualizar-cotacao">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v6h6"/><path d="M4.5 13a8 8 0 1 0 2.5-6.5L4 10"/></svg>
+          Atualizar
+        </button>
+      </div>
+
       <div class="kpi-grid">
         <div class="kpi-card">
           <div class="kpi-rotulo">PATRIMÔNIO TOTAL</div>

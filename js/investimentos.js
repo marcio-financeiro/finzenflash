@@ -2,6 +2,7 @@ import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js'
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { loadChart } from './loadChart.js';
+import { getCotacoes, limparCache } from './quoteCache.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtPct = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2).replace('.', ',')}%`;
@@ -95,6 +96,72 @@ async function carregarDolar(userId) {
     .eq('setting_key', 'usd_brl')
     .maybeSingle();
   dolarAtual = data ? Number(data.setting_value) || DEFAULT_USD_BRL : DEFAULT_USD_BRL;
+}
+
+async function salvarDolar(userId, valor) {
+  await supabase.from('user_settings').upsert({
+    user_id: userId, setting_key: 'usd_brl', setting_value: String(valor),
+  }, { onConflict: 'user_id,setting_key' });
+}
+
+let ultimaAtualizacaoCotacoes = null;
+let atualizandoCotacoes = false;
+
+function renderStatusCotacao() {
+  const el = document.getElementById('cotacao-status');
+  if (!ultimaAtualizacaoCotacoes) {
+    el.textContent = 'Cotações não atualizadas ainda';
+    return;
+  }
+  const minutos = Math.floor((Date.now() - ultimaAtualizacaoCotacoes) / 60000);
+  el.textContent = minutos < 1 ? 'Cotações atualizadas agora' : `Cotações atualizadas há ${minutos} min`;
+}
+
+async function atualizarCotacoes(userId, silencioso = false) {
+  if (atualizandoCotacoes) return;
+  atualizandoCotacoes = true;
+  const btn = document.getElementById('btn-atualizar-cotacao');
+  const svg = btn.querySelector('svg');
+  if (!silencioso) { svg.classList.add('girando'); btn.disabled = true; }
+
+  try {
+    const tickers = ativos.filter((a) => a.tipo !== 'renda_fixa').map((a) => a.ticker.toUpperCase());
+    const cots = await getCotacoes(tickers, true, false);
+
+    const novoDolar = cots['USD-BRL'];
+    if (novoDolar && Math.abs(novoDolar - dolarAtual) > 0.001) {
+      dolarAtual = novoDolar;
+      await salvarDolar(userId, dolarAtual);
+    }
+
+    const agora = new Date().toISOString();
+    for (const a of ativos) {
+      if (a.tipo === 'renda_fixa') continue;
+      const nova = cots[a.ticker.toUpperCase()];
+      if (!nova) continue;
+      const atual = Number(a.cotacao_atual || 0);
+      if (atual > 0 && Math.abs(nova - atual) / atual < 0.0001) continue;
+      await supabase.from('investments').update({ cotacao_atual: nova, atualizado_em: agora }).eq('id', a.id).eq('user_id', userId);
+      a.cotacao_atual = nova;
+    }
+
+    ultimaAtualizacaoCotacoes = Date.now();
+    renderStatusCotacao();
+    renderKpisDireto();
+    renderPosicoes();
+    await renderDonut();
+  } catch (err) {
+    console.error(err);
+  } finally {
+    atualizandoCotacoes = false;
+    if (!silencioso) { svg.classList.remove('girando'); btn.disabled = false; }
+  }
+}
+
+function renderKpisDireto() {
+  const aplicadoBRL = ativos.reduce((s, a) => s + calcBRL(a, calcAplicado(a)), 0);
+  const atualBRL = ativos.reduce((s, a) => s + calcBRL(a, calcAtual(a)), 0);
+  renderKpis({ aplicadoBRL, atualBRL, proventos: calcularKpisProventos().total });
 }
 
 async function carregarContas(userId) {
@@ -821,6 +888,10 @@ async function init() {
   document.getElementById('btn-novo-lancamento').addEventListener('click', (e) => { e.preventDefault(); abrirSheetLancamento(); });
   document.getElementById('btn-novo-provento').addEventListener('click', abrirSheetFormDividendo);
   document.getElementById('btn-ver-proventos').addEventListener('click', abrirSheetListaProventos);
+  document.getElementById('btn-atualizar-cotacao').addEventListener('click', () => {
+    limparCache();
+    atualizarCotacoes(usuarioAtual.id, false);
+  });
 
   aplicarColapsoPosicoes(carregarColapsoPosicoes());
   document.getElementById('btn-toggle-posicoes').addEventListener('click', () => {
@@ -849,6 +920,7 @@ async function init() {
     await carregarDolar(user.id);
     await Promise.all([carregarContas(user.id), carregarTodasContas(user.id), carregarAtivos(user.id)]);
     await recarregarTudo();
+    atualizarCotacoes(user.id, true);
   } catch (err) {
     console.error(err);
     document.getElementById('lista-posicoes').innerHTML = '<div class="conta-vazia">Não foi possível carregar os investimentos.</div>';
