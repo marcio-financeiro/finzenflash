@@ -11,9 +11,17 @@ const fmtDiaSemana = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
 let mesRef = new Date();
 mesRef.setDate(1);
 
-const CARDS_PADRAO = ['ranking', 'economia', 'pendentes', 'cartoes'];
-const LABELS_CARDS = { ranking: 'Ranking categorias (Despesas)', economia: 'Economia mensal', pendentes: 'Pendências', cartoes: 'Cartões de crédito' };
+const CARDS_PADRAO = ['ranking', 'economia', 'pendentes', 'cartoes', 'metas', 'mapacalor'];
+const LABELS_CARDS = {
+  ranking: 'Ranking categorias (Despesas)',
+  economia: 'Economia mensal',
+  pendentes: 'Pendências',
+  cartoes: 'Cartões de crédito',
+  metas: 'Metas do mês',
+  mapacalor: 'Mapa de calor (gastos por dia)',
+};
 const CORES_RANKING = ['#0E7C86', '#8b5cf6', '#94a3b8', '#38bdf8', '#f59e0b'];
+const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 let ordemCards = [...CARDS_PADRAO];
 let cardsOcultos = new Set();
 let pendentesTipo = 'despesa';
@@ -68,6 +76,10 @@ function addDiasISO(dataISO, dias) {
   const [y, m, d] = dataISO.split('-').map(Number);
   const data = new Date(y, m - 1, d + dias);
   return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
+}
+
+function refMesString(data) {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function limitesMes(ref) {
@@ -384,21 +396,37 @@ async function salvarPreferenciasCards(userId, ordem, ocultos) {
     );
 }
 
-async function carregarRanking(userId, inicio, fim) {
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('amount, category_id, categories(nome)')
-    .eq('user_id', userId)
-    .eq('type', 'despesa')
-    .gte('date', inicio)
-    .lte('date', fim);
+async function carregarRanking(userId, inicio, fim, inicioAnt, fimAnt) {
+  const [{ data, error }, { data: dataAnt, error: erroAnt }] = await Promise.all([
+    supabase
+      .from('transactions')
+      .select('amount, category_id, categories(nome)')
+      .eq('user_id', userId)
+      .eq('type', 'despesa')
+      .gte('date', inicio)
+      .lte('date', fim),
+    supabase
+      .from('transactions')
+      .select('amount, category_id')
+      .eq('user_id', userId)
+      .eq('type', 'despesa')
+      .gte('date', inicioAnt)
+      .lte('date', fimAnt),
+  ]);
   if (error) throw error;
+  if (erroAnt) throw erroAnt;
+
+  const porCategoriaAnt = new Map();
+  for (const t of dataAnt ?? []) {
+    const chave = t.category_id ?? 'sem-categoria';
+    porCategoriaAnt.set(chave, (porCategoriaAnt.get(chave) ?? 0) + Number(t.amount));
+  }
 
   const porCategoria = new Map();
   for (const t of data ?? []) {
     const chave = t.category_id ?? 'sem-categoria';
     const nome = t.categories?.nome ?? 'Sem categoria';
-    const atual = porCategoria.get(chave) ?? { nome, valor: 0, categoriaId: t.category_id ?? null };
+    const atual = porCategoria.get(chave) ?? { nome, valor: 0, categoriaId: t.category_id ?? null, chave };
     atual.valor += Number(t.amount);
     porCategoria.set(chave, atual);
   }
@@ -410,11 +438,14 @@ async function carregarRanking(userId, inicio, fim) {
   if (linhas.length > 5) {
     const top4 = linhas.slice(0, 4);
     const valorOutros = linhas.slice(4).reduce((soma, l) => soma + l.valor, 0);
-    itens = [...top4, { nome: 'Outros', valor: valorOutros, categoriaId: null }].sort((a, b) => b.valor - a.valor);
+    itens = [...top4, { nome: 'Outros', valor: valorOutros, categoriaId: null, chave: null }].sort((a, b) => b.valor - a.valor);
   }
 
   return {
-    itens: itens.map((l) => ({ ...l, pct: total > 0 ? (l.valor / total) * 100 : 0 })),
+    itens: itens.map((l) => {
+      const anterior = l.chave ? (porCategoriaAnt.get(l.chave) ?? 0) : null;
+      return { ...l, pct: total > 0 ? (l.valor / total) * 100 : 0, anterior };
+    }),
   };
 }
 
@@ -434,6 +465,77 @@ async function carregarEconomia(userId, inicio, fim) {
     else despesas += Number(t.amount);
   }
   return { receitas, despesas };
+}
+
+async function carregarMetas(userId, ref) {
+  const [{ data: orcamentos, error: erroOrc }, { data: despesas, error: erroDesp }] = await Promise.all([
+    supabase
+      .from('budgets')
+      .select('category_id, valor_planejado, categories(nome)')
+      .eq('user_id', userId)
+      .eq('mes_referencia', ref),
+    supabase
+      .from('transactions')
+      .select('category_id, amount')
+      .eq('user_id', userId)
+      .eq('type', 'despesa')
+      .eq('status', 'pago')
+      .gte('date', `${ref}-01`)
+      .lte('date', fimMesRef(ref)),
+  ]);
+  if (erroOrc) throw erroOrc;
+  if (erroDesp) throw erroDesp;
+
+  const gastoPorCategoria = new Map();
+  for (const t of despesas ?? []) {
+    gastoPorCategoria.set(t.category_id, (gastoPorCategoria.get(t.category_id) ?? 0) + Number(t.amount));
+  }
+
+  const categorias = (orcamentos ?? [])
+    .map((o) => ({
+      nome: o.categories?.nome ?? 'Categoria',
+      planejado: Number(o.valor_planejado),
+      gasto: gastoPorCategoria.get(o.category_id) ?? 0,
+    }))
+    .sort((a, b) => (b.gasto / (b.planejado || 1)) - (a.gasto / (a.planejado || 1)));
+
+  const totalPlanejado = categorias.reduce((soma, c) => soma + c.planejado, 0);
+  const totalGasto = (despesas ?? []).reduce((soma, t) => soma + Number(t.amount), 0);
+  return { categorias, totalPlanejado, totalGasto };
+}
+
+function fimMesRef(ref) {
+  const [ano, mes] = ref.split('-').map(Number);
+  return `${ano}-${String(mes).padStart(2, '0')}-${new Date(ano, mes, 0).getDate()}`;
+}
+
+async function carregarMapaCalor(userId, inicio, fim) {
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('date, amount')
+    .eq('user_id', userId)
+    .eq('type', 'despesa')
+    .eq('status', 'pago')
+    .gte('date', inicio)
+    .lte('date', fim);
+  if (error) throw error;
+
+  const porDia = new Map();
+  for (const t of data ?? []) {
+    const dia = Number(t.date.slice(8, 10));
+    porDia.set(dia, (porDia.get(dia) ?? 0) + Number(t.amount));
+  }
+
+  const [ano, mes] = inicio.split('-').map(Number);
+  const totalDias = new Date(ano, mes, 0).getDate();
+  const primeiroDiaSemana = new Date(ano, mes - 1, 1).getDay();
+  const maior = Math.max(0, ...porDia.values());
+  let pico = null;
+  for (const [dia, valor] of porDia) {
+    if (!pico || valor > pico.valor) pico = { dia, valor };
+  }
+
+  return { ano, mes, totalDias, primeiroDiaSemana, porDia, maior, pico };
 }
 
 async function carregarFaturasMesCorrente(userId, ref) {
@@ -561,6 +663,18 @@ function renderConteudoRanking({ itens }) {
     const tag = clicavel ? 'button' : 'div';
     const atributoTipo = clicavel ? 'type="button"' : '';
     const atributoDado = clicavel ? `data-categoria-id="${item.categoriaId}"` : '';
+
+    let comparativoHtml = '';
+    if (item.anterior !== null && item.anterior !== undefined && item.anterior > 0) {
+      const deltaPct = Math.round(((item.valor - item.anterior) / item.anterior) * 100);
+      const piorou = deltaPct > 0;
+      if (deltaPct !== 0) {
+        comparativoHtml = `<div class="ranking-comparativo ${piorou ? 'pior' : 'melhor'}">${piorou ? '+' : ''}${deltaPct}% vs mês anterior</div>`;
+      }
+    } else if (item.anterior === 0 && item.valor > 0) {
+      comparativoHtml = '<div class="ranking-comparativo pior">Novo gasto neste mês</div>';
+    }
+
     return `
       <${tag} ${atributoTipo} class="ranking-linha ${clicavel ? 'clicavel' : ''}" ${atributoDado}>
         <div class="ranking-nome">${escapeHtml(item.nome)}</div>
@@ -570,6 +684,7 @@ function renderConteudoRanking({ itens }) {
           </div>
         </div>
       </${tag}>
+      ${comparativoHtml}
     `;
   }).join('');
 }
@@ -628,6 +743,88 @@ function renderConteudoEconomia({ receitas, despesas, anterior }) {
   `;
 }
 
+function renderConteudoMetas({ categorias, totalPlanejado, totalGasto }) {
+  if (totalPlanejado === 0) {
+    return '<div class="conta-vazia">Nenhuma meta definida para este mês — defina no FinZen.</div>';
+  }
+
+  const pct = Math.round((totalGasto / totalPlanejado) * 100);
+  const estourou = totalGasto > totalPlanejado;
+  const pctAro = Math.max(0, Math.min(100, pct));
+  const corAro = estourou ? 'var(--danger)' : 'var(--accent)';
+
+  const categoriasHtml = categorias.map((c) => {
+    const pctCat = c.planejado > 0 ? Math.min(100, (c.gasto / c.planejado) * 100) : 0;
+    const estourouCat = c.gasto > c.planejado;
+    return `
+      <div class="metas-categoria">
+        <div class="metas-categoria-topo ${estourouCat ? 'estourou' : ''}">
+          <span>${escapeHtml(c.nome)}</span>
+          <span class="valores valor-sensivel"><strong>${fmt.format(c.gasto)}</strong> de ${fmt.format(c.planejado)}</span>
+        </div>
+        <div class="metas-barra-fundo">
+          <div class="metas-barra-fill ${estourouCat ? 'estourou' : ''}" style="width:${pctCat}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="metas-linha">
+      <div class="metas-aro" style="background:conic-gradient(${corAro} ${pctAro}%, var(--surface-2) 0)">
+        <div class="metas-aro-valor">${pct}%<small>do limite</small></div>
+      </div>
+      <div class="metas-resumo">
+        <div class="linha"><span>Gasto</span><span class="valor-sensivel">${fmt.format(totalGasto)}</span></div>
+        <div class="linha"><span>Limite</span><span class="valor-sensivel">${fmt.format(totalPlanejado)}</span></div>
+        ${estourou ? `<div class="metas-estourou">⚠ Ultrapassou em ${fmt.format(totalGasto - totalPlanejado)}</div>` : ''}
+      </div>
+    </div>
+    ${categoriasHtml}
+  `;
+}
+
+function renderConteudoMapaCalor({ totalDias, primeiroDiaSemana, porDia, maior, pico }) {
+  const celulasVazias = Array.from({ length: primeiroDiaSemana }, () => '<div></div>');
+  const cabecalho = DIAS_SEMANA.map((d) => `<div class="mapa-calor-semana">${d}</div>`).join('');
+
+  const dias = [];
+  for (let dia = 1; dia <= totalDias; dia++) {
+    const valor = porDia.get(dia) ?? 0;
+    const intensidade = maior > 0 ? valor / maior : 0;
+    const cor = corIntensidade(intensidade);
+    const textoValor = valor > 0 ? formatCompacto(valor) : '';
+    dias.push(`
+      <div class="mapa-calor-dia" style="background:${cor}">
+        <div class="numero">${dia}</div>
+        <div class="valor valor-sensivel">${textoValor}</div>
+      </div>
+    `);
+  }
+
+  const legenda = ['var(--surface-2)', 'rgba(217,112,90,0.35)', 'rgba(217,112,90,0.6)', 'rgba(217,112,90,0.85)', 'var(--danger)']
+    .map((cor) => `<div class="mapa-calor-legenda-ponto" style="background:${cor}"></div>`).join('');
+
+  return `
+    <div class="mapa-calor-grid">${cabecalho}${celulasVazias.join('')}${dias.join('')}</div>
+    <div class="mapa-calor-legenda">menos ${legenda} mais</div>
+    ${pico ? `<div class="mapa-calor-pico valor-sensivel">Pico do mês: dia ${pico.dia} (${fmt.format(pico.valor)})</div>` : ''}
+  `;
+}
+
+function corIntensidade(intensidade) {
+  if (intensidade <= 0) return 'var(--surface-2)';
+  if (intensidade < 0.25) return 'rgba(217,112,90,0.35)';
+  if (intensidade < 0.5) return 'rgba(217,112,90,0.6)';
+  if (intensidade < 0.8) return 'rgba(217,112,90,0.85)';
+  return 'var(--danger)';
+}
+
+function formatCompacto(valor) {
+  if (valor >= 1000) return `${(valor / 1000).toFixed(1).replace('.0', '')}k`;
+  return String(Math.round(valor));
+}
+
 function renderConteudoPendentes({ tipo, count, total }) {
   const textoTipo = tipo === 'despesa' ? 'despesas' : 'receitas';
   return `
@@ -650,7 +847,7 @@ function renderConteudoPendentes({ tipo, count, total }) {
   `;
 }
 
-const cacheResumo = { ranking: null, economia: null, pendentes: null, cartoes: null };
+const cacheResumo = { ranking: null, economia: null, pendentes: null, cartoes: null, metas: null, mapacalor: null };
 let usuarioAtual = null;
 
 function renderResumoCards() {
@@ -668,6 +865,10 @@ function renderResumoCards() {
       html += renderCardWrapper('pendentes', LABELS_CARDS.pendentes, renderConteudoPendentes(cacheResumo.pendentes), i, total);
     } else if (id === 'cartoes' && cacheResumo.cartoes) {
       html += renderCardWrapper('cartoes', LABELS_CARDS.cartoes, renderConteudoCartoes(cacheResumo.cartoes), i, total);
+    } else if (id === 'metas' && cacheResumo.metas) {
+      html += renderCardWrapper('metas', LABELS_CARDS.metas, renderConteudoMetas(cacheResumo.metas), i, total);
+    } else if (id === 'mapacalor' && cacheResumo.mapacalor) {
+      html += renderCardWrapper('mapacalor', LABELS_CARDS.mapacalor, renderConteudoMapaCalor(cacheResumo.mapacalor), i, total);
     }
   });
   container.innerHTML = html || '<div class="conta-vazia">Nenhum card ativo — toque no ⚙ acima para exibir algum.</div>';
@@ -745,13 +946,17 @@ async function recarregarResumoMensal() {
     const { inicio, fim } = limitesMes(mesRef);
     const mesAnteriorRef = new Date(mesRef.getFullYear(), mesRef.getMonth() - 1, 1);
     const { inicio: inicioAnt, fim: fimAnt } = limitesMes(mesAnteriorRef);
-    const [ranking, economia, economiaAnterior] = await Promise.all([
-      carregarRanking(usuarioAtual.id, inicio, fim),
+    const ref = refMesString(mesRef);
+    const [ranking, economia, economiaAnterior, mapacalor] = await Promise.all([
+      carregarRanking(usuarioAtual.id, inicio, fim, inicioAnt, fimAnt),
       carregarEconomia(usuarioAtual.id, inicio, fim),
       carregarEconomia(usuarioAtual.id, inicioAnt, fimAnt),
+      carregarMapaCalor(usuarioAtual.id, inicio, fim),
     ]);
     cacheResumo.ranking = ranking;
     cacheResumo.economia = { ...economia, anterior: economiaAnterior };
+    cacheResumo.mapacalor = mapacalor;
+    cacheResumo.metas = await carregarMetas(usuarioAtual.id, ref);
     renderResumoCards();
   } catch (err) {
     console.error(err);
