@@ -217,12 +217,17 @@ function renderContas(contas) {
     lista = [contas[idxMaior], ...contas.filter((_, i) => i !== idxMaior)];
   }
 
-  container.innerHTML = lista.map((c, i) => `
+  container.innerHTML = lista.map((c, i) => {
+    // Muitos lançamentos ao longo do tempo acumulam erro de ponto flutuante
+    // no saldo (ex: -0.0000000000006) — abaixo de meio centavo, é zero.
+    const saldoBruto = Number(c.saldo_atual) || 0;
+    const saldo = Math.abs(saldoBruto) < 0.005 ? 0 : saldoBruto;
+    return `
     <div class="conta-card ${destacar && i === 0 ? 'destaque' : ''}">
       <div class="conta-nome">${escapeHtml(c.nome).toUpperCase()}</div>
-      <div class="conta-saldo valor-sensivel ${c.saldo_atual < 0 ? 'negativo' : ''}">${fmt.format(Number(c.saldo_atual) || 0)}</div>
-    </div>
-  `).join('');
+      <div class="conta-saldo valor-sensivel ${saldo < 0 ? 'negativo' : ''}">${fmt.format(saldo)}</div>
+    </div>`;
+  }).join('');
 }
 
 function renderLancamentos(lancamentos) {
