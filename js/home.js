@@ -2,6 +2,7 @@ import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js'
 import { invoiceRef } from './cardService.js';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
+import { montarNavInferior } from './navInferior.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDia = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' });
@@ -1428,6 +1429,8 @@ async function recarregarTimeline(user) {
 }
 
 async function init() {
+  montarNavInferior('home');
+  configurarBotaoSair();
   configurarBotaoPrivacidade('btn-privacidade');
 
   const user = await requireAuth();
@@ -1491,8 +1494,6 @@ async function init() {
       '<div class="conta-vazia">Não foi possível carregar seus dados. Puxe pra atualizar.</div>';
   }
 }
-
-configurarBotaoSair();
 
 init();
 

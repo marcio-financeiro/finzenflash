@@ -159,6 +159,56 @@
       font-family: inherit;
     }
     .nav-item.ativo { color: var(--accent); }
+
+    .mais-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 4px;
+      border-bottom: 1px solid var(--border);
+      text-decoration: none;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 700;
+      background: none;
+      border-left: none;
+      border-right: none;
+      border-top: none;
+      width: 100%;
+      font-family: inherit;
+      text-align: left;
+    }
+    .mais-item:last-child { border-bottom: none; }
+    .mais-item svg { flex-shrink: 0; color: var(--muted); }
+    .mais-item.ativo { color: var(--accent); }
+    .mais-item.ativo svg { color: var(--accent); }
+    .mais-item.perigo { color: var(--danger); }
+    .mais-item.perigo svg { color: var(--danger); }
+
+    .sheet-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(16,38,42,0.45);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 20;
+    }
+    .sheet-overlay[hidden] { display: none; }
+    .sheet {
+      width: 100%;
+      max-width: 480px;
+      max-height: calc(85vh - env(safe-area-inset-top, 0px));
+      overflow-y: auto;
+      background: var(--surface);
+      border-radius: 24px 24px 0 0;
+      padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; flex-shrink: 0; }
+    .sheet-titulo { font-size: 16px; font-weight: 800; text-align: center; flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -200,38 +250,7 @@
       <div id="lista-lancamentos"></div>
     </div>
 
-    <div class="nav-inferior">
-      <div class="nav-inferior-inner">
-        <a class="nav-item" href="/pages/home.html">
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1v-9"/></svg>
-          Início
-        </a>
-        <a class="nav-item" href="/pages/cartao.html">
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg>
-          Cartão
-        </a>
-        <a class="nav-item ativo" href="/pages/extrato.html">
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-          Extrato
-        </a>
-        <a class="nav-item" href="/pages/cadastros.html">
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="7" cy="18" r="2" fill="currentColor" stroke="none"/></svg>
-          Cadastros
-        </a>
-        <a class="nav-item" href="/pages/investimentos.html">
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
-          Investir
-        </a>
-        <a class="nav-item" href="/pages/offshore.html">
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="21"/><path d="M5 13a7 7 0 0 0 14 0"/><line x1="5" y1="13" x2="3" y2="13"/><line x1="19" y1="13" x2="21" y2="13"/></svg>
-          Offshore
-        </a>
-        <button type="button" class="nav-item" id="btn-sair-nav">
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
-          Sair
-        </button>
-      </div>
-    </div>
+    <div id="nav-inferior-slot"></div>
   </div>
 
   <script type="module" src="../js/extrato.js?v=2"></script>

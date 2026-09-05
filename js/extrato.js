@@ -1,5 +1,6 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
+import { montarNavInferior } from './navInferior.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDia = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' });
@@ -131,6 +132,7 @@ async function recarregar(userId) {
 }
 
 async function init() {
+  montarNavInferior('extrato');
   configurarBotaoSair();
   configurarBotaoPrivacidade('btn-privacidade');
 
