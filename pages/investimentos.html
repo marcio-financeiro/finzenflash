@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Investimentos — FinZen Flash</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0E7C86">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FinZen Flash">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <style>
+    body { display: flex; justify-content: center; }
+    .shell {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      padding-bottom: 84px;
+    }
+    .topo {
+      padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .topo-titulo { font-size: 20px; font-weight: 800; }
+    .btn-privacidade {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      background: var(--surface-2);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .conteudo { padding: 0 20px 20px 20px; display: flex; flex-direction: column; gap: 20px; }
+
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      min-width: 0;
+    }
+    .kpi-rotulo { font-size: 11px; color: var(--muted); font-weight: 700; }
+    .kpi-valor { font-size: 17px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kpi-valor.positivo { color: var(--success); }
+    .kpi-valor.negativo { color: var(--danger); }
+    .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 6px; display: flex; justify-content: space-between; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+    }
+    .card-titulo { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
+
+    .donut-linha { display: flex; align-items: center; gap: 16px; }
+    .donut-wrap { width: 130px; height: 130px; flex-shrink: 0; position: relative; }
+    .donut-legenda { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+    .donut-legenda-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .donut-ponto { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+    .donut-nome { flex: 1; color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .donut-pct { color: var(--muted); font-weight: 700; }
+
+    .grafico-wrap { height: 200px; }
+
+    .posicao-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 4px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      background: none;
+      border-left: none;
+      border-right: none;
+      border-top: none;
+      width: 100%;
+      font-family: inherit;
+      color: var(--text);
+    }
+    .posicao-item:last-child { border-bottom: none; }
+    .posicao-icone {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-weight: 800;
+      font-size: 12px;
+    }
+    .posicao-info { flex: 1; min-width: 0; }
+    .posicao-ticker { font-size: 14px; font-weight: 800; }
+    .posicao-detalhe { font-size: 12px; color: var(--muted); }
+    .posicao-valores { text-align: right; }
+    .posicao-valor { font-size: 14px; font-weight: 800; white-space: nowrap; }
+    .posicao-var { font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .posicao-var.positivo { color: var(--success); }
+    .posicao-var.negativo { color: var(--danger); }
+
+    .conta-vazia { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0; }
+
+    .fab {
+      position: fixed;
+      bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+      left: 50%;
+      transform: translateX(150px);
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 20px rgba(14,124,134,0.35);
+      z-index: 15;
+    }
+    @media (max-width: 480px) {
+      .fab { left: auto; right: 26px; transform: none; }
+    }
+
+    .nav-inferior {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .nav-inferior-inner {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 10px;
+      font-weight: 700;
+      background: none;
+      border: none;
+      font-family: inherit;
+    }
+    .nav-item.ativo { color: var(--accent); }
+
+    .sheet-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(16,38,42,0.45);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 20;
+    }
+    .sheet-overlay[hidden] { display: none; }
+    .sheet {
+      width: 100%;
+      max-width: 480px;
+      max-height: calc(85vh - env(safe-area-inset-top, 0px));
+      overflow-y: auto;
+      background: var(--surface);
+      border-radius: 24px 24px 0 0;
+      padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; flex-shrink: 0; }
+    .sheet-titulo { font-size: 16px; font-weight: 800; text-align: center; flex-shrink: 0; }
+    .sheet-acao-btn {
+      width: 100%;
+      height: 52px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .sheet-acao-btn.perigo { border-color: var(--danger); color: var(--danger); }
+
+    .toggle-tipo {
+      display: flex;
+      background: var(--surface-2);
+      border-radius: 14px;
+      padding: 4px;
+      gap: 4px;
+    }
+    .toggle-tipo button {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 10px 0;
+      border-radius: 11px;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--muted);
+      font-family: inherit;
+    }
+    .toggle-tipo button.ativo-compra { background: var(--success-soft); color: var(--success); }
+    .toggle-tipo button.ativo-venda { background: var(--danger-soft); color: var(--danger); }
+
+    .form-linha { display: flex; gap: 10px; }
+    .form-linha .field { flex: 1; }
+    .field select {
+      height: 52px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 14px;
+      font-size: 15px;
+      font-family: inherit;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topo">
+      <div class="topo-titulo">Investimentos</div>
+      <button type="button" class="btn-privacidade" id="btn-privacidade" aria-label="Ocultar valores"></button>
+    </div>
+
+    <div class="conteudo">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-rotulo">PATRIMÔNIO TOTAL</div>
+          <div class="kpi-valor valor-sensivel" id="kpi-patrimonio">R$ 0,00</div>
+          <div class="kpi-sub"><span>Investido</span><span class="valor-sensivel" id="kpi-investido">R$ 0,00</span></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-rotulo">LUCRO TOTAL</div>
+          <div class="kpi-valor valor-sensivel" id="kpi-lucro">R$ 0,00</div>
+          <div class="kpi-sub"><span>Capital</span><span class="valor-sensivel" id="kpi-ganho-capital">R$ 0,00</span></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-rotulo">PROVENTOS RECEBIDOS</div>
+          <div class="kpi-valor valor-sensivel" id="kpi-proventos">R$ 0,00</div>
+          <div class="kpi-sub"><span>Total acumulado</span><span></span></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-rotulo">RENTABILIDADE</div>
+          <div class="kpi-valor" id="kpi-rentabilidade">0,00%</div>
+          <div class="kpi-sub"><span>Sobre o investido</span><span></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-titulo">Evolução do Patrimônio</div>
+        <div class="grafico-wrap"><canvas id="chart-evolucao"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-titulo">Ativos na Carteira</div>
+        <div class="donut-linha">
+          <div class="donut-wrap"><canvas id="chart-donut"></canvas></div>
+          <div class="donut-legenda" id="donut-legenda"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-titulo">Posições</div>
+        <div id="lista-posicoes"><div class="conta-vazia">Carregando...</div></div>
+      </div>
+    </div>
+
+    <a class="fab" href="#" id="btn-novo-lancamento" aria-label="Adicionar lançamento">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </a>
+
+    <div class="nav-inferior">
+      <div class="nav-inferior-inner">
+        <a class="nav-item" href="/pages/home.html">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1v-9"/></svg>
+          Início
+        </a>
+        <a class="nav-item" href="/pages/cartao.html">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg>
+          Cartão
+        </a>
+        <a class="nav-item" href="/pages/extrato.html">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+          Extrato
+        </a>
+        <a class="nav-item" href="/pages/cadastros.html">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="7" cy="18" r="2" fill="currentColor" stroke="none"/></svg>
+          Cadastros
+        </a>
+        <a class="nav-item ativo" href="/pages/investimentos.html">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+          Investir
+        </a>
+        <button type="button" class="nav-item" id="btn-sair-nav">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+          Sair
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet-overlay" id="sheet-form" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div id="sheet-form-conteudo"></div>
+    </div>
+  </div>
+
+  <div class="sheet-overlay" id="sheet-acao-posicao" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div id="sheet-acao-posicao-conteudo"></div>
+    </div>
+  </div>
+
+  <script type="module" src="../js/investimentos.js"></script>
+</body>
+</html>
