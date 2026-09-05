@@ -682,21 +682,39 @@ async function salvarMetasEditadas() {
   await recarregarResumoMensal();
 }
 
-async function carregarMapaCalor(userId, inicio, fim) {
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('date, amount')
-    .eq('user_id', userId)
-    .eq('type', 'despesa')
-    .eq('status', 'pago')
-    .gte('date', inicio)
-    .lte('date', fim);
+// Mesma lógica do ranking (ver carregarRanking): a fatura paga vira 1
+// lançamento avulso na categoria "Fatura de Cartão" — incluir ela aqui E
+// somar as compras do cartão pelo dia da compra contaria o mesmo gasto
+// duas vezes quando compra e pagamento caem no mesmo mês.
+async function carregarMapaCalor(userId, inicio, fim, idCategoriaFatura) {
+  const [{ data, error }, { data: compras, error: erroCompras }] = await Promise.all([
+    supabase
+      .from('transactions')
+      .select('date, amount, category_id')
+      .eq('user_id', userId)
+      .eq('type', 'despesa')
+      .eq('status', 'pago')
+      .gte('date', inicio)
+      .lte('date', fim),
+    supabase
+      .from('card_transactions')
+      .select('data_compra, valor_parcela')
+      .eq('user_id', userId)
+      .gte('data_compra', inicio)
+      .lte('data_compra', fim),
+  ]);
   if (error) throw error;
+  if (erroCompras) throw erroCompras;
 
   const porDia = new Map();
   for (const t of data ?? []) {
+    if (t.category_id === idCategoriaFatura) continue;
     const dia = Number(t.date.slice(8, 10));
     porDia.set(dia, (porDia.get(dia) ?? 0) + Number(t.amount));
+  }
+  for (const c of compras ?? []) {
+    const dia = Number(c.data_compra.slice(8, 10));
+    porDia.set(dia, (porDia.get(dia) ?? 0) + Number(c.valor_parcela));
   }
 
   const [ano, mes] = inicio.split('-').map(Number);
@@ -1175,7 +1193,7 @@ async function recarregarResumoMensal() {
       carregarRanking(usuarioAtual.id, inicio, fim, inicioAnt, fimAnt, ref, refAnt, categoriasOcultasRanking, idCategoriaFatura),
       carregarEconomia(usuarioAtual.id, inicio, fim),
       carregarEconomia(usuarioAtual.id, inicioAnt, fimAnt),
-      carregarMapaCalor(usuarioAtual.id, inicio, fim),
+      carregarMapaCalor(usuarioAtual.id, inicio, fim, idCategoriaFatura),
     ]);
     cacheResumo.ranking = ranking;
     cacheResumo.economia = { ...economia, anterior: economiaAnterior };
