@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Extrato — FinZen Flash</title>
+  <title>Cadastros — FinZen Flash</title>
   <link rel="icon" href="/img/logo-mark.png">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0E7C86">
@@ -23,6 +23,7 @@
       min-height: 100dvh;
       display: flex;
       flex-direction: column;
+      position: relative;
     }
     .topo {
       padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 16px 20px;
@@ -30,65 +31,22 @@
       flex-direction: column;
       gap: 14px;
     }
-    .topo-linha { display: flex; align-items: center; justify-content: space-between; }
     .topo-titulo { font-size: 20px; font-weight: 800; }
-    .btn-privacidade {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      border: none;
-      background: var(--surface-2);
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
 
-    .seletor-mes {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      padding: 8px 6px;
-    }
-    .seletor-mes button {
-      width: 34px;
-      height: 34px;
-      border-radius: 8px;
-      border: none;
-      background: var(--surface-2);
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    #mes-atual { font-size: 14px; font-weight: 800; }
-
-    .filtros { display: flex; gap: 8px; }
-    .filtros select {
+    .abas { display: flex; gap: 8px; }
+    .aba {
       flex: 1;
-      min-width: 0;
-      height: 40px;
-      border-radius: 20px;
       border: 1.5px solid var(--border);
       background: var(--surface);
       color: var(--muted);
-      font-size: 12px;
+      border-radius: 20px;
+      padding: 9px 10px;
+      font-size: 13px;
       font-weight: 700;
       font-family: inherit;
-      padding: 0 12px;
+      text-align: center;
     }
-
-    .resumo { display: flex; gap: 10px; }
-    .resumo-card { flex: 1; border-radius: var(--radius-md); padding: 12px 14px; }
-    .resumo-card.entradas { background: var(--success-soft); }
-    .resumo-card.saidas { background: var(--danger-soft); }
-    .resumo-rotulo { font-size: 11px; font-weight: 700; }
-    .resumo-card.entradas .resumo-rotulo, .resumo-card.entradas .resumo-valor { color: var(--success); }
-    .resumo-card.saidas .resumo-rotulo, .resumo-card.saidas .resumo-valor { color: var(--danger); }
-    .resumo-valor { font-size: 16px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .aba.ativa { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 
     .secao {
       flex: 1;
@@ -97,10 +55,10 @@
       flex-direction: column;
       gap: 8px;
     }
-    .dia-label { font-size: 12px; color: var(--muted); font-weight: 700; padding: 10px 0 2px 0; }
-    .dia-label:first-child { padding-top: 0; }
+    .grupo-titulo { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin: 10px 0 2px 0; }
+    .grupo-titulo:first-child { margin-top: 0; }
 
-    .lancamento-card {
+    .item-cadastro {
       display: flex;
       align-items: center;
       gap: 12px;
@@ -108,26 +66,50 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       padding: 12px 14px;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+      color: var(--text);
     }
-    .lancamento-icone {
-      width: 38px;
-      height: 38px;
-      border-radius: var(--radius-md);
+    .item-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      font-size: 18px;
+      color: #fff;
+      font-weight: 800;
     }
-    .lancamento-icone.is-receita { background: var(--success-soft); }
-    .lancamento-icone.is-despesa { background: var(--danger-soft); }
-    .lancamento-info { flex: 1; min-width: 0; }
-    .lancamento-desc { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .lancamento-conta { font-size: 12px; color: var(--muted); }
-    .lancamento-valor { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
-    .lancamento-valor.is-receita { color: var(--success); }
-    .lancamento-valor.is-despesa { color: var(--danger); }
+    .item-info { flex: 1; min-width: 0; }
+    .item-nome { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+    .item-detalhe { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .item-inativo { opacity: 0.5; }
+    .badge-inativo { font-size: 10px; font-weight: 800; color: var(--danger); background: var(--danger-soft); padding: 2px 7px; border-radius: 10px; }
 
     .conta-vazia { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
+
+    .fab {
+      position: fixed;
+      right: 50%;
+      transform: translateX(190px);
+      bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+      width: 58px;
+      height: 58px;
+      border-radius: 20px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 24px rgba(14,124,134,0.4);
+      border: none;
+      z-index: 10;
+    }
+    @media (max-width: 480px) {
+      .fab { right: 20px; transform: none; }
+    }
 
     .nav-inferior {
       position: sticky;
@@ -159,46 +141,83 @@
       font-family: inherit;
     }
     .nav-item.ativo { color: var(--accent); }
+
+    .sheet-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(16,38,42,0.45);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 20;
+    }
+    .sheet-overlay[hidden] { display: none; }
+    .sheet {
+      width: 100%;
+      max-width: 480px;
+      max-height: calc(85vh - env(safe-area-inset-top, 0px));
+      overflow-y: auto;
+      background: var(--surface);
+      border-radius: 24px 24px 0 0;
+      padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; flex-shrink: 0; }
+    .sheet-titulo { font-size: 16px; font-weight: 800; text-align: center; flex-shrink: 0; }
+    .sheet-acao-btn {
+      width: 100%;
+      height: 52px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .sheet-acao-btn.perigo { border-color: var(--danger); color: var(--danger); }
+
+    .form-linha { display: flex; gap: 10px; }
+    .form-linha .field { flex: 1; }
+    .field select {
+      height: 52px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 14px;
+      font-size: 15px;
+      font-family: inherit;
+      width: 100%;
+    }
+    .field input[type="color"] { height: 52px; padding: 4px; cursor: pointer; }
+    .error-msg { color: var(--danger); font-size: 13px; text-align: center; min-height: 16px; }
   </style>
 </head>
 <body>
   <div class="shell">
     <div class="topo">
-      <div class="topo-linha">
-        <div class="topo-titulo">Extrato</div>
-        <button type="button" id="btn-privacidade" class="btn-privacidade" aria-label="Ocultar valores"></button>
-      </div>
-
-      <div class="seletor-mes">
-        <button type="button" id="btn-mes-anterior" aria-label="Mês anterior">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <span id="mes-atual">—</span>
-        <button type="button" id="btn-mes-proximo" aria-label="Próximo mês">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-        </button>
-      </div>
-
-      <div class="filtros">
-        <select id="filtro-conta"><option value="">Todas contas</option></select>
-        <select id="filtro-categoria"><option value="">Todas categorias</option></select>
-      </div>
-
-      <div class="resumo">
-        <div class="resumo-card entradas">
-          <div class="resumo-rotulo">ENTRADAS</div>
-          <div class="resumo-valor valor-sensivel" id="total-entradas">R$ 0,00</div>
-        </div>
-        <div class="resumo-card saidas">
-          <div class="resumo-rotulo">SAÍDAS</div>
-          <div class="resumo-valor valor-sensivel" id="total-saidas">R$ 0,00</div>
-        </div>
+      <div class="topo-titulo">Cadastros</div>
+      <div class="abas">
+        <button type="button" class="aba ativa" data-aba="contas">Contas</button>
+        <button type="button" class="aba" data-aba="cartoes">Cartões</button>
+        <button type="button" class="aba" data-aba="categorias">Categorias</button>
       </div>
     </div>
 
     <div class="secao">
-      <div id="lista-lancamentos"></div>
+      <div id="lista-cadastros"></div>
     </div>
+
+    <button type="button" class="fab" id="btn-novo" aria-label="Novo cadastro">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
 
     <div class="nav-inferior">
       <div class="nav-inferior-inner">
@@ -210,11 +229,11 @@
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg>
           Cartão
         </a>
-        <a class="nav-item ativo" href="/pages/extrato.html">
+        <a class="nav-item" href="/pages/extrato.html">
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
           Extrato
         </a>
-        <a class="nav-item" href="/pages/cadastros.html">
+        <a class="nav-item ativo" href="/pages/cadastros.html">
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="7" cy="18" r="2" fill="currentColor" stroke="none"/></svg>
           Cadastros
         </a>
@@ -226,6 +245,20 @@
     </div>
   </div>
 
-  <script type="module" src="../js/extrato.js?v=2"></script>
+  <div class="sheet-overlay" id="sheet-form" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div id="sheet-form-conteudo"></div>
+    </div>
+  </div>
+
+  <div class="sheet-overlay" id="sheet-acoes" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div id="sheet-acoes-conteudo"></div>
+    </div>
+  </div>
+
+  <script type="module" src="../js/cadastros.js"></script>
 </body>
 </html>

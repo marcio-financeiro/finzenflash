@@ -196,7 +196,7 @@ async function carregarLancamentos(userId) {
 function renderContas(contas) {
   const container = document.getElementById('lista-contas');
   if (contas.length === 0) {
-    container.innerHTML = '<div class="conta-vazia">Nenhuma conta cadastrada ainda — cadastre no FinZen.</div>';
+    container.innerHTML = '<div class="conta-vazia">Nenhuma conta cadastrada ainda — <a href="/pages/cadastros.html">cadastre aqui</a>.</div>';
     return;
   }
 
@@ -699,7 +699,7 @@ async function carregarCartoesResumo(userId) {
 
 function renderConteudoCartoes({ linhas, total }) {
   if (linhas.length === 0) {
-    return '<div class="conta-vazia">Nenhum cartão cadastrado ainda — cadastre no FinZen.</div>';
+    return '<div class="conta-vazia">Nenhum cartão cadastrado ainda — <a href="/pages/cadastros.html">cadastre aqui</a>.</div>';
   }
   const itensHtml = linhas.map(({ cartao, fechamento, proximaFatura }) => `
     <button type="button" class="cartoes-linha" data-cartao="${cartao.id}">
