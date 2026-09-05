@@ -276,6 +276,34 @@ function renderLancamentos(lancamentos) {
   });
 }
 
+async function mudarMes(delta) {
+  mesRef.setMonth(mesRef.getMonth() + delta);
+  renderMes();
+  await Promise.all([recarregarTimeline(usuarioAtual), recarregarResumoMensal(), recarregarCardPendentes()]);
+}
+
+function ativarSwipeMes(el) {
+  let inicioX = 0;
+  let inicioY = 0;
+  let arrastando = false;
+  el.addEventListener('touchstart', (e) => {
+    inicioX = e.touches[0].clientX;
+    inicioY = e.touches[0].clientY;
+    arrastando = true;
+  }, { passive: true });
+  el.addEventListener('touchend', (e) => {
+    if (!arrastando) return;
+    arrastando = false;
+    const dx = e.changedTouches[0].clientX - inicioX;
+    const dy = e.changedTouches[0].clientY - inicioY;
+    // Só troca de mês se o arrasto for majoritariamente horizontal — senão
+    // atrapalha o scroll normal da página (vertical).
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      mudarMes(dx < 0 ? 1 : -1);
+    }
+  });
+}
+
 function attachToqueSegurar(el, aoAcionar) {
   let timer = null;
   let moveu = false;
@@ -1229,6 +1257,8 @@ function wireResumoEventos() {
   });
   container.querySelector('.btn-config-ranking')?.addEventListener('click', abrirSheetCategoriasRanking);
   container.querySelector('.btn-editar-metas')?.addEventListener('click', abrirSheetEditarMetas);
+  const gridMapaCalor = container.querySelector('.mapa-calor-grid');
+  if (gridMapaCalor) ativarSwipeMes(gridMapaCalor);
 }
 
 function abrirSheetCategoriasRanking() {
@@ -1405,20 +1435,8 @@ async function init() {
 
   usuarioAtual = user;
 
-  document.getElementById('btn-mes-anterior').addEventListener('click', () => {
-    mesRef.setMonth(mesRef.getMonth() - 1);
-    renderMes();
-    recarregarTimeline(user);
-    recarregarResumoMensal();
-    recarregarCardPendentes();
-  });
-  document.getElementById('btn-mes-proximo').addEventListener('click', () => {
-    mesRef.setMonth(mesRef.getMonth() + 1);
-    renderMes();
-    recarregarTimeline(user);
-    recarregarResumoMensal();
-    recarregarCardPendentes();
-  });
+  document.getElementById('btn-mes-anterior').addEventListener('click', () => mudarMes(-1));
+  document.getElementById('btn-mes-proximo').addEventListener('click', () => mudarMes(1));
 
   document.getElementById('btn-gerenciar-cards').addEventListener('click', abrirSheetCards);
   const sheetCards = document.getElementById('sheet-cards');
