@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Transferir — FinZen Flash</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0E7C86">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FinZen Flash">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <style>
+    body { display: flex; justify-content: center; }
+    .shell {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+    .topo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 8px 20px;
+    }
+    .topo a { display: flex; color: var(--text); }
+    .topo-titulo { font-size: 17px; font-weight: 800; }
+
+    .conteudo {
+      flex: 1;
+      padding: 12px 20px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .rodape {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      justify-content: center;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 16px 20px calc(16px + env(safe-area-inset-bottom, 0px)) 20px;
+    }
+    .rodape-inner { width: 100%; max-width: 480px; }
+    .rodape .btn-primary { height: 58px; font-size: 16px; width: 100%; }
+
+    .valor-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 26px 0;
+      border: none;
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      width: 100%;
+    }
+    .valor-rotulo { font-size: 12px; color: var(--muted); font-weight: 700; }
+    .valor-display { font-size: 48px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--text); }
+
+    .seta-transferencia { display: flex; justify-content: center; color: var(--muted); }
+
+    .sheet-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(16,38,42,0.45);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 20;
+    }
+    .sheet-overlay[hidden] { display: none; }
+    .sheet {
+      width: 100%;
+      max-width: 480px;
+      background: var(--surface);
+      border-radius: 24px 24px 0 0;
+      padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; }
+    .sheet-valor { font-size: 40px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+
+    .campo-rotulo { font-size: 12px; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip-conta {
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      border-radius: 20px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .chip-conta.selecionada { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+    .chip-conta:disabled { opacity: 0.35; }
+
+    .teclado { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
+    .tecla {
+      height: 52px;
+      border: none;
+      background: var(--surface-2);
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .tecla.tecla-apagar { color: var(--danger); font-size: 15px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topo">
+      <a href="/pages/home.html" aria-label="Voltar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <div class="topo-titulo">Transferir entre contas</div>
+    </div>
+
+    <div class="conteudo">
+      <button type="button" class="valor-area" id="btn-abrir-valor">
+        <div class="valor-rotulo">VALOR — toque para digitar</div>
+        <div class="valor-display" id="valor">R$ 0,00</div>
+      </button>
+
+      <div>
+        <div class="campo-rotulo">DE</div>
+        <div class="chips" id="lista-contas-origem"></div>
+      </div>
+
+      <div class="seta-transferencia">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+      </div>
+
+      <div>
+        <div class="campo-rotulo">PARA</div>
+        <div class="chips" id="lista-contas-destino"></div>
+      </div>
+
+      <div>
+        <div class="campo-rotulo">DESCRIÇÃO (OPCIONAL)</div>
+        <input id="descricao" type="text" placeholder="Ex: reserva de emergência">
+      </div>
+    </div>
+
+    <div class="rodape">
+      <div class="rodape-inner">
+        <div id="erro-transferir" class="error-msg"></div>
+        <button id="btn-salvar" type="button" class="btn-primary">Transferir</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet-overlay" id="sheet-valor" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-valor" id="sheet-valor-display">R$ 0,00</div>
+      <div class="teclado">
+        <button type="button" class="tecla" data-acao="1">1</button>
+        <button type="button" class="tecla" data-acao="2">2</button>
+        <button type="button" class="tecla" data-acao="3">3</button>
+        <button type="button" class="tecla" data-acao="4">4</button>
+        <button type="button" class="tecla" data-acao="5">5</button>
+        <button type="button" class="tecla" data-acao="6">6</button>
+        <button type="button" class="tecla" data-acao="7">7</button>
+        <button type="button" class="tecla" data-acao="8">8</button>
+        <button type="button" class="tecla" data-acao="9">9</button>
+        <button type="button" class="tecla" data-acao="00">00</button>
+        <button type="button" class="tecla" data-acao="0">0</button>
+        <button type="button" class="tecla tecla-apagar" data-acao="apagar">⌫</button>
+      </div>
+      <button type="button" class="btn-primary" id="btn-concluir-valor">Concluído</button>
+    </div>
+  </div>
+
+  <script type="module" src="../js/transferir.js"></script>
+</body>
+</html>
