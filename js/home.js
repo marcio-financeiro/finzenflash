@@ -140,15 +140,17 @@ async function carregarTimeline(userId, contaIds, saldoAtualReal) {
 }
 
 async function carregarLancamentos(userId) {
-  // O FinZen projeta lançamentos recorrentes com data futura (ex: contas
-  // fixas já lançadas até fevereiro/2027). Sem o filtro de data, essas
-  // entradas futuras aparecem antes dos lançamentos reais mais recentes.
+  // O FinZen projeta ocorrências futuras de lançamentos recorrentes (ex:
+  // contas fixas já geradas até fevereiro/2027, via parent_transaction_id).
+  // Sem excluir essas ocorrências, elas enchem o topo da lista e escondem
+  // os lançamentos reais mais recentes. Uma conta futura avulsa (cadastrada
+  // manualmente, sem parent_transaction_id) continua aparecendo normalmente.
   const [{ data: transacoes, error: erroTransacoes }, { data: compras, error: erroCompras }] = await Promise.all([
     supabase
       .from('transactions')
-      .select('id, type, amount, description, date, account_id, accounts(nome)')
+      .select('id, type, amount, description, date, status, account_id, accounts(nome)')
       .eq('user_id', userId)
-      .lte('date', hojeISO())
+      .or(`date.lte.${hojeISO()},parent_transaction_id.is.null`)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(15),
@@ -175,6 +177,7 @@ async function carregarLancamentos(userId) {
     amount: t.amount,
     description: t.description,
     date: t.date,
+    status: t.status,
     accountId: t.account_id,
     nomeOrigem: t.accounts?.nome ?? '',
   }));
@@ -359,8 +362,11 @@ async function excluirLancamento(lancamento) {
     return;
   }
 
-  const delta = lancamento.type === 'receita' ? -Number(lancamento.amount) : Number(lancamento.amount);
-  await supabase.rpc('increment_account_balance', { p_account_id: lancamento.accountId, p_delta: delta });
+  // Pendente nunca afetou o saldo — só reverte se já tiver sido contabilizado.
+  if (lancamento.status === 'pago') {
+    const delta = lancamento.type === 'receita' ? -Number(lancamento.amount) : Number(lancamento.amount);
+    await supabase.rpc('increment_account_balance', { p_account_id: lancamento.accountId, p_delta: delta });
+  }
 
   fecharSheetLancamento();
   await init();
@@ -760,6 +766,67 @@ async function carregarPendentes(userId, tipo, inicio, fim) {
   return { tipo, count: (data ?? []).length, total };
 }
 
+async function carregarPendentesLista(userId, tipo) {
+  // Sem limite de data (nem só do mês atual) — o usuário quer ver/editar
+  // uma conta pendente independente de quando ela vence.
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('id, type, amount, description, date, account_id, accounts(nome)')
+    .eq('user_id', userId)
+    .eq('type', tipo)
+    .eq('status', 'pendente')
+    .order('date', { ascending: true });
+  if (error) throw error;
+
+  return (data ?? []).map((t) => ({
+    id: t.id,
+    origem: 'conta',
+    type: t.type,
+    amount: t.amount,
+    description: t.description,
+    date: t.date,
+    status: 'pendente',
+    accountId: t.account_id,
+    nomeOrigem: t.accounts?.nome ?? '',
+  }));
+}
+
+async function abrirSheetListaPendentes() {
+  const textoTipo = pendentesTipo === 'despesa' ? 'Despesas pendentes' : 'Receitas pendentes';
+  document.getElementById('titulo-lista-pendentes').textContent = textoTipo;
+  const container = document.getElementById('lista-pendentes-itens');
+  container.innerHTML = '<div class="conta-vazia">Carregando...</div>';
+  document.getElementById('sheet-lista-pendentes').hidden = false;
+
+  try {
+    const itens = await carregarPendentesLista(usuarioAtual.id, pendentesTipo);
+    if (itens.length === 0) {
+      container.innerHTML = '<div class="conta-vazia">Nenhuma pendência.</div>';
+      return;
+    }
+    container.innerHTML = itens.map((l) => `
+      <div class="lancamento-card" data-id="${l.id}">
+        <div class="lancamento-icone ${l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${l.type === 'receita' ? iconReceita() : iconDespesa()}</div>
+        <div class="lancamento-info">
+          <div class="lancamento-desc">${escapeHtml(l.description)}</div>
+          <div class="lancamento-conta">${escapeHtml(l.nomeOrigem)} · vence ${fmtDataCurta.format(new Date(l.date + 'T00:00:00'))}</div>
+        </div>
+        <div class="lancamento-valor valor-sensivel ${l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${fmt.format(Math.abs(l.amount))}</div>
+      </div>
+    `).join('');
+    container.querySelectorAll('.lancamento-card').forEach((el) => {
+      const lancamento = itens.find((l) => l.id === el.dataset.id);
+      if (lancamento) el.addEventListener('click', () => {
+        document.getElementById('sheet-lista-pendentes').hidden = true;
+        abrirSheetLancamento(lancamento);
+      });
+    });
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = '<div class="conta-vazia">Não foi possível carregar.</div>';
+  }
+}
+
 function proximoFechamento(fechamentoDia) {
   const hoje = new Date();
   const mesFechamento = fechamentoDia >= hoje.getDate() ? hoje.getMonth() : hoje.getMonth() + 1;
@@ -1105,9 +1172,7 @@ function wireResumoEventos() {
       await recarregarCardPendentes();
     });
   });
-  document.getElementById('btn-ver-pendentes')?.addEventListener('click', () => {
-    window.location.href = '/pages/extrato.html';
-  });
+  document.getElementById('btn-ver-pendentes')?.addEventListener('click', abrirSheetListaPendentes);
   container.querySelectorAll('.ranking-linha.clicavel').forEach((btn) => {
     btn.addEventListener('click', () => {
       const refMes = `${mesRef.getFullYear()}-${String(mesRef.getMonth() + 1).padStart(2, '0')}`;
@@ -1332,6 +1397,10 @@ async function init() {
   const sheetLancamento = document.getElementById('sheet-lancamento');
   sheetLancamento.addEventListener('click', (e) => { if (e.target === sheetLancamento) fecharSheetLancamento(); });
   ativarArrastarParaFechar(sheetLancamento);
+
+  const sheetListaPendentes = document.getElementById('sheet-lista-pendentes');
+  sheetListaPendentes.addEventListener('click', (e) => { if (e.target === sheetListaPendentes) sheetListaPendentes.hidden = true; });
+  ativarArrastarParaFechar(sheetListaPendentes);
 
   try {
     const [contas, lancamentos, preferencias, categoriasDespesa, categoriasOcultas] = await Promise.all([
