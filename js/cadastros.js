@@ -13,6 +13,9 @@ let contas = [];
 let cartoes = [];
 let categorias = [];
 let recorrentes = [];
+let orcamentos = [];
+let orcamentoMes = '';
+let orcamentoMesHerdadoDe = null;
 
 const LABELS_FREQUENCIA = { mensal: 'Mensal', semanal: 'Semanal', anual: 'Anual' };
 
@@ -104,6 +107,37 @@ async function carregarRecorrentes(userId) {
   return (data ?? []).map((r) => ({ ...r, nome: r.description }));
 }
 
+async function carregarOrcamentos(userId, mes) {
+  const { data, error } = await supabase
+    .from('budgets')
+    .select('id, category_id, valor_planejado, categories:category_id(nome, icon)')
+    .eq('user_id', userId)
+    .eq('mes_referencia', mes)
+    .order('valor_planejado', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((o) => ({ ...o, nome: o.categories?.nome || 'Categoria' }));
+}
+
+async function recarregarOrcamentos() {
+  orcamentoMesHerdadoDe = null;
+  let lista = await carregarOrcamentos(usuarioAtual.id, orcamentoMes);
+
+  if (lista.length === 0) {
+    const { data: anteriores } = await supabase
+      .from('budgets')
+      .select('mes_referencia')
+      .eq('user_id', usuarioAtual.id)
+      .lt('mes_referencia', orcamentoMes)
+      .order('mes_referencia', { ascending: false })
+      .limit(1);
+    if (anteriores?.length) orcamentoMesHerdadoDe = anteriores[0].mes_referencia;
+  }
+
+  orcamentos = lista;
+  renderOrcamentos(document.getElementById('lista-orcamentos'));
+  document.getElementById('contagem-orcamentos').textContent = orcamentos.length;
+}
+
 async function recarregarTudo() {
   [contas, cartoes, categorias, recorrentes] = await Promise.all([
     carregarContas(usuarioAtual.id),
@@ -112,6 +146,7 @@ async function recarregarTudo() {
     carregarRecorrentes(usuarioAtual.id),
   ]);
   renderLista();
+  await recarregarOrcamentos();
 }
 
 function renderLista() {
@@ -201,6 +236,65 @@ function renderCategorias(container) {
   wireItens();
 }
 
+function mesLabel(ym) {
+  const [a, m] = ym.split('-');
+  const texto = new Date(a, m - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+function mesAdicionar(ym, n) {
+  const [a, m] = ym.split('-').map(Number);
+  const d = new Date(a, m - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function renderOrcamentos(container) {
+  document.getElementById('orcamento-mes-label').textContent = mesLabel(orcamentoMes);
+
+  if (orcamentos.length === 0) {
+    if (orcamentoMesHerdadoDe) {
+      container.innerHTML = `
+        <div class="conta-vazia">Nenhum orçamento para este mês.</div>
+        <button type="button" class="orcamento-copiar-btn" id="btn-copiar-orcamento" style="display:block;margin:0 auto;">
+          Copiar orçamento de ${mesLabel(orcamentoMesHerdadoDe)}
+        </button>
+      `;
+      document.getElementById('btn-copiar-orcamento').addEventListener('click', copiarOrcamentoMesAnterior);
+    } else {
+      container.innerHTML = '<div class="conta-vazia">Nenhum orçamento cadastrado. Toque em + para criar o primeiro.</div>';
+    }
+    return;
+  }
+
+  container.innerHTML = orcamentos.map((o) => `
+    <button type="button" class="item-cadastro" data-tipo="orcamento" data-id="${o.id}">
+      <div class="item-avatar" style="background:var(--surface-2)">${o.categories?.icon || '💰'}</div>
+      <div class="item-info">
+        <div class="item-nome">${escapeHtml(o.nome)}</div>
+        <div class="item-detalhe">Planejado: ${fmt.format(o.valor_planejado || 0)}</div>
+      </div>
+    </button>
+  `).join('');
+  wireItens();
+}
+
+async function copiarOrcamentoMesAnterior() {
+  const btn = document.getElementById('btn-copiar-orcamento');
+  btn.disabled = true;
+  btn.textContent = 'Copiando...';
+  const anteriores = await carregarOrcamentos(usuarioAtual.id, orcamentoMesHerdadoDe);
+  const { error } = await supabase.from('budgets').insert(
+    anteriores.map((o) => ({ user_id: usuarioAtual.id, mes_referencia: orcamentoMes, category_id: o.category_id, valor_planejado: o.valor_planejado }))
+  );
+  if (error) { btn.disabled = false; btn.textContent = 'Copiar orçamento'; return; }
+  await recarregarOrcamentos();
+}
+
+async function mudarOrcamentoMes(delta) {
+  orcamentoMes = mesAdicionar(orcamentoMes, delta);
+  await recarregarOrcamentos();
+}
+
 function wireItens() {
   document.querySelectorAll('.item-cadastro').forEach((el) => {
     el.addEventListener('click', () => {
@@ -214,6 +308,7 @@ function encontrarItem(tipo, id) {
   if (tipo === 'conta') return contas.find((c) => c.id === id);
   if (tipo === 'cartao') return cartoes.find((c) => c.id === id);
   if (tipo === 'recorrente') return recorrentes.find((c) => c.id === id);
+  if (tipo === 'orcamento') return orcamentos.find((c) => c.id === id);
   return categorias.find((c) => c.id === id);
 }
 
@@ -275,6 +370,7 @@ function confirmarExclusao(tipo, item) {
     cartao: 'Faturas e compras associadas serão perdidas.',
     categoria: 'Lançamentos com essa categoria ficam sem categoria.',
     recorrente: 'Para de gerar novos lançamentos. Ocorrências já geradas continuam existindo.',
+    orcamento: 'O planejamento desta categoria some do relatório do mês.',
   };
   conteudo.innerHTML = `
     <div class="sheet-titulo">Excluir "${escapeHtml(item.nome)}"?</div>
@@ -290,7 +386,7 @@ async function excluirItem(tipo, item) {
   const btn = document.getElementById('btn-confirmar-exclusao');
   btn.disabled = true;
   btn.textContent = 'Excluindo...';
-  const tabela = { conta: 'accounts', cartao: 'credit_cards', categoria: 'categories', recorrente: 'transactions' }[tipo];
+  const tabela = { conta: 'accounts', cartao: 'credit_cards', categoria: 'categories', recorrente: 'transactions', orcamento: 'budgets' }[tipo];
   const { error } = await supabase.from(tabela).delete().eq('id', item.id).eq('user_id', usuarioAtual.id);
   if (error) {
     btn.disabled = false;
@@ -298,6 +394,7 @@ async function excluirItem(tipo, item) {
     return;
   }
   fecharSheet('sheet-acoes');
+  if (tipo === 'orcamento') { await recarregarOrcamentos(); return; }
   await recarregarTudo();
 }
 
@@ -329,6 +426,7 @@ function abrirSheetForm(tipo, item) {
   if (tipo === 'conta') conteudo.innerHTML = formConta(item);
   else if (tipo === 'cartao') conteudo.innerHTML = formCartao(item);
   else if (tipo === 'recorrente') conteudo.innerHTML = formRecorrente(item);
+  else if (tipo === 'orcamento') conteudo.innerHTML = formOrcamento(item);
   else conteudo.innerHTML = formCategoria(item);
 
   document.getElementById('btn-cancelar-form').addEventListener('click', () => fecharSheet('sheet-form'));
@@ -401,6 +499,23 @@ function formRecorrente(r) {
   `;
 }
 
+function formOrcamento(o) {
+  const categoriasDisponiveis = categorias.filter((c) =>
+    c.tipo === 'despesa' && (o?.category_id === c.id || !orcamentos.some((x) => x.category_id === c.id))
+  );
+  const campoCategoria = o
+    ? `<div class="field"><label>Categoria</label><input type="text" value="${escapeHtml(o.nome)}" disabled></div>`
+    : campoSelect('f-categoria', 'Categoria', categoriasDisponiveis.map((c) => ({ valor: c.id, texto: `${c.icon || ''} ${c.nome}`.trim() })), '');
+  return `
+    <div class="sheet-titulo">${o ? 'Editar orçamento' : 'Novo orçamento'} — ${mesLabel(orcamentoMes)}</div>
+    ${campoCategoria}
+    ${campoTexto('f-valor', 'Valor planejado', o ? String(o.valor_planejado ?? 0).replace('.', ',') : '', '0,00')}
+    <div class="error-msg" id="erro-form"></div>
+    <button type="button" class="btn-primary" id="btn-salvar-form">Salvar</button>
+    <button type="button" class="sheet-acao-btn" id="btn-cancelar-form">Cancelar</button>
+  `;
+}
+
 function lerValorMonetario(id) {
   const bruto = document.getElementById(id).value.trim();
   const normalizado = bruto.replace(/\./g, '').replace(',', '.');
@@ -408,7 +523,42 @@ function lerValorMonetario(id) {
   return Number.isFinite(numero) ? numero : 0;
 }
 
+async function salvarOrcamento(item) {
+  const erro = document.getElementById('erro-form');
+  const btn = document.getElementById('btn-salvar-form');
+  const valor = lerValorMonetario('f-valor');
+  if (!valor) { erro.textContent = 'Informe o valor planejado.'; return; }
+
+  const dados = { valor_planejado: valor };
+  if (!item) {
+    const categoryId = document.getElementById('f-categoria').value;
+    if (!categoryId) { erro.textContent = 'Selecione a categoria.'; return; }
+    dados.category_id = categoryId;
+    dados.mes_referencia = orcamentoMes;
+    dados.user_id = usuarioAtual.id;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  const { error } = item
+    ? await supabase.from('budgets').update(dados).eq('id', item.id).eq('user_id', usuarioAtual.id)
+    : await supabase.from('budgets').insert(dados);
+
+  if (error) {
+    erro.textContent = 'Erro: ' + error.message;
+    btn.disabled = false;
+    btn.textContent = 'Salvar';
+    return;
+  }
+
+  fecharSheet('sheet-form');
+  await recarregarOrcamentos();
+}
+
 async function salvarForm(tipo, item) {
+  if (tipo === 'orcamento') { await salvarOrcamento(item); return; }
+
   const erro = document.getElementById('erro-form');
   const btn = document.getElementById('btn-salvar-form');
   const nome = document.getElementById('f-nome').value.trim();
@@ -520,6 +670,13 @@ async function init() {
   const sheetAcoes = document.getElementById('sheet-acoes');
   sheetAcoes.addEventListener('click', (e) => { if (e.target === sheetAcoes) sheetAcoes.hidden = true; });
   ativarArrastarParaFechar(sheetAcoes);
+
+  if (!orcamentoMes) {
+    const hoje = new Date();
+    orcamentoMes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+  }
+  document.getElementById('btn-orcamento-mes-anterior').addEventListener('click', () => mudarOrcamentoMes(-1));
+  document.getElementById('btn-orcamento-mes-proximo').addEventListener('click', () => mudarOrcamentoMes(1));
 
   try {
     await recarregarTudo();

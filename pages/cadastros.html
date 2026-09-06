@@ -229,6 +229,37 @@
     }
     .field input[type="color"] { height: 52px; padding: 4px; cursor: pointer; }
     .error-msg { color: var(--danger); font-size: 13px; text-align: center; min-height: 16px; }
+
+    .orcamento-mes-seletor {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface-2);
+      border-radius: var(--radius-md);
+      padding: 6px 4px;
+      margin-bottom: 4px;
+    }
+    .orcamento-mes-seletor button {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: none;
+      background: var(--surface);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .orcamento-mes-seletor span { font-size: 12px; font-weight: 800; }
+    .orcamento-copiar-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      font-family: inherit;
+      padding: 4px 0;
+    }
   </style>
 </head>
 <body>
@@ -293,6 +324,31 @@
         </div>
         <div class="grupo-conteudo" id="lista-recorrentes"></div>
       </div>
+
+      <div class="grupo-cadastro" data-grupo="orcamentos">
+        <div class="grupo-cabecalho">
+          <button type="button" class="grupo-titulo-btn" data-toggle-grupo="orcamentos">
+            <svg class="grupo-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            <span class="grupo-nome">Orçamentos</span>
+            <span class="grupo-contagem" id="contagem-orcamentos">0</span>
+          </button>
+          <button type="button" class="btn-add-grupo" data-add-grupo="orcamento" aria-label="Novo orçamento">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div class="grupo-conteudo">
+          <div class="orcamento-mes-seletor">
+            <button type="button" id="btn-orcamento-mes-anterior" aria-label="Mês anterior">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <span id="orcamento-mes-label">—</span>
+            <button type="button" id="btn-orcamento-mes-proximo" aria-label="Próximo mês">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </button>
+          </div>
+          <div id="lista-orcamentos"></div>
+        </div>
+      </div>
     </div>
 
     <div id="nav-inferior-slot"></div>
@@ -312,6 +368,6 @@
     </div>
   </div>
 
-  <script type="module" src="../js/cadastros.js?v=5"></script>
+  <script type="module" src="../js/cadastros.js?v=6"></script>
 </body>
 </html>
