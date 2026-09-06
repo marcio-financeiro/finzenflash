@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="/css/variables.css">
   <link rel="stylesheet" href="/css/base.css">
   <style>
-    body { display: flex; justify-content: center; }
+    body { display: flex; justify-content: center; align-items: flex-start; }
     .shell {
       width: 100%;
       max-width: 480px;
@@ -130,8 +130,10 @@
     .conta-vazia { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
 
     .nav-inferior {
-      position: sticky;
+      position: fixed;
       bottom: 0;
+      left: 0;
+      right: 0;
       display: flex;
       justify-content: center;
       background: var(--surface);
