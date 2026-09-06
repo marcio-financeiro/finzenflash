@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Extrato — FinZen Flash</title>
+  <title>Relatórios — FinZen Flash</title>
   <link rel="icon" href="/img/logo-mark.png">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0E7C86">
@@ -23,6 +23,7 @@
       min-height: 100dvh;
       display: flex;
       flex-direction: column;
+      padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
     }
     .topo {
       padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 16px 20px;
@@ -32,7 +33,8 @@
     }
     .topo-linha { display: flex; align-items: center; justify-content: space-between; }
     .topo-titulo { font-size: 20px; font-weight: 800; }
-    .btn-privacidade {
+    .topo-acoes { display: flex; gap: 8px; }
+    .btn-privacidade, .btn-exportar {
       width: 32px;
       height: 32px;
       border-radius: 8px;
@@ -44,6 +46,20 @@
       justify-content: center;
     }
 
+    .modo-tabs { display: flex; gap: 8px; }
+    .modo-tab {
+      flex: 1;
+      height: 36px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      font-family: inherit;
+    }
+    .modo-tab.ativo { background: var(--accent); border-color: var(--accent); color: #fff; }
+
     .seletor-mes {
       display: flex;
       align-items: center;
@@ -53,6 +69,7 @@
       border-radius: var(--radius-md);
       padding: 8px 6px;
     }
+    .seletor-mes[hidden] { display: none; }
     .seletor-mes button {
       width: 34px;
       height: 34px;
@@ -66,68 +83,48 @@
     }
     #mes-atual { font-size: 14px; font-weight: 800; }
 
-    .filtros { display: flex; gap: 8px; }
-    .filtros select {
-      flex: 1;
-      min-width: 0;
+    .seletor-periodo { display: flex; gap: 8px; align-items: center; }
+    .seletor-periodo[hidden] { display: none; }
+    .seletor-periodo .field { flex: 1; }
+    .seletor-periodo label { font-size: 11px; color: var(--muted); font-weight: 700; display: block; margin-bottom: 4px; }
+    .seletor-periodo input {
+      width: 100%;
       height: 40px;
-      border-radius: 20px;
+      border-radius: var(--radius-md);
       border: 1.5px solid var(--border);
       background: var(--surface);
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
+      color: var(--text);
+      padding: 0 10px;
+      font-size: 13px;
       font-family: inherit;
-      padding: 0 12px;
     }
 
-    .resumo { display: flex; gap: 10px; }
-    .resumo-card { flex: 1; border-radius: var(--radius-md); padding: 12px 14px; }
-    .resumo-card.entradas { background: var(--success-soft); }
-    .resumo-card.saidas { background: var(--danger-soft); }
-    .resumo-rotulo { font-size: 11px; font-weight: 700; }
-    .resumo-card.entradas .resumo-rotulo, .resumo-card.entradas .resumo-valor { color: var(--success); }
-    .resumo-card.saidas .resumo-rotulo, .resumo-card.saidas .resumo-valor { color: var(--danger); }
-    .resumo-valor { font-size: 16px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .conteudo { padding: 4px 20px 20px 20px; display: flex; flex-direction: column; gap: 16px; }
 
-    .secao {
-      flex: 1;
-      padding: 4px 20px 84px 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .dia-label { font-size: 12px; color: var(--muted); font-weight: 700; padding: 10px 0 2px 0; }
-    .dia-label:first-child { padding-top: 0; }
-
-    .lancamento-card {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    .card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      padding: 12px 14px;
+      border-radius: var(--radius-lg);
+      padding: 16px;
     }
-    .lancamento-icone {
-      width: 38px;
-      height: 38px;
-      border-radius: var(--radius-md);
+    .card-titulo { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
+    .grafico-wrap { position: relative; height: 200px; }
+    .grafico-wrap.categorias { height: 220px; }
+
+    .ranking-item {
       display: flex;
       align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
     }
-    .lancamento-icone.is-receita { background: var(--success-soft); }
-    .lancamento-icone.is-despesa { background: var(--danger-soft); }
-    .lancamento-info { flex: 1; min-width: 0; }
-    .lancamento-desc { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .lancamento-conta { font-size: 12px; color: var(--muted); }
-    .lancamento-valor { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
-    .lancamento-valor.is-receita { color: var(--success); }
-    .lancamento-valor.is-despesa { color: var(--danger); }
+    .ranking-item:last-child { border-bottom: none; }
+    .ranking-ponto { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+    .ranking-nome { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ranking-valor { font-size: 13px; font-weight: 800; white-space: nowrap; }
+    .ranking-pct { font-size: 11px; color: var(--muted); width: 42px; text-align: right; flex-shrink: 0; }
 
-    .conta-vazia { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
+    .conta-vazia { text-align: center; color: var(--muted); font-size: 13px; padding: 16px 0; }
 
     .nav-inferior {
       position: fixed;
@@ -211,17 +208,32 @@
     }
     .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; flex-shrink: 0; }
     .sheet-titulo { font-size: 16px; font-weight: 800; text-align: center; flex-shrink: 0; }
+
+    @media print {
+      .topo-acoes #btn-privacidade, .modo-tabs, #nav-inferior-slot, .btn-exportar { display: none !important; }
+      body, .shell { background: #fff !important; }
+    }
   </style>
 </head>
 <body>
   <div class="shell">
     <div class="topo">
       <div class="topo-linha">
-        <div class="topo-titulo">Extrato</div>
-        <button type="button" id="btn-privacidade" class="btn-privacidade" aria-label="Ocultar valores"></button>
+        <div class="topo-titulo">Relatórios</div>
+        <div class="topo-acoes">
+          <button type="button" id="btn-exportar" class="btn-exportar" aria-label="Exportar PDF">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+          </button>
+          <button type="button" id="btn-privacidade" class="btn-privacidade" aria-label="Ocultar valores"></button>
+        </div>
       </div>
 
-      <div class="seletor-mes">
+      <div class="modo-tabs">
+        <button type="button" class="modo-tab ativo" id="tab-mes">Mês</button>
+        <button type="button" class="modo-tab" id="tab-periodo">Período</button>
+      </div>
+
+      <div class="seletor-mes" id="seletor-mes">
         <button type="button" id="btn-mes-anterior" aria-label="Mês anterior">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
@@ -231,30 +243,39 @@
         </button>
       </div>
 
-      <div class="filtros">
-        <select id="filtro-conta"><option value="">Todas contas</option></select>
-        <select id="filtro-categoria"><option value="">Todas categorias</option></select>
-      </div>
-
-      <div class="resumo">
-        <div class="resumo-card entradas">
-          <div class="resumo-rotulo">ENTRADAS</div>
-          <div class="resumo-valor valor-sensivel" id="total-entradas">R$ 0,00</div>
+      <div class="seletor-periodo" id="seletor-periodo" hidden>
+        <div class="field">
+          <label for="periodo-inicio">De</label>
+          <input type="date" id="periodo-inicio">
         </div>
-        <div class="resumo-card saidas">
-          <div class="resumo-rotulo">SAÍDAS</div>
-          <div class="resumo-valor valor-sensivel" id="total-saidas">R$ 0,00</div>
+        <div class="field">
+          <label for="periodo-fim">Até</label>
+          <input type="date" id="periodo-fim">
         </div>
       </div>
     </div>
 
-    <div class="secao">
-      <div id="lista-lancamentos"></div>
+    <div class="conteudo">
+      <div class="card" id="card-recdes">
+        <div class="card-titulo" id="titulo-recdes">Receita vs Despesa — últimos 12 meses</div>
+        <div class="grafico-wrap"><canvas id="chart-recdes"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-titulo">Despesas por Categoria</div>
+        <div class="grafico-wrap categorias"><canvas id="chart-categorias"></canvas></div>
+        <div id="ranking-categorias"></div>
+      </div>
+
+      <div class="card" id="card-orcamento">
+        <div class="card-titulo">Orçamento vs Realizado</div>
+        <div id="wrap-orcamento"><div class="conta-vazia">Carregando...</div></div>
+      </div>
     </div>
 
     <div id="nav-inferior-slot"></div>
   </div>
 
-  <script type="module" src="../js/extrato.js?v=3"></script>
+  <script type="module" src="../js/relatorios.js"></script>
 </body>
 </html>
