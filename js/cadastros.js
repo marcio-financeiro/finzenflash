@@ -1,6 +1,6 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { ativarArrastarParaFechar } from './sheetGestos.js';
-import { montarNavInferior } from './navInferior.js?v=2';
+import { montarNavInferior } from './navInferior.js?v=3';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 

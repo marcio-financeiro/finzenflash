@@ -8,9 +8,10 @@ const ICONE_CADASTROS = '<svg width="19" height="19" viewBox="0 0 24 24" fill="n
 const ICONE_INVESTIR = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>';
 const ICONE_OFFSHORE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="21"/><path d="M5 13a7 7 0 0 0 14 0"/><line x1="5" y1="13" x2="3" y2="13"/><line x1="19" y1="13" x2="21" y2="13"/></svg>';
 const ICONE_RELATORIOS = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M4 19h16"/></svg>';
+const ICONE_PROJECAO = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l4-5 4 3 5-7 5 4"/></svg>';
 const ICONE_SAIR = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>';
 
-const PAGINAS_NO_MAIS = ['cadastros', 'investimentos', 'offshore', 'relatorios'];
+const PAGINAS_NO_MAIS = ['cadastros', 'investimentos', 'offshore', 'relatorios', 'projecao'];
 
 /**
  * Monta o menu inferior (Início/Cartão/Extrato/Mais) dentro de
@@ -45,6 +46,7 @@ export function montarNavInferior(paginaAtiva) {
         <a class="mais-item ${ativo('investimentos')}" href="/pages/investimentos.html">${ICONE_INVESTIR}Investimentos</a>
         <a class="mais-item ${ativo('offshore')}" href="/pages/offshore.html">${ICONE_OFFSHORE}Offshore</a>
         <a class="mais-item ${ativo('relatorios')}" href="/pages/relatorios.html">${ICONE_RELATORIOS}Relatórios</a>
+        <a class="mais-item ${ativo('projecao')}" href="/pages/projecao.html">${ICONE_PROJECAO}Saldo projetado</a>
         <button type="button" class="mais-item perigo" id="btn-sair-nav">${ICONE_SAIR}Sair</button>
       </div>
     </div>

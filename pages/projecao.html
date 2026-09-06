@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Projeção — FinZen Flash</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0E7C86">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FinZen Flash">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <style>
+    body { display: flex; justify-content: center; align-items: flex-start; }
+    .shell {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    }
+    .topo {
+      padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .topo a { display: flex; color: var(--text); }
+    .topo-titulo { font-size: 17px; font-weight: 800; }
+
+    .tabs-horizonte { display: flex; gap: 8px; padding: 0 20px 16px 20px; }
+    .tab-horizonte {
+      flex: 1;
+      height: 36px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+    }
+    .tab-horizonte.ativo { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    .painel-projecao {
+      margin: 0 20px 16px 20px;
+      background: linear-gradient(135deg, var(--accent-grad-1), var(--accent-grad-2));
+      border-radius: var(--radius-lg);
+      padding: 20px 20px 16px 20px;
+      color: #fff;
+    }
+    .painel-projecao.critico { background: linear-gradient(135deg, #7a2e22, #a63f2c); }
+    .projecao-legenda { font-size: 11px; color: rgba(255,255,255,0.75); font-weight: 700; margin-bottom: 4px; }
+    .projecao-titulo { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
+    .projecao-sub { font-size: 12px; color: rgba(255,255,255,0.85); font-weight: 600; margin-bottom: 14px; }
+    .projecao-grafico-wrap { height: 130px; margin: 0 -6px; }
+
+    .card { margin: 0 20px 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .card-stat { flex: 1; }
+    .card-stat-rotulo { font-size: 11px; color: var(--muted); font-weight: 700; }
+    .card-stat-valor { font-size: 15px; font-weight: 800; margin-top: 2px; }
+    .card-stat-data { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .card-seta { color: var(--muted); flex-shrink: 0; }
+
+    .secao { padding: 0 20px; }
+    .secao-titulo-linha { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px; color: var(--muted); font-weight: 700; }
+
+    .evento-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 8px; }
+    .evento-ponto { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .evento-info { flex: 1; min-width: 0; }
+    .evento-nome { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .evento-data { font-size: 12px; color: var(--muted); }
+    .evento-direita { text-align: right; flex-shrink: 0; }
+    .evento-valor { font-size: 14px; font-weight: 800; }
+    .evento-valor.positivo { color: var(--success); }
+    .evento-valor.negativo { color: var(--danger); }
+    .evento-saldo { font-size: 11px; color: var(--muted); }
+
+    .conta-vazia { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0; }
+
+    .nav-inferior {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .nav-inferior-inner { width: 100%; max-width: 480px; display: flex; justify-content: space-around; padding: 10px 0; }
+    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); text-decoration: none; font-size: 10px; font-weight: 700; background: none; border: none; font-family: inherit; }
+    .nav-item.ativo { color: var(--accent); }
+
+    .mais-item { display: flex; align-items: center; gap: 12px; padding: 14px 4px; border-bottom: 1px solid var(--border); text-decoration: none; color: var(--text); font-size: 15px; font-weight: 700; background: none; border-left: none; border-right: none; border-top: none; width: 100%; font-family: inherit; text-align: left; }
+    .mais-item:last-child { border-bottom: none; }
+    .mais-item svg { flex-shrink: 0; color: var(--muted); }
+    .mais-item.ativo { color: var(--accent); }
+    .mais-item.ativo svg { color: var(--accent); }
+    .mais-item.perigo { color: var(--danger); }
+    .mais-item.perigo svg { color: var(--danger); }
+
+    .sheet-overlay { position: fixed; inset: 0; background: rgba(16,38,42,0.45); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
+    .sheet-overlay[hidden] { display: none; }
+    .sheet { width: 100%; max-width: 480px; max-height: calc(85vh - env(safe-area-inset-top, 0px)); overflow-y: auto; background: var(--surface); border-radius: 24px 24px 0 0; padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px; display: flex; flex-direction: column; gap: 16px; }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; flex-shrink: 0; }
+    .sheet-titulo { font-size: 16px; font-weight: 800; text-align: center; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topo">
+      <a href="/pages/home.html" aria-label="Voltar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <div class="topo-titulo">Saldo projetado</div>
+    </div>
+
+    <div class="tabs-horizonte">
+      <button type="button" class="tab-horizonte ativo" data-dias="30">30 dias</button>
+      <button type="button" class="tab-horizonte" data-dias="60">60 dias</button>
+      <button type="button" class="tab-horizonte" data-dias="90">90 dias</button>
+    </div>
+
+    <div class="painel-projecao" id="painel-projecao">
+      <div class="projecao-legenda">COM O QUE JÁ ESTÁ AGENDADO</div>
+      <div class="projecao-titulo" id="projecao-titulo">Calculando...</div>
+      <div class="projecao-sub" id="projecao-sub"></div>
+      <div class="projecao-grafico-wrap"><canvas id="chart-projecao"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-stat">
+        <div class="card-stat-rotulo">Menor folga</div>
+        <div class="card-stat-valor valor-sensivel" id="menor-folga-valor">R$ 0,00</div>
+        <div class="card-stat-data" id="menor-folga-data"></div>
+      </div>
+      <div class="card-seta">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </div>
+      <div class="card-stat" style="text-align:right">
+        <div class="card-stat-rotulo">Termina em</div>
+        <div class="card-stat-valor valor-sensivel" id="saldo-final-valor">R$ 0,00</div>
+        <div class="card-stat-data" id="saldo-final-data"></div>
+      </div>
+    </div>
+
+    <div class="secao">
+      <div class="secao-titulo-linha">
+        <span id="eventos-titulo">O que acontece</span>
+        <span>saldo após</span>
+      </div>
+      <div id="lista-eventos"><div class="conta-vazia">Carregando...</div></div>
+    </div>
+
+    <div id="nav-inferior-slot"></div>
+  </div>
+
+  <script type="module" src="../js/projecao.js"></script>
+</body>
+</html>
