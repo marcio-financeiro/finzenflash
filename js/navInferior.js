@@ -9,9 +9,10 @@ const ICONE_INVESTIR = '<svg width="19" height="19" viewBox="0 0 24 24" fill="no
 const ICONE_OFFSHORE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="21"/><path d="M5 13a7 7 0 0 0 14 0"/><line x1="5" y1="13" x2="3" y2="13"/><line x1="19" y1="13" x2="21" y2="13"/></svg>';
 const ICONE_RELATORIOS = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M4 19h16"/></svg>';
 const ICONE_PROJECAO = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l4-5 4 3 5-7 5 4"/></svg>';
+const ICONE_SAUDE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>';
 const ICONE_SAIR = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>';
 
-const PAGINAS_NO_MAIS = ['cadastros', 'investimentos', 'offshore', 'relatorios', 'projecao'];
+const PAGINAS_NO_MAIS = ['cadastros', 'investimentos', 'offshore', 'relatorios', 'projecao', 'saude'];
 
 /**
  * Monta o menu inferior (Início/Cartão/Extrato/Mais) dentro de
@@ -47,6 +48,7 @@ export function montarNavInferior(paginaAtiva) {
         <a class="mais-item ${ativo('offshore')}" href="/pages/offshore.html">${ICONE_OFFSHORE}Offshore</a>
         <a class="mais-item ${ativo('relatorios')}" href="/pages/relatorios.html">${ICONE_RELATORIOS}Relatórios</a>
         <a class="mais-item ${ativo('projecao')}" href="/pages/projecao.html">${ICONE_PROJECAO}Saldo projetado</a>
+        <a class="mais-item ${ativo('saude')}" href="/pages/saude.html">${ICONE_SAUDE}Saúde Financeira</a>
         <button type="button" class="mais-item perigo" id="btn-sair-nav">${ICONE_SAIR}Sair</button>
       </div>
     </div>

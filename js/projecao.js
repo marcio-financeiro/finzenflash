@@ -1,6 +1,6 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
-import { montarNavInferior } from './navInferior.js?v=3';
+import { montarNavInferior } from './navInferior.js?v=4';
 import { loadChart } from './loadChart.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });

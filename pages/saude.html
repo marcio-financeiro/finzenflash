@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Saúde Financeira — FinZen Flash</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0E7C86">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FinZen Flash">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <style>
+    body { display: flex; justify-content: center; align-items: flex-start; }
+    .shell {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    }
+    .topo {
+      padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .topo a { display: flex; color: var(--text); }
+    .topo-titulo { font-size: 17px; font-weight: 800; }
+
+    .card { margin: 0 20px 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; }
+
+    .score-linha { display: flex; align-items: baseline; justify-content: space-between; }
+    .score-numero { font-size: 44px; font-weight: 800; }
+    .score-numero span { font-size: 18px; color: var(--muted); font-weight: 700; }
+    .score-badge { font-size: 12px; font-weight: 800; padding: 5px 12px; border-radius: 20px; }
+    .score-badge.excelente { background: var(--success-soft); color: var(--success); }
+    .score-badge.bom { background: var(--accent-soft); color: var(--accent); }
+    .score-badge.regular { background: #c9963f22; color: #c9963f; }
+    .score-badge.atencao { background: var(--danger-soft); color: var(--danger); }
+    .score-data { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+    .composicao-titulo { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 14px; }
+    .metrica { margin-bottom: 16px; }
+    .metrica:last-child { margin-bottom: 0; }
+    .metrica-linha { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+    .metrica-nome { font-size: 14px; font-weight: 700; }
+    .metrica-nota { font-size: 14px; font-weight: 800; }
+    .metrica-barra { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-bottom: 4px; }
+    .metrica-barra-fill { height: 100%; border-radius: 3px; }
+    .metrica-desc { font-size: 12px; color: var(--muted); }
+
+    .analise-titulo { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 10px; }
+    .analise-texto { font-size: 13px; line-height: 1.6; color: var(--text); }
+
+    .conta-vazia { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0; }
+
+    .nav-inferior { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; background: var(--surface); border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .nav-inferior-inner { width: 100%; max-width: 480px; display: flex; justify-content: space-around; padding: 10px 0; }
+    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); text-decoration: none; font-size: 10px; font-weight: 700; background: none; border: none; font-family: inherit; }
+    .nav-item.ativo { color: var(--accent); }
+
+    .mais-item { display: flex; align-items: center; gap: 12px; padding: 14px 4px; border-bottom: 1px solid var(--border); text-decoration: none; color: var(--text); font-size: 15px; font-weight: 700; background: none; border-left: none; border-right: none; border-top: none; width: 100%; font-family: inherit; text-align: left; }
+    .mais-item:last-child { border-bottom: none; }
+    .mais-item svg { flex-shrink: 0; color: var(--muted); }
+    .mais-item.ativo { color: var(--accent); }
+    .mais-item.ativo svg { color: var(--accent); }
+    .mais-item.perigo { color: var(--danger); }
+    .mais-item.perigo svg { color: var(--danger); }
+
+    .sheet-overlay { position: fixed; inset: 0; background: rgba(16,38,42,0.45); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
+    .sheet-overlay[hidden] { display: none; }
+    .sheet { width: 100%; max-width: 480px; max-height: calc(85vh - env(safe-area-inset-top, 0px)); overflow-y: auto; background: var(--surface); border-radius: 24px 24px 0 0; padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px; display: flex; flex-direction: column; gap: 16px; }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; flex-shrink: 0; }
+    .sheet-titulo { font-size: 16px; font-weight: 800; text-align: center; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topo">
+      <a href="/pages/home.html" aria-label="Voltar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <div class="topo-titulo">Saúde Financeira</div>
+    </div>
+
+    <div class="card">
+      <div class="score-linha">
+        <div class="score-numero" id="score-numero">— <span>/100</span></div>
+        <div class="score-badge" id="score-badge">—</div>
+      </div>
+      <div class="score-data" id="score-data"></div>
+    </div>
+
+    <div class="card">
+      <div class="composicao-titulo">Composição do score</div>
+      <div id="lista-metricas"><div class="conta-vazia">Calculando...</div></div>
+    </div>
+
+    <div class="card">
+      <div class="analise-titulo">Análise</div>
+      <div class="analise-texto" id="analise-texto">—</div>
+    </div>
+
+    <div id="nav-inferior-slot"></div>
+  </div>
+
+  <script type="module" src="../js/saude.js"></script>
+</body>
+</html>
