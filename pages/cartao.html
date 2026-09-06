@@ -172,6 +172,14 @@
     }
     .secao-titulo { font-size: 14px; font-weight: 800; margin-top: 6px; }
 
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 8px; }
+    .card-titulo { font-size: 13px; font-weight: 800; margin-bottom: 12px; color: var(--muted); }
+    .tendencia-stats { display: flex; justify-content: space-between; margin-bottom: 10px; }
+    .tendencia-stat { text-align: center; flex: 1; }
+    .tendencia-stat-rotulo { font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; }
+    .tendencia-stat-valor { font-size: 13px; font-weight: 800; margin-top: 2px; }
+    .tendencia-grafico-wrap { height: 90px; position: relative; }
+
     .compra-card {
       display: flex;
       align-items: center;
@@ -337,6 +345,25 @@
     </div>
 
     <div class="secao">
+      <div class="card">
+        <div class="card-titulo">TENDÊNCIA DA FATURA</div>
+        <div class="tendencia-stats">
+          <div class="tendencia-stat">
+            <div class="tendencia-stat-rotulo">Anterior</div>
+            <div class="tendencia-stat-valor valor-sensivel" id="tendencia-anterior">R$ 0,00</div>
+          </div>
+          <div class="tendencia-stat">
+            <div class="tendencia-stat-rotulo">Atual</div>
+            <div class="tendencia-stat-valor valor-sensivel" id="tendencia-atual">R$ 0,00</div>
+          </div>
+          <div class="tendencia-stat">
+            <div class="tendencia-stat-rotulo">Próxima</div>
+            <div class="tendencia-stat-valor valor-sensivel" id="tendencia-proxima">R$ 0,00</div>
+          </div>
+        </div>
+        <div class="tendencia-grafico-wrap"><canvas id="chart-tendencia-fatura"></canvas></div>
+      </div>
+
       <div class="secao-titulo">Compras da fatura</div>
       <div id="lista-compras"></div>
     </div>
@@ -369,6 +396,6 @@
     </div>
   </div>
 
-  <script type="module" src="../js/cartaoHub.js?v=5"></script>
+  <script type="module" src="../js/cartaoHub.js?v=6"></script>
 </body>
 </html>

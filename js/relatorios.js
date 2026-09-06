@@ -124,6 +124,28 @@ async function carregarOrcamento(mes) {
   })).sort((a, b) => b.realizado - a.realizado);
 }
 
+// ── Render: Balanço do mês (com variação vs mês anterior) ────────────────
+function renderBalanco({ receitasMes, despesasMes, receitasAnt, despesasAnt }) {
+  const card = document.getElementById('card-balanco');
+  card.hidden = false;
+
+  const balancoMes = receitasMes - despesasMes;
+  document.getElementById('balanco-receitas').textContent = fmt.format(receitasMes);
+  document.getElementById('balanco-despesas').textContent = fmt.format(despesasMes);
+  document.getElementById('balanco-total').textContent = fmt.format(balancoMes);
+  document.getElementById('balanco-total').style.color = balancoMes >= 0 ? 'var(--success)' : 'var(--danger)';
+
+  const badge = document.getElementById('balanco-badge');
+  if (despesasAnt > 0) {
+    const variacao = ((despesasMes - despesasAnt) / despesasAnt) * 100;
+    badge.hidden = false;
+    badge.className = `balanco-badge ${variacao >= 0 ? 'subiu' : 'desceu'}`;
+    badge.textContent = `Despesas ${variacao >= 0 ? '+' : ''}${variacao.toFixed(0)}% vs mês anterior`;
+  } else {
+    badge.hidden = true;
+  }
+}
+
 // ── Render: Receita vs Despesa ───────────────────────────────────────────
 async function renderRecDes() {
   const muted = corTema('--muted');
@@ -136,6 +158,12 @@ async function renderRecDes() {
   if (modo.tipo === 'mes') {
     document.getElementById('titulo-recdes').textContent = 'Receita vs Despesa — últimos 12 meses';
     const { labels, receitas, despesas } = await carregarTendencia12Meses(modo.mes);
+    renderBalanco({
+      receitasMes: receitas[receitas.length - 1],
+      despesasMes: despesas[despesas.length - 1],
+      receitasAnt: receitas[receitas.length - 2],
+      despesasAnt: despesas[despesas.length - 2],
+    });
     try {
       const Chart = await loadChart();
       charts.recdes = new Chart(document.getElementById('chart-recdes'), {
@@ -159,6 +187,7 @@ async function renderRecDes() {
       });
     } catch (err) { console.error(err); }
   } else {
+    document.getElementById('card-balanco').hidden = true;
     document.getElementById('titulo-recdes').textContent = 'Receita vs Despesa no período';
     const { tx, cardTx } = await carregarTransacoesPeriodo(modo.inicio, modo.fim);
     const receitas = tx.filter((t) => t.type === 'receita').reduce((s, t) => s + Number(t.amount || 0), 0);

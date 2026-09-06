@@ -126,6 +126,25 @@
 
     .conta-vazia { text-align: center; color: var(--muted); font-size: 13px; padding: 16px 0; }
 
+    .balanco-card { display: flex; flex-direction: column; gap: 10px; }
+    .balanco-linha { display: flex; justify-content: space-between; align-items: baseline; }
+    .balanco-rotulo { font-size: 13px; color: var(--muted); font-weight: 700; }
+    .balanco-valor { font-size: 15px; font-weight: 800; }
+    .balanco-valor.receitas { color: var(--success); }
+    .balanco-valor.despesas { color: var(--danger); }
+    .balanco-divisor { height: 1px; background: var(--border); margin: 2px 0; }
+    .balanco-total .balanco-rotulo { color: var(--text); font-weight: 800; font-size: 14px; }
+    .balanco-total .balanco-valor { font-size: 18px; }
+    .balanco-badge {
+      align-self: flex-start;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    .balanco-badge.subiu { background: var(--danger-soft); color: var(--danger); }
+    .balanco-badge.desceu { background: var(--success-soft); color: var(--success); }
+
     .nav-inferior {
       position: fixed;
       bottom: 0;
@@ -256,6 +275,23 @@
     </div>
 
     <div class="conteudo">
+      <div class="card balanco-card" id="card-balanco" hidden>
+        <div class="balanco-linha">
+          <div class="balanco-rotulo">Receitas</div>
+          <div class="balanco-valor receitas" id="balanco-receitas">R$ 0,00</div>
+        </div>
+        <div class="balanco-linha">
+          <div class="balanco-rotulo">Despesas</div>
+          <div class="balanco-valor despesas" id="balanco-despesas">R$ 0,00</div>
+        </div>
+        <div class="balanco-divisor"></div>
+        <div class="balanco-linha balanco-total">
+          <div class="balanco-rotulo">Balanço</div>
+          <div class="balanco-valor" id="balanco-total">R$ 0,00</div>
+        </div>
+        <div class="balanco-badge" id="balanco-badge" hidden></div>
+      </div>
+
       <div class="card" id="card-recdes">
         <div class="card-titulo" id="titulo-recdes">Receita vs Despesa — últimos 12 meses</div>
         <div class="grafico-wrap"><canvas id="chart-recdes"></canvas></div>
@@ -276,6 +312,6 @@
     <div id="nav-inferior-slot"></div>
   </div>
 
-  <script type="module" src="../js/relatorios.js"></script>
+  <script type="module" src="../js/relatorios.js?v=2"></script>
 </body>
 </html>

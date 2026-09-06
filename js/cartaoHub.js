@@ -3,8 +3,10 @@ import { invoiceRef, addMonthsRef } from './cardService.js';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=2';
+import { loadChart } from './loadChart.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtMesCurto = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
 const fmtMesAno = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 
 let cartoes = [];
@@ -13,6 +15,7 @@ let faturaRef = null;
 let comprasCache = [];
 let contasBancarias = [];
 let usuarioAtual = null;
+let chartTendencia = null;
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -305,6 +308,71 @@ function renderBotaoPagar() {
   document.getElementById('fatura-paga-aviso').hidden = temAberto || comprasCache.length === 0;
 }
 
+async function carregarTendenciaFatura() {
+  if (!cartaoSelecionado || !faturaRef) return { anterior: 0, atual: 0, proxima: 0 };
+  const refs = [addMonthsRef(faturaRef, -1), faturaRef, addMonthsRef(faturaRef, 1)];
+  const { data, error } = await supabase
+    .from('card_transactions')
+    .select('valor_parcela, fatura_referencia')
+    .eq('card_id', cartaoSelecionado)
+    .in('fatura_referencia', refs);
+  if (error) throw error;
+
+  const totais = { [refs[0]]: 0, [refs[1]]: 0, [refs[2]]: 0 };
+  (data ?? []).forEach((r) => { totais[r.fatura_referencia] = (totais[r.fatura_referencia] || 0) + Number(r.valor_parcela || 0); });
+  return { anterior: totais[refs[0]], atual: totais[refs[1]], proxima: totais[refs[2]], refs };
+}
+
+async function renderTendenciaFatura() {
+  let dados;
+  try {
+    dados = await carregarTendenciaFatura();
+  } catch (err) {
+    console.error(err);
+    return;
+  }
+
+  document.getElementById('tendencia-anterior').textContent = fmt.format(dados.anterior || 0);
+  document.getElementById('tendencia-atual').textContent = fmt.format(dados.atual || 0);
+  document.getElementById('tendencia-proxima').textContent = fmt.format(dados.proxima || 0);
+
+  if (!dados.refs) return;
+
+  try {
+    const Chart = await loadChart();
+    if (chartTendencia) { chartTendencia.destroy(); chartTendencia = null; }
+    const labels = dados.refs.map((ref) => {
+      const [y, m] = ref.split('-').map(Number);
+      return fmtMesCurto.format(new Date(y, m - 1, 1)).replace('.', '');
+    });
+    const muted = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim();
+    chartTendencia = new Chart(document.getElementById('chart-tendencia-fatura'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: [dados.anterior, dados.atual, dados.proxima],
+          borderColor: '#0E7C86',
+          backgroundColor: '#0E7C8620',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.35,
+          pointRadius: [4, 6, 4],
+          pointBackgroundColor: ['#8ea198', '#0E7C86', '#c9c9c9'],
+        }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ' ' + fmt.format(ctx.raw) } } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: muted, font: { size: 10 } } },
+          y: { display: false },
+        },
+      },
+    });
+  } catch (err) { console.error(err); }
+}
+
 async function recarregar() {
   try {
     const [compras, limiteUsado] = await Promise.all([carregarCompras(), carregarLimiteUsado()]);
@@ -313,6 +381,7 @@ async function recarregar() {
     renderCompras(compras);
     renderResumo(totalFatura, limiteUsado);
     renderBotaoPagar();
+    renderTendenciaFatura();
   } catch (err) {
     console.error(err);
     document.getElementById('lista-compras').innerHTML = '<div class="conta-vazia">Não foi possível carregar a fatura.</div>';
