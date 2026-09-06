@@ -158,6 +158,40 @@
 
     .conta-vazia { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
 
+    .luna-insight-card {
+      margin: 0 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1.5px solid var(--accent);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      text-decoration: none;
+      color: var(--text);
+    }
+    .luna-insight-icone {
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .luna-insight-texto {
+      flex: 1;
+      min-width: 0;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .secao-resumo {
       padding: 16px 20px 8px 20px;
       display: flex;
@@ -626,6 +660,13 @@
 
     <div id="lista-contas"></div>
 
+    <a class="luna-insight-card" href="/pages/luna.html">
+      <div class="luna-insight-icone">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3z"/></svg>
+      </div>
+      <div class="luna-insight-texto" id="luna-insight-texto">Carregando insights da Luna...</div>
+    </a>
+
     <div class="secao-resumo">
       <div class="secao-resumo-topo">
         <div class="secao-titulo">Resumo</div>
@@ -701,6 +742,6 @@
     </div>
   </div>
 
-  <script type="module" src="../js/home.js?v=17"></script>
+  <script type="module" src="../js/home.js?v=18"></script>
 </body>
 </html>

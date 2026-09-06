@@ -3,6 +3,7 @@ import { invoiceRef } from './cardService.js';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { montarNavInferior } from './navInferior.js';
+import { iniciarLunaInsights } from './lunaInsights.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDia = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' });
@@ -1493,6 +1494,7 @@ async function init() {
     renderLancamentos(lancamentos);
     await recarregarTimeline(user);
     await Promise.all([recarregarResumoMensal(), recarregarCardPendentes(), recarregarCardCartoes()]);
+    iniciarLunaInsights(user.id);
   } catch (err) {
     console.error(err);
     document.getElementById('lista-lancamentos').innerHTML =
