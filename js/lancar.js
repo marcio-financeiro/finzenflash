@@ -1,4 +1,5 @@
 import { supabase, requireAuth } from './supabaseClient.js';
+import { getDescricoesRecentes, popularDatalist, encontrarSugestao } from './autocompleteService.js';
 
 let tipo = 'despesa';
 let contaSelecionada = null;
@@ -6,6 +7,7 @@ let categoriaSelecionada = null;
 let contas = [];
 let categorias = [];
 let lancamentoOriginal = null;
+let descricoesRecentes = [];
 
 function hojeISO() {
   const hoje = new Date();
@@ -107,6 +109,27 @@ function renderCategorias() {
       renderCategorias();
     });
   });
+}
+
+function aplicarSugestaoDescricao() {
+  const aviso = document.getElementById('aviso-sugestao');
+  aviso.textContent = '';
+
+  const sugestao = encontrarSugestao(descricoesRecentes, document.getElementById('descricao').value);
+  if (!sugestao) return;
+
+  let preencheu = false;
+  if (sugestao.categoryId && categorias.some((c) => c.id === sugestao.categoryId && c.tipo === tipo)) {
+    categoriaSelecionada = sugestao.categoryId;
+    renderCategorias();
+    preencheu = true;
+  }
+  if (sugestao.source === 'conta' && sugestao.accountId && contas.some((c) => c.id === sugestao.accountId)) {
+    contaSelecionada = sugestao.accountId;
+    renderContas();
+    preencheu = true;
+  }
+  if (preencheu) aviso.textContent = 'Categoria/conta preenchidas com base no último lançamento parecido.';
 }
 
 async function carregarContasECategorias(userId) {
@@ -255,6 +278,12 @@ async function init() {
   document.getElementById('chk-recorrente').addEventListener('change', (e) => {
     document.getElementById('opcoes-recorrencia').hidden = !e.target.checked;
   });
+  document.getElementById('descricao').addEventListener('blur', aplicarSugestaoDescricao);
+
+  getDescricoesRecentes(supabase, user.id).then((lista) => {
+    descricoesRecentes = lista;
+    popularDatalist(document.getElementById('lista-descricoes'), lista);
+  }).catch(() => {});
 
   const idUrl = new URLSearchParams(window.location.search).get('id');
   if (idUrl) {
