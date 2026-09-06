@@ -124,6 +124,28 @@
     .he-detalhe { font-size: 12px; color: var(--muted); }
     .he-valor { font-size: 14px; font-weight: 800; color: var(--success); white-space: nowrap; }
 
+    .curso-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 4px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      background: none;
+      border-left: none;
+      border-right: none;
+      border-top: none;
+      width: 100%;
+      font-family: inherit;
+      color: var(--text);
+    }
+    .curso-item:last-child { border-bottom: none; }
+    .curso-status-ponto { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .curso-info { flex: 1; min-width: 0; }
+    .curso-nome { font-size: 14px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .curso-detalhe { font-size: 12px; color: var(--muted); }
+    .curso-venc { font-size: 12px; font-weight: 800; white-space: nowrap; text-align: right; }
+
     .historico-tabela { width: 100%; border-collapse: collapse; font-size: 12px; }
     .historico-tabela th { text-align: left; color: var(--muted); font-weight: 700; padding: 0 6px 8px 6px; font-size: 11px; }
     .historico-tabela td { padding: 8px 6px; border-top: 1px solid var(--border); }
@@ -312,6 +334,16 @@
 
       <div class="card">
         <div class="card-cabecalho">
+          <div class="card-titulo">Cursos e certificações</div>
+          <button type="button" class="btn-add-card" id="btn-novo-curso" aria-label="Novo curso">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div id="lista-cursos"><div class="conta-vazia">Carregando...</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-cabecalho">
           <div class="card-titulo">Horas extras / sobreaviso</div>
           <button type="button" class="btn-add-card" id="btn-nova-he" aria-label="Registrar horas">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -354,6 +386,13 @@
     </div>
   </div>
 
-  <script type="module" src="../js/offshore.js"></script>
+  <div class="sheet-overlay" id="sheet-acao-curso" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div id="sheet-acao-curso-conteudo"></div>
+    </div>
+  </div>
+
+  <script type="module" src="../js/offshore.js?v=2"></script>
 </body>
 </html>

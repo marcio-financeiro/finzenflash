@@ -25,10 +25,12 @@ const STATUS_COR = {
   concluido: '#1E9E6E',
   cancelado: '#8ea198',
 };
+const PRESET_CURSOS = ['HUET', 'OPITO BOSIET', 'OPITO FOET', 'NR-33', 'NR-35', 'NR-37', 'STCW', 'H2S', 'Primeiros Socorros'];
 
 let usuarioAtual = null;
 let ciclos = [];
 let horas = [];
+let cursos = [];
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -96,6 +98,16 @@ async function carregarHE(userId) {
     .limit(50);
   if (error) throw error;
   horas = data ?? [];
+}
+
+async function carregarCursos(userId) {
+  const { data, error } = await supabase
+    .from('certifications')
+    .select('*')
+    .eq('user_id', userId)
+    .order('data_vencimento', { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  cursos = data ?? [];
 }
 
 // ── KPIs ────────────────────────────────────────────────
@@ -370,6 +382,152 @@ async function salvarHE() {
   renderTudo();
 }
 
+// ── Cursos e certificações ──────────────────────────────
+function statusCurso(dataVencimento) {
+  if (!dataVencimento) return { cor: '#8ea198', texto: 'Sem vencimento' };
+  const dias = diasEntre(hojeISO(), dataVencimento);
+  if (dias < 0) return { cor: '#d9705a', texto: `Vencida há ${Math.abs(dias)}d` };
+  if (dias === 0) return { cor: '#c9963f', texto: 'Vence hoje!' };
+  if (dias <= 90) return { cor: '#c9963f', texto: `Vence em ${dias}d` };
+  return { cor: '#1E9E6E', texto: `Vence em ${dias}d` };
+}
+
+function renderCursos() {
+  const container = document.getElementById('lista-cursos');
+  if (cursos.length === 0) {
+    container.innerHTML = '<div class="conta-vazia">Nenhum curso cadastrado ainda.</div>';
+    return;
+  }
+
+  container.innerHTML = cursos.map((c) => {
+    const st = statusCurso(c.data_vencimento);
+    const detalhe = [c.entidade, c.data_vencimento ? `Venc. ${fmtData(c.data_vencimento)}` : 'Sem vencimento'].filter(Boolean).join(' · ');
+    return `
+      <button type="button" class="curso-item" data-id="${c.id}">
+        <div class="curso-status-ponto" style="background:${st.cor}"></div>
+        <div class="curso-info">
+          <div class="curso-nome">${escapeHtml(c.nome)}</div>
+          <div class="curso-detalhe">${escapeHtml(detalhe)}</div>
+        </div>
+        <div class="curso-venc" style="color:${st.cor}">${st.texto}</div>
+      </button>
+    `;
+  }).join('');
+
+  container.querySelectorAll('.curso-item').forEach((el) => {
+    const curso = cursos.find((c) => c.id === el.dataset.id);
+    if (curso) el.addEventListener('click', () => abrirSheetAcaoCurso(curso));
+  });
+}
+
+function abrirSheetAcaoCurso(curso) {
+  const conteudo = document.getElementById('sheet-acao-curso-conteudo');
+  conteudo.innerHTML = `
+    <div class="sheet-titulo">${escapeHtml(curso.nome)}</div>
+    <button type="button" class="sheet-acao-btn" id="btn-editar-curso">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+      Editar
+    </button>
+    <button type="button" class="sheet-acao-btn perigo" id="btn-excluir-curso">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+      Excluir curso
+    </button>
+    <button type="button" class="sheet-acao-btn" id="btn-cancelar-acao-curso">Cancelar</button>
+  `;
+  document.getElementById('btn-editar-curso').addEventListener('click', () => abrirSheetFormCurso(curso));
+  document.getElementById('btn-excluir-curso').addEventListener('click', () => confirmarExclusaoCurso(curso));
+  document.getElementById('btn-cancelar-acao-curso').addEventListener('click', () => { document.getElementById('sheet-acao-curso').hidden = true; });
+  document.getElementById('sheet-acao-curso').hidden = false;
+}
+
+function confirmarExclusaoCurso(curso) {
+  const conteudo = document.getElementById('sheet-acao-curso-conteudo');
+  conteudo.innerHTML = `
+    <div class="sheet-titulo">Excluir ${escapeHtml(curso.nome)}?</div>
+    <div class="sheet-aviso">Essa ação não pode ser desfeita.</div>
+    <button type="button" class="sheet-acao-btn perigo" id="btn-confirmar-excluir-curso">Excluir</button>
+    <button type="button" class="sheet-acao-btn" id="btn-cancelar-acao-curso">Cancelar</button>
+  `;
+  document.getElementById('btn-confirmar-excluir-curso').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-confirmar-excluir-curso');
+    btn.disabled = true;
+    btn.textContent = 'Excluindo...';
+    const { error } = await supabase.from('certifications').delete().eq('id', curso.id).eq('user_id', usuarioAtual.id);
+    if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+    document.getElementById('sheet-acao-curso').hidden = true;
+    await carregarCursos(usuarioAtual.id);
+    renderTudo();
+  });
+  document.getElementById('btn-cancelar-acao-curso').addEventListener('click', () => { document.getElementById('sheet-acao-curso').hidden = true; });
+}
+
+function abrirSheetFormCurso(curso = null) {
+  const conteudo = document.getElementById('sheet-form-conteudo');
+  conteudo.innerHTML = `
+    <div class="sheet-titulo">${curso ? 'Editar curso' : 'Novo curso'}</div>
+    <div class="field">
+      <label for="f-curso-nome">Nome do curso</label>
+      <input type="text" id="f-curso-nome" list="lista-nomes-curso" value="${escapeHtml(curso?.nome ?? '')}" placeholder="Ex: HUET, NR-35...">
+      <datalist id="lista-nomes-curso">${PRESET_CURSOS.map((n) => `<option value="${n}">`).join('')}</datalist>
+    </div>
+    <div class="form-linha">
+      ${campoTexto('f-curso-numero', 'Número / código', curso?.numero, 'Opcional')}
+      ${campoTexto('f-curso-entidade', 'Entidade emissora', curso?.entidade, 'Ex: OPITO')}
+    </div>
+    <div class="form-linha">
+      <div class="field"><label for="f-curso-emissao">Emissão</label><input type="date" id="f-curso-emissao" value="${curso?.data_emissao || ''}"></div>
+      <div class="field"><label for="f-curso-vencimento">Vencimento</label><input type="date" id="f-curso-vencimento" value="${curso?.data_vencimento || ''}"></div>
+    </div>
+    <div class="field"><label for="f-curso-obs">Observações</label><textarea id="f-curso-obs" rows="2">${escapeHtml(curso?.observacoes || '')}</textarea></div>
+    <div class="error-msg" id="erro-form"></div>
+    <button type="button" class="btn-primary" id="btn-salvar-form">Salvar</button>
+    <button type="button" class="sheet-acao-btn" id="btn-cancelar-form">Cancelar</button>
+  `;
+  document.getElementById('btn-cancelar-form').addEventListener('click', () => { document.getElementById('sheet-form').hidden = true; });
+  document.getElementById('btn-salvar-form').addEventListener('click', () => salvarCurso(curso?.id ?? null));
+  document.getElementById('sheet-acao-curso').hidden = true;
+  document.getElementById('sheet-form').hidden = false;
+}
+
+async function salvarCurso(id) {
+  const erroEl = document.getElementById('erro-form');
+  erroEl.textContent = '';
+
+  const nome = document.getElementById('f-curso-nome').value.trim();
+  const vencimento = document.getElementById('f-curso-vencimento').value;
+  if (!nome) { erroEl.textContent = 'Informe o nome do curso.'; return; }
+  if (!vencimento) { erroEl.textContent = 'Informe a data de vencimento.'; return; }
+
+  const payload = {
+    user_id: usuarioAtual.id,
+    nome,
+    numero: document.getElementById('f-curso-numero').value.trim() || null,
+    entidade: document.getElementById('f-curso-entidade').value.trim() || null,
+    data_emissao: document.getElementById('f-curso-emissao').value || null,
+    data_vencimento: vencimento,
+    observacoes: document.getElementById('f-curso-obs').value.trim() || null,
+  };
+
+  const btn = document.getElementById('btn-salvar-form');
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  const { error } = id
+    ? await supabase.from('certifications').update(payload).eq('id', id).eq('user_id', usuarioAtual.id)
+    : await supabase.from('certifications').insert(payload);
+
+  if (error) {
+    erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
+    btn.disabled = false;
+    btn.textContent = 'Salvar';
+    return;
+  }
+
+  document.getElementById('sheet-form').hidden = true;
+  await carregarCursos(usuarioAtual.id);
+  renderTudo();
+}
+
 // ── Histórico por plataforma ────────────────────────────
 function renderHistorico() {
   const container = document.getElementById('lista-historico');
@@ -412,6 +570,7 @@ function renderHistorico() {
 function renderTudo() {
   renderKpis();
   renderCiclos();
+  renderCursos();
   renderHE();
   renderHistorico();
 }
@@ -428,6 +587,7 @@ async function init() {
   document.getElementById('btn-novo-ciclo').addEventListener('click', () => abrirSheetFormCiclo());
   document.getElementById('btn-novo-ciclo-fab').addEventListener('click', (e) => { e.preventDefault(); abrirSheetFormCiclo(); });
   document.getElementById('btn-nova-he').addEventListener('click', abrirSheetFormHE);
+  document.getElementById('btn-novo-curso').addEventListener('click', () => abrirSheetFormCurso());
 
   const sheetForm = document.getElementById('sheet-form');
   sheetForm.addEventListener('click', (e) => { if (e.target === sheetForm) sheetForm.hidden = true; });
@@ -441,8 +601,12 @@ async function init() {
   sheetAcaoHE.addEventListener('click', (e) => { if (e.target === sheetAcaoHE) sheetAcaoHE.hidden = true; });
   ativarArrastarParaFechar(sheetAcaoHE);
 
+  const sheetAcaoCurso = document.getElementById('sheet-acao-curso');
+  sheetAcaoCurso.addEventListener('click', (e) => { if (e.target === sheetAcaoCurso) sheetAcaoCurso.hidden = true; });
+  ativarArrastarParaFechar(sheetAcaoCurso);
+
   try {
-    await Promise.all([carregarCiclos(user.id), carregarHE(user.id)]);
+    await Promise.all([carregarCiclos(user.id), carregarHE(user.id), carregarCursos(user.id)]);
     renderTudo();
   } catch (err) {
     console.error(err);
