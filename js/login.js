@@ -1,4 +1,7 @@
 import { supabase } from './supabaseClient.js';
+import { aplicarTemaSalvo } from './temaService.js';
+
+aplicarTemaSalvo();
 
 const form = document.getElementById('form-login');
 const btnEntrar = document.getElementById('btn-entrar');

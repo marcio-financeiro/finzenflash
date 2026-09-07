@@ -10,9 +10,10 @@ const ICONE_OFFSHORE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="no
 const ICONE_RELATORIOS = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M4 19h16"/></svg>';
 const ICONE_PROJECAO = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l4-5 4 3 5-7 5 4"/></svg>';
 const ICONE_SAUDE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>';
+const ICONE_APARENCIA = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="13" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="11" cy="15" r="1" fill="currentColor" stroke="none"/><path d="M12 3a9 9 0 0 0 0 18c1.1 0 1.6-.7 1.6-1.5 0-.4-.2-.7-.4-1a1.4 1.4 0 0 1 1-2.4h1.4A3.4 3.4 0 0 0 19 12.6 9 9 0 0 0 12 3Z"/></svg>';
 const ICONE_SAIR = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>';
 
-const PAGINAS_NO_MAIS = ['cadastros', 'investimentos', 'offshore', 'relatorios', 'projecao', 'saude'];
+const PAGINAS_NO_MAIS = ['cadastros', 'investimentos', 'offshore', 'relatorios', 'projecao', 'saude', 'aparencia'];
 
 /**
  * Monta o menu inferior (Início/Cartão/Extrato/Mais) dentro de
@@ -49,6 +50,7 @@ export function montarNavInferior(paginaAtiva) {
         <a class="mais-item ${ativo('relatorios')}" href="/pages/relatorios.html">${ICONE_RELATORIOS}Relatórios</a>
         <a class="mais-item ${ativo('projecao')}" href="/pages/projecao.html">${ICONE_PROJECAO}Saldo projetado</a>
         <a class="mais-item ${ativo('saude')}" href="/pages/saude.html">${ICONE_SAUDE}Saúde Financeira</a>
+        <a class="mais-item ${ativo('aparencia')}" href="/pages/aparencia.html">${ICONE_APARENCIA}Aparência</a>
         <button type="button" class="mais-item perigo" id="btn-sair-nav">${ICONE_SAIR}Sair</button>
       </div>
     </div>

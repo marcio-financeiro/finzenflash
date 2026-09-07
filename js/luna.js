@@ -1,4 +1,5 @@
 import { supabase, requireAuth } from './supabaseClient.js';
+import { aplicarTemaSalvo } from './temaService.js';
 import { coletarContexto, buildSystemPrompt, renderMd } from './lunaContext.js';
 
 let usuarioAtual = null;
@@ -178,6 +179,7 @@ function limparChat() {
 }
 
 async function init() {
+  aplicarTemaSalvo();
   const user = await requireAuth();
   if (!user) return;
   usuarioAtual = user;

@@ -1,6 +1,7 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
+import { aplicarTemaSalvo } from './temaService.js';
 import { ativarArrastarParaFechar } from './sheetGestos.js';
-import { montarNavInferior } from './navInferior.js?v=4';
+import { montarNavInferior } from './navInferior.js?v=5';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -636,6 +637,7 @@ async function salvarForm(tipo, item) {
 }
 
 async function init() {
+  aplicarTemaSalvo();
   montarNavInferior('cadastros');
   configurarBotaoSair();
 

@@ -1,4 +1,5 @@
 import { supabase, requireAuth } from './supabaseClient.js';
+import { aplicarTemaSalvo } from './temaService.js';
 import { getDescricoesRecentes, popularDatalist, encontrarSugestao } from './autocompleteService.js';
 
 let tipo = 'despesa';
@@ -357,6 +358,7 @@ async function salvar(user) {
 }
 
 async function init() {
+  aplicarTemaSalvo();
   const user = await requireAuth();
   if (!user) return;
 

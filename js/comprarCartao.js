@@ -1,4 +1,5 @@
 import { supabase, requireAuth } from './supabaseClient.js';
+import { aplicarTemaSalvo } from './temaService.js';
 import { invoiceRef, addMonthsRef, novoGrupoCompra } from './cardService.js';
 
 let cartaoSelecionado = null;
@@ -213,6 +214,7 @@ async function salvar(user) {
 }
 
 async function init() {
+  aplicarTemaSalvo();
   const user = await requireAuth();
   if (!user) return;
 

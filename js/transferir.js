@@ -1,4 +1,5 @@
 import { supabase, requireAuth } from './supabaseClient.js';
+import { aplicarTemaSalvo } from './temaService.js';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -239,6 +240,7 @@ async function salvar(user) {
 }
 
 async function init() {
+  aplicarTemaSalvo();
   const user = await requireAuth();
   if (!user) return;
   usuarioAtual = user;

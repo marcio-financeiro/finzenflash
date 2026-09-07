@@ -1,5 +1,6 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
-import { montarNavInferior } from './navInferior.js?v=4';
+import { aplicarTemaSalvo } from './temaService.js';
+import { montarNavInferior } from './navInferior.js?v=5';
 
 const fmtData = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
@@ -160,6 +161,7 @@ function renderTudo({ score, metricas, taxaPoupanca, pctUso, mesesCobertura, rec
 }
 
 async function init() {
+  aplicarTemaSalvo();
   montarNavInferior('saude');
   configurarBotaoSair();
 

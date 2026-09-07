@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Saúde Financeira — FinZen Flash</title>
+  <title>Aparência — FinZen Flash</title>
   <link rel="icon" href="/img/logo-mark.png">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0E7C86">
@@ -34,30 +34,36 @@
     .topo a { display: flex; color: var(--text); }
     .topo-titulo { font-size: 17px; font-weight: 800; }
 
-    .card { margin: 0 20px 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; }
+    .subtitulo { padding: 0 20px 20px 20px; font-size: 13px; color: var(--muted); line-height: 1.5; }
 
-    .score-linha { display: flex; align-items: baseline; justify-content: space-between; }
-    .score-numero { font-size: 44px; font-weight: 800; }
-    .score-numero span { font-size: 18px; color: var(--muted); font-weight: 700; }
-    .score-badge { font-size: 12px; font-weight: 800; padding: 5px 12px; border-radius: 20px; }
-    .score-badge.excelente { background: var(--success-soft); color: var(--success); }
-    .score-badge.bom { background: var(--accent-soft); color: var(--accent); }
-    .score-badge.regular { background: #c9963f22; color: #c9963f; }
-    .score-badge.atencao { background: var(--danger-soft); color: var(--danger); }
-    .score-data { font-size: 11px; color: var(--muted); margin-top: 6px; }
-
-    .composicao-titulo { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 14px; }
-    .metrica { margin-bottom: 16px; }
-    .metrica:last-child { margin-bottom: 0; }
-    .metrica-linha { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-    .metrica-nome { font-size: 14px; font-weight: 700; }
-    .metrica-nota { font-size: 14px; font-weight: 800; }
-    .metrica-barra { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-bottom: 4px; }
-    .metrica-barra-fill { height: 100%; border-radius: 3px; }
-    .metrica-desc { font-size: 12px; color: var(--muted); }
-
-    .analise-titulo { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 10px; }
-    .analise-texto { font-size: 13px; line-height: 1.6; color: var(--text); }
+    .grade-temas {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px 12px;
+      padding: 0 20px;
+    }
+    .tema-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      background: none;
+      border: none;
+      font-family: inherit;
+    }
+    .tema-amostra {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06);
+    }
+    .tema-item.selecionado .tema-amostra { border-color: var(--text); }
+    .tema-check { color: #ffffff; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35)); }
+    .tema-nome { font-size: 12px; font-weight: 700; color: var(--text); text-align: center; }
 
     .conta-vazia { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0; }
 
@@ -87,30 +93,18 @@
       <a href="/pages/home.html" aria-label="Voltar">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </a>
-      <div class="topo-titulo">Saúde Financeira</div>
+      <div class="topo-titulo">Aparência</div>
     </div>
 
-    <div class="card">
-      <div class="score-linha">
-        <div class="score-numero" id="score-numero">— <span>/100</span></div>
-        <div class="score-badge" id="score-badge">—</div>
-      </div>
-      <div class="score-data" id="score-data"></div>
-    </div>
+    <div class="subtitulo">Escolha a cor de destaque do app. Aplica na hora, em todas as telas.</div>
 
-    <div class="card">
-      <div class="composicao-titulo">Composição do score</div>
-      <div id="lista-metricas"><div class="conta-vazia">Calculando...</div></div>
-    </div>
-
-    <div class="card">
-      <div class="analise-titulo">Análise</div>
-      <div class="analise-texto" id="analise-texto">—</div>
+    <div class="grade-temas" id="grade-temas">
+      <div class="conta-vazia">Carregando...</div>
     </div>
 
     <div id="nav-inferior-slot"></div>
   </div>
 
-  <script type="module" src="../js/saude.js?v=2"></script>
+  <script type="module" src="../js/aparencia.js"></script>
 </body>
 </html>
