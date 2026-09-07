@@ -1,5 +1,5 @@
 import { supabase, requireAuth } from './supabaseClient.js';
-import { aplicarTemaSalvo } from './temaService.js?v=2';
+import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { invoiceRef, addMonthsRef, novoGrupoCompra } from './cardService.js';
 
 let cartaoSelecionado = null;

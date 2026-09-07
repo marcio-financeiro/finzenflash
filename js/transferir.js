@@ -1,5 +1,5 @@
 import { supabase, requireAuth } from './supabaseClient.js';
-import { aplicarTemaSalvo } from './temaService.js?v=2';
+import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });

@@ -1,6 +1,6 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { montarNavInferior } from './navInferior.js?v=5';
-import { aplicarTemaSalvo, TEMAS, temaAtual, definirTema, salvarTemaNoBanco, carregarTemaDoBanco } from './temaService.js?v=2';
+import { aplicarTemaSalvo, TEMAS, temaAtual, definirTema, salvarTemaNoBanco, carregarTemaDoBanco } from './temaService.js?v=3';
 
 let usuarioAtual = null;
 

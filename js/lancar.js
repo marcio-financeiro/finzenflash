@@ -1,5 +1,5 @@
 import { supabase, requireAuth } from './supabaseClient.js';
-import { aplicarTemaSalvo } from './temaService.js?v=2';
+import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { getDescricoesRecentes, popularDatalist, encontrarSugestao } from './autocompleteService.js';
 
 let tipo = 'despesa';

@@ -18,6 +18,10 @@ export const TEMAS = [
 ];
 
 const CHAVE_LOCAL = 'flash_tema_cor';
+// Cache das 2 variantes (clara/escura) já resolvidas, em JSON — o script
+// inline no <head> de cada página lê só essa chave (sem precisar duplicar
+// TEMAS lá) pra aplicar a cor antes do primeiro paint, sem flash da cor padrão.
+const CHAVE_CORES = 'flash_tema_cores';
 const SETTING_KEY = 'flash_tema_cor';
 
 let temaAtualId = 'padrao';
@@ -25,6 +29,17 @@ let mediaEscuro = null;
 
 function temaPorId(id) {
   return TEMAS.find((t) => t.id === id) || TEMAS[0];
+}
+
+function salvarCacheCores() {
+  try {
+    if (temaAtualId === 'padrao') {
+      localStorage.removeItem(CHAVE_CORES);
+      return;
+    }
+    const tema = temaPorId(temaAtualId);
+    localStorage.setItem(CHAVE_CORES, JSON.stringify({ light: tema.light, dark: tema.dark }));
+  } catch { /* localStorage indisponível — segue só na sessão atual */ }
 }
 
 function aplicarPeloEsquema() {
@@ -52,6 +67,7 @@ export function aplicarTemaSalvo() {
   } catch {
     temaAtualId = 'padrao';
   }
+  salvarCacheCores();
   if (!mediaEscuro) {
     mediaEscuro = window.matchMedia('(prefers-color-scheme: dark)');
     mediaEscuro.addEventListener('change', aplicarPeloEsquema);
@@ -66,6 +82,7 @@ export function temaAtual() {
 export function definirTema(id) {
   temaAtualId = temaPorId(id).id;
   aplicarPeloEsquema();
+  salvarCacheCores();
   try { localStorage.setItem(CHAVE_LOCAL, temaAtualId); } catch { /* localStorage indisponível — segue só na sessão atual */ }
 }
 
