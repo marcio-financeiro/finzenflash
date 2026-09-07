@@ -1,6 +1,7 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=4';
+import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDia = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' });
@@ -12,6 +13,7 @@ let contaFiltro = '';
 let categoriaFiltro = '';
 let contas = [];
 let categorias = [];
+let usuarioAtual = null;
 
 function iconReceita() {
   return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
@@ -61,7 +63,7 @@ async function carregarLancamentos(userId) {
   const { inicio, fim } = limitesMes(mesRef);
   let query = supabase
     .from('transactions')
-    .select('id, type, amount, description, date, accounts(nome)')
+    .select('id, type, amount, description, date, status, account_id, accounts(nome)')
     .eq('user_id', userId)
     .gte('date', inicio)
     .lte('date', fim)
@@ -115,10 +117,105 @@ function renderLista(lancamentos) {
   }
   container.innerHTML = html;
   container.querySelectorAll('.lancamento-card').forEach((el) => {
-    el.addEventListener('click', () => {
-      window.location.href = `/pages/lancar.html?id=${el.dataset.id}`;
-    });
+    const lancamento = lancamentos.find((l) => l.id === el.dataset.id);
+    if (lancamento) attachToqueSegurar(el, () => abrirSheetLancamento(lancamento));
   });
+}
+
+function attachToqueSegurar(el, aoAcionar) {
+  let timer = null;
+  let moveu = false;
+  const iniciar = () => {
+    moveu = false;
+    timer = setTimeout(() => {
+      if (!moveu) {
+        el.classList.remove('pressionando');
+        aoAcionar();
+      }
+    }, 500);
+    el.classList.add('pressionando');
+  };
+  const cancelar = () => {
+    clearTimeout(timer);
+    timer = null;
+    el.classList.remove('pressionando');
+  };
+  const mover = () => { moveu = true; cancelar(); };
+  el.addEventListener('touchstart', iniciar, { passive: true });
+  el.addEventListener('touchend', cancelar);
+  el.addEventListener('touchmove', mover, { passive: true });
+  el.addEventListener('touchcancel', cancelar);
+  el.addEventListener('mousedown', iniciar);
+  el.addEventListener('mouseup', cancelar);
+  el.addEventListener('mouseleave', cancelar);
+}
+
+function abrirSheetLancamento(lancamento) {
+  const conteudo = document.getElementById('sheet-lancamento-conteudo');
+  conteudo.innerHTML = `
+    <div class="sheet-titulo">${escapeHtml(lancamento.description)}</div>
+    <button type="button" class="sheet-acao-btn" id="btn-editar-lancamento">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+      Editar
+    </button>
+    <button type="button" class="sheet-acao-btn perigo" id="btn-excluir-lancamento">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+      Excluir
+    </button>
+    <button type="button" class="sheet-acao-btn" id="btn-cancelar-sheet-lancamento">Cancelar</button>
+  `;
+
+  document.getElementById('btn-editar-lancamento').addEventListener('click', () => {
+    window.location.href = `/pages/lancar.html?id=${lancamento.id}`;
+  });
+  document.getElementById('btn-excluir-lancamento').addEventListener('click', () => confirmarExclusao(lancamento));
+  document.getElementById('btn-cancelar-sheet-lancamento').addEventListener('click', fecharSheetLancamento);
+
+  document.getElementById('sheet-lancamento').hidden = false;
+}
+
+function confirmarExclusao(lancamento) {
+  const conteudo = document.getElementById('sheet-lancamento-conteudo');
+  conteudo.innerHTML = `
+    <div class="sheet-titulo">Excluir "${escapeHtml(lancamento.description)}"?</div>
+    <div class="sheet-aviso">Essa ação não pode ser desfeita.</div>
+    <button type="button" class="sheet-acao-btn perigo" id="btn-confirmar-exclusao">Excluir lançamento</button>
+    <button type="button" class="sheet-acao-btn" id="btn-cancelar-sheet-lancamento">Cancelar</button>
+  `;
+
+  document.getElementById('btn-confirmar-exclusao').addEventListener('click', () => excluirLancamento(lancamento));
+  document.getElementById('btn-cancelar-sheet-lancamento').addEventListener('click', fecharSheetLancamento);
+}
+
+function fecharSheetLancamento() {
+  document.getElementById('sheet-lancamento').hidden = true;
+}
+
+async function excluirLancamento(lancamento) {
+  const btn = document.getElementById('btn-confirmar-exclusao');
+  btn.disabled = true;
+  btn.textContent = 'Excluindo...';
+
+  const { error: erroDelete } = await supabase
+    .from('transactions')
+    .delete()
+    .eq('id', lancamento.id)
+    .eq('user_id', usuarioAtual.id);
+
+  if (erroDelete) {
+    btn.disabled = false;
+    btn.textContent = 'Excluir lançamento';
+    return;
+  }
+
+  // Pendente nunca afetou o saldo — só reverte se já tiver sido contabilizado.
+  if (lancamento.status === 'pago') {
+    const delta = lancamento.type === 'receita' ? -Number(lancamento.amount) : Number(lancamento.amount);
+    await supabase.rpc('increment_account_balance', { p_account_id: lancamento.account_id, p_delta: delta });
+  }
+
+  fecharSheetLancamento();
+  await recarregar(usuarioAtual.id);
 }
 
 function renderMes() {
@@ -143,6 +240,11 @@ async function init() {
 
   const user = await requireAuth();
   if (!user) return;
+  usuarioAtual = user;
+
+  const sheetLancamento = document.getElementById('sheet-lancamento');
+  sheetLancamento.addEventListener('click', (e) => { if (e.target === sheetLancamento) fecharSheetLancamento(); });
+  ativarArrastarParaFechar(sheetLancamento);
 
   const params = new URLSearchParams(window.location.search);
   const contaUrl = params.get('conta');
