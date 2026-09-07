@@ -103,17 +103,22 @@ function renderLista(lancamentos) {
     const receita = l.type === 'receita';
     const sinal = receita ? '+' : '-';
     html += `
-      <div class="lancamento-card">
+      <button type="button" class="lancamento-card" data-id="${l.id}">
         <div class="lancamento-icone ${receita ? 'is-receita' : 'is-despesa'}">${receita ? iconReceita() : iconDespesa()}</div>
         <div class="lancamento-info">
           <div class="lancamento-desc">${escapeHtml(l.description)}</div>
           <div class="lancamento-conta">${escapeHtml(l.accounts?.nome ?? '')}</div>
         </div>
         <div class="lancamento-valor valor-sensivel ${receita ? 'is-receita' : 'is-despesa'}">${sinal}${fmt.format(Math.abs(l.amount))}</div>
-      </div>
+      </button>
     `;
   }
   container.innerHTML = html;
+  container.querySelectorAll('.lancamento-card').forEach((el) => {
+    el.addEventListener('click', () => {
+      window.location.href = `/pages/lancar.html?id=${el.dataset.id}`;
+    });
+  });
 }
 
 function renderMes() {
