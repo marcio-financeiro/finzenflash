@@ -1,5 +1,5 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
-import { aplicarTemaSalvo } from './temaService.js';
+import { aplicarTemaSalvo } from './temaService.js?v=2';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { loadChart } from './loadChart.js';

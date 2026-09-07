@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient.js';
-import { aplicarTemaSalvo } from './temaService.js';
+import { aplicarTemaSalvo } from './temaService.js?v=2';
 
 aplicarTemaSalvo();
 
