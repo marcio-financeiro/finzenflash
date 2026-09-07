@@ -63,7 +63,7 @@ async function carregarLancamentos(userId) {
   const { inicio, fim } = limitesMes(mesRef);
   let query = supabase
     .from('transactions')
-    .select('id, type, amount, description, date, status, account_id, accounts(nome)')
+    .select('id, type, amount, description, date, status, account_id, is_recurring, recurrence_group_id, accounts(nome)')
     .eq('user_id', userId)
     .gte('date', inicio)
     .lte('date', fim)
@@ -175,6 +175,9 @@ function abrirSheetLancamento(lancamento) {
 }
 
 function confirmarExclusao(lancamento) {
+  const recorrente = Boolean(lancamento.is_recurring || lancamento.recurrence_group_id);
+  if (recorrente) { escolherEscopoExclusao(lancamento); return; }
+
   const conteudo = document.getElementById('sheet-lancamento-conteudo');
   conteudo.innerHTML = `
     <div class="sheet-titulo">Excluir "${escapeHtml(lancamento.description)}"?</div>
@@ -183,7 +186,24 @@ function confirmarExclusao(lancamento) {
     <button type="button" class="sheet-acao-btn" id="btn-cancelar-sheet-lancamento">Cancelar</button>
   `;
 
-  document.getElementById('btn-confirmar-exclusao').addEventListener('click', () => excluirLancamento(lancamento));
+  document.getElementById('btn-confirmar-exclusao').addEventListener('click', () => excluirLancamento(lancamento, 'only'));
+  document.getElementById('btn-cancelar-sheet-lancamento').addEventListener('click', fecharSheetLancamento);
+}
+
+function escolherEscopoExclusao(lancamento) {
+  const conteudo = document.getElementById('sheet-lancamento-conteudo');
+  conteudo.innerHTML = `
+    <div class="sheet-titulo">Excluir recorrência</div>
+    <div class="sheet-aviso">Este lançamento faz parte de uma recorrência. Escolha o alcance da exclusão.</div>
+    <button type="button" class="sheet-acao-btn perigo" id="btn-excluir-only">Excluir somente esta ocorrência</button>
+    <button type="button" class="sheet-acao-btn perigo" id="btn-excluir-future">Excluir esta e futuras</button>
+    <button type="button" class="sheet-acao-btn perigo" id="btn-excluir-series">Excluir toda a série</button>
+    <button type="button" class="sheet-acao-btn" id="btn-cancelar-sheet-lancamento">Cancelar</button>
+  `;
+
+  document.getElementById('btn-excluir-only').addEventListener('click', () => excluirLancamento(lancamento, 'only'));
+  document.getElementById('btn-excluir-future').addEventListener('click', () => excluirLancamento(lancamento, 'future'));
+  document.getElementById('btn-excluir-series').addEventListener('click', () => excluirLancamento(lancamento, 'series'));
   document.getElementById('btn-cancelar-sheet-lancamento').addEventListener('click', fecharSheetLancamento);
 }
 
@@ -191,27 +211,35 @@ function fecharSheetLancamento() {
   document.getElementById('sheet-lancamento').hidden = true;
 }
 
-async function excluirLancamento(lancamento) {
-  const btn = document.getElementById('btn-confirmar-exclusao');
-  btn.disabled = true;
-  btn.textContent = 'Excluindo...';
+async function excluirLancamento(lancamento, scope) {
+  document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = true; });
 
-  const { error: erroDelete } = await supabase
-    .from('transactions')
-    .delete()
-    .eq('id', lancamento.id)
-    .eq('user_id', usuarioAtual.id);
+  const grupoId = lancamento.recurrence_group_id || lancamento.id;
+  let query = supabase.from('transactions').select('id, type, amount, status, account_id').eq('user_id', usuarioAtual.id);
+  if (scope === 'future') query = query.eq('recurrence_group_id', grupoId).gte('date', lancamento.date);
+  else if (scope === 'series') query = query.eq('recurrence_group_id', grupoId);
+  else query = query.eq('id', lancamento.id);
+
+  const { data: alvos, error: erroAlvos } = await query;
+  if (erroAlvos || !alvos || !alvos.length) {
+    document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = false; });
+    return;
+  }
+
+  const ids = alvos.map((a) => a.id);
+  const { error: erroDelete } = await supabase.from('transactions').delete().eq('user_id', usuarioAtual.id).in('id', ids);
 
   if (erroDelete) {
-    btn.disabled = false;
-    btn.textContent = 'Excluir lançamento';
+    document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = false; });
     return;
   }
 
   // Pendente nunca afetou o saldo — só reverte se já tiver sido contabilizado.
-  if (lancamento.status === 'pago') {
-    const delta = lancamento.type === 'receita' ? -Number(lancamento.amount) : Number(lancamento.amount);
-    await supabase.rpc('increment_account_balance', { p_account_id: lancamento.account_id, p_delta: delta });
+  for (const item of alvos) {
+    if (item.status === 'pago') {
+      const delta = item.type === 'receita' ? -Number(item.amount) : Number(item.amount);
+      await supabase.rpc('increment_account_balance', { p_account_id: item.account_id, p_delta: delta });
+    }
   }
 
   fecharSheetLancamento();

@@ -14,6 +14,10 @@ function hojeISO() {
   return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
 
+function uuid() {
+  return crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
+}
+
 function formatarValorDigitado(valorCentavos) {
   const reais = valorCentavos / 100;
   return reais.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -149,6 +153,30 @@ async function carregarContasECategorias(userId) {
   renderCategorias();
 }
 
+function escolherEscopoEdicao() {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('sheet-escopo-recorrencia');
+    const conteudo = document.getElementById('sheet-escopo-conteudo');
+    conteudo.innerHTML = `
+      <div class="sheet-titulo">Alterar recorrência</div>
+      <div class="sheet-aviso">Este lançamento faz parte de uma recorrência. Como deseja aplicar a alteração?</div>
+      <button type="button" class="sheet-acao-btn" id="btn-escopo-only">Alterar somente esta ocorrência</button>
+      <button type="button" class="sheet-acao-btn" id="btn-escopo-future">Alterar esta e futuras</button>
+      <button type="button" class="sheet-acao-btn" id="btn-escopo-cancelar">Cancelar</button>
+    `;
+
+    const finalizar = (valor) => {
+      overlay.hidden = true;
+      resolve(valor);
+    };
+    document.getElementById('btn-escopo-only').addEventListener('click', () => finalizar('only'));
+    document.getElementById('btn-escopo-future').addEventListener('click', () => finalizar('future'));
+    document.getElementById('btn-escopo-cancelar').addEventListener('click', () => finalizar(null));
+
+    overlay.hidden = false;
+  });
+}
+
 async function salvar(user) {
   const valor = valorEmReais();
   const descricao = document.getElementById('descricao').value.trim();
@@ -176,39 +204,99 @@ async function salvar(user) {
   const dataEscolhida = document.getElementById('data').value || hojeISO();
 
   if (lancamentoOriginal) {
-    const { error: erroUpdate } = await supabase.from('transactions').update({
+    const recorrente = Boolean(lancamentoOriginal.is_recurring || lancamentoOriginal.recurrence_group_id);
+    let escopo = 'only';
+    if (recorrente) {
+      escopo = await escolherEscopoEdicao();
+      if (!escopo) {
+        btn.disabled = false;
+        btn.textContent = textoBotaoPadrao;
+        return;
+      }
+    }
+
+    if (escopo === 'only') {
+      const { error: erroUpdate } = await supabase.from('transactions').update({
+        account_id: contaSelecionada,
+        category_id: categoriaSelecionada,
+        type: tipo,
+        amount: valor,
+        description: descricao,
+        date: dataEscolhida,
+      }).eq('id', lancamentoOriginal.id).eq('user_id', user.id);
+
+      if (erroUpdate) {
+        erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
+        btn.disabled = false;
+        btn.textContent = textoBotaoPadrao;
+        return;
+      }
+
+      // Uma conta pendente não afetou o saldo quando foi criada — editá-la
+      // (sem mexer no status) não deve afetar o saldo agora também.
+      if (lancamentoOriginal.status === 'pago') {
+        // Desfaz o efeito do lançamento original na conta antiga e aplica o
+        // novo valor/tipo na conta escolhida — cobre também troca de conta.
+        const deltaReverso = lancamentoOriginal.type === 'receita' ? -Number(lancamentoOriginal.amount) : Number(lancamentoOriginal.amount);
+        await supabase.rpc('increment_account_balance', { p_account_id: lancamentoOriginal.account_id, p_delta: deltaReverso });
+
+        const deltaNovo = tipo === 'receita' ? valor : -valor;
+        const { error: erroSaldo } = await supabase.rpc('increment_account_balance', { p_account_id: contaSelecionada, p_delta: deltaNovo });
+
+        if (erroSaldo) {
+          erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
+          btn.disabled = false;
+          btn.textContent = textoBotaoPadrao;
+          return;
+        }
+      }
+
+      window.location.href = '/pages/home.html';
+      return;
+    }
+
+    // escopo === 'future' — aplica em todas as ocorrências do grupo a partir desta data.
+    const grupoId = lancamentoOriginal.recurrence_group_id || lancamentoOriginal.id;
+    const { data: alvos, error: erroAlvos } = await supabase
+      .from('transactions')
+      .select('id, type, amount, status, account_id')
+      .eq('user_id', user.id)
+      .eq('recurrence_group_id', grupoId)
+      .gte('date', lancamentoOriginal.date);
+
+    if (erroAlvos) {
+      erroEl.textContent = 'Não foi possível buscar as ocorrências futuras.';
+      btn.disabled = false;
+      btn.textContent = textoBotaoPadrao;
+      return;
+    }
+
+    const ids = (alvos || []).map((t) => t.id);
+    const { error: erroUpdateFuturas } = await supabase.from('transactions').update({
       account_id: contaSelecionada,
       category_id: categoriaSelecionada,
       type: tipo,
       amount: valor,
       description: descricao,
-      date: dataEscolhida,
-    }).eq('id', lancamentoOriginal.id).eq('user_id', user.id);
+    }).in('id', ids).eq('user_id', user.id);
 
-    if (erroUpdate) {
+    if (erroUpdateFuturas) {
       erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
       btn.disabled = false;
       btn.textContent = textoBotaoPadrao;
       return;
     }
 
-    // Uma conta pendente não afetou o saldo quando foi criada — editá-la
-    // (sem mexer no status) não deve afetar o saldo agora também.
-    if (lancamentoOriginal.status === 'pago') {
-      // Desfaz o efeito do lançamento original na conta antiga e aplica o
-      // novo valor/tipo na conta escolhida — cobre também troca de conta.
-      const deltaReverso = lancamentoOriginal.type === 'receita' ? -Number(lancamentoOriginal.amount) : Number(lancamentoOriginal.amount);
-      await supabase.rpc('increment_account_balance', { p_account_id: lancamentoOriginal.account_id, p_delta: deltaReverso });
-
-      const deltaNovo = tipo === 'receita' ? valor : -valor;
-      const { error: erroSaldo } = await supabase.rpc('increment_account_balance', { p_account_id: contaSelecionada, p_delta: deltaNovo });
-
-      if (erroSaldo) {
-        erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
-        btn.disabled = false;
-        btn.textContent = textoBotaoPadrao;
-        return;
-      }
+    const deltas = {};
+    for (const old of alvos || []) {
+      if (old.status !== 'pago') continue;
+      const v = Number(old.amount || 0);
+      deltas[old.account_id] = (deltas[old.account_id] || 0) + (old.type === 'receita' ? -v : v);
+      deltas[contaSelecionada] = (deltas[contaSelecionada] || 0) + (tipo === 'receita' ? valor : -valor);
+    }
+    for (const [accId, delta] of Object.entries(deltas)) {
+      if (!delta) continue;
+      await supabase.rpc('increment_account_balance', { p_account_id: accId, p_delta: delta });
     }
 
     window.location.href = '/pages/home.html';
@@ -237,6 +325,7 @@ async function salvar(user) {
     dadosNovo.recurrence_active = true;
     dadosNovo.recurrence_frequency = document.getElementById('recorrencia-frequencia').value;
     dadosNovo.recurrence_until = document.getElementById('recorrencia-ate').value || null;
+    dadosNovo.recurrence_group_id = uuid();
   }
 
   const { error: erroInsercao } = await supabase.from('transactions').insert(dadosNovo);
@@ -292,7 +381,7 @@ async function init() {
     document.getElementById('secao-recorrencia').hidden = true;
     const { data, error } = await supabase
       .from('transactions')
-      .select('id, account_id, category_id, type, amount, description, date, status')
+      .select('id, account_id, category_id, type, amount, description, date, status, is_recurring, recurrence_group_id')
       .eq('id', idUrl)
       .eq('user_id', user.id)
       .single();
