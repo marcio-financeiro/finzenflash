@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Offshore</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    .off-tabs { display: flex; gap: 6px; margin-bottom: 20px; }
+    .off-tab { padding: 8px 16px; border: 1.5px solid var(--border); background: var(--surface); color: var(--muted); font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer; border-radius: 20px; }
+    .off-tab.ativo { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+    .off-secao { display: none; }
+    .off-secao.ativo { display: block; }
+    .off-secao-topo { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+
+    .item-linha { display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; border-radius: var(--radius-md); }
+    .item-linha:hover { background: var(--surface-2); }
+    .item-linha:last-child { border-bottom: none; }
+    .status-ponto { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .item-info { flex: 1; }
+    .item-detalhe { font-size: 12px; color: var(--muted); }
+    .item-direita { font-weight: 800; font-size: 13px; }
+
+    .historico-tabela-wrap { overflow-x: auto; }
+    .form-linha { display: flex; gap: 12px; }
+    .form-linha > .field { flex: 1; }
+    .toggle-linha { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 700; }
+    .toggle-linha input[type="checkbox"] { width: 16px; height: 16px; }
+  </style>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo">Offshore</div>
+        <div class="topbar-acoes">
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">Buscar <kbd>Ctrl K</kbd></button>
+        </div>
+      </div>
+      <div class="content-scroll">
+        <div class="pagina-titulo-bloco">
+          <h1>Offshore</h1>
+          <p>Ciclos embarcados, horas extras e cursos/certificações.</p>
+        </div>
+
+        <div class="inv-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+          <div class="inv-kpi" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px">
+            <div class="kpi-rotulo">Dias embarcado (ano)</div><div class="kpi-valor num" id="kpi-dias-emb">0d</div>
+          </div>
+          <div class="inv-kpi" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px">
+            <div class="kpi-rotulo">Dias em casa (ano)</div><div class="kpi-valor num" id="kpi-dias-casa">0d</div>
+          </div>
+          <div class="inv-kpi" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px">
+            <div class="kpi-rotulo">Ciclos concluídos</div><div class="kpi-valor num" id="kpi-ciclos">0</div>
+          </div>
+          <div class="inv-kpi" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px">
+            <div class="kpi-rotulo">HE ciclo atual</div><div class="kpi-valor num" id="kpi-he">0h</div>
+          </div>
+        </div>
+
+        <div class="off-tabs">
+          <button type="button" class="off-tab ativo" data-tab="ciclos">Ciclos</button>
+          <button type="button" class="off-tab" data-tab="he">Horas extras</button>
+          <button type="button" class="off-tab" data-tab="cursos">Cursos</button>
+          <button type="button" class="off-tab" data-tab="historico">Histórico por plataforma</button>
+        </div>
+
+        <div class="off-secao ativo" data-secao="ciclos">
+          <div class="off-secao-topo"><button type="button" class="btn-desktop primario" id="btn-novo-ciclo">+ Novo ciclo</button></div>
+          <div class="widget"><div id="lista-ciclos"><div class="lista-vazia">Carregando…</div></div></div>
+        </div>
+
+        <div class="off-secao" data-secao="he">
+          <div class="off-secao-topo"><button type="button" class="btn-desktop primario" id="btn-nova-he">+ Registrar horas</button></div>
+          <div class="widget"><div id="lista-he"><div class="lista-vazia">Carregando…</div></div></div>
+        </div>
+
+        <div class="off-secao" data-secao="cursos">
+          <div class="off-secao-topo"><button type="button" class="btn-desktop primario" id="btn-novo-curso">+ Novo curso</button></div>
+          <div class="widget"><div id="lista-cursos"><div class="lista-vazia">Carregando…</div></div></div>
+        </div>
+
+        <div class="off-secao" data-secao="historico">
+          <div class="widget"><div id="lista-historico"><div class="lista-vazia">Carregando…</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-acao-ciclo" hidden><div class="modal-caixa"><button type="button" class="modal-fechar" data-fechar-modal="modal-acao-ciclo" aria-label="Fechar">✕</button><div id="modal-acao-ciclo-conteudo"></div></div></div>
+  <div class="modal-overlay" id="modal-acao-he" hidden><div class="modal-caixa"><button type="button" class="modal-fechar" data-fechar-modal="modal-acao-he" aria-label="Fechar">✕</button><div id="modal-acao-he-conteudo"></div></div></div>
+  <div class="modal-overlay" id="modal-acao-curso" hidden><div class="modal-caixa"><button type="button" class="modal-fechar" data-fechar-modal="modal-acao-curso" aria-label="Fechar">✕</button><div id="modal-acao-curso-conteudo"></div></div></div>
+  <div class="modal-overlay" id="modal-form" hidden><div class="modal-caixa"><button type="button" class="modal-fechar" data-fechar-modal="modal-form" aria-label="Fechar">✕</button><div id="modal-form-conteudo"></div></div></div>
+
+  <script type="module" src="/js/desktop/offshore.js"></script>
+</body>
+</html>
