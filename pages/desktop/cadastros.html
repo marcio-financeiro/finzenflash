@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Cadastros</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    .cad-tabs { display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+    .cad-tab {
+      padding: 10px 16px; border: none; background: none; color: var(--muted); font-family: inherit;
+      font-size: 13px; font-weight: 800; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    }
+    .cad-tab:hover { color: var(--text); }
+    .cad-tab.ativa { color: var(--accent); border-bottom-color: var(--accent); }
+    .cad-tab .contagem { color: var(--muted); font-weight: 700; }
+
+    .cad-secao { display: none; }
+    .cad-secao.ativa { display: block; }
+    .cad-secao-topo { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+
+    .cad-item-nome { display: flex; align-items: center; gap: 8px; }
+    .badge-principal, .badge-inativo {
+      font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 20px; text-transform: uppercase;
+    }
+    .badge-principal { background: var(--accent-soft); color: var(--accent); }
+    .badge-inativo { background: var(--surface-2); color: var(--muted); }
+    tr.item-inativo { opacity: 0.6; }
+
+    .orcamento-mes-nav { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+    .orcamento-mes-nav button { width: 30px; height: 30px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+
+    .form-linha { display: flex; gap: 12px; }
+    .form-linha > .field { flex: 1; }
+    .toggle-linha { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 700; margin: 6px 0; }
+    .toggle-linha input[type="checkbox"] { width: 16px; height: 16px; }
+  </style>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo">Cadastros</div>
+        <div class="topbar-acoes">
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">
+            Buscar páginas <kbd>Ctrl K</kbd>
+          </button>
+        </div>
+      </div>
+      <div class="content-scroll">
+        <div class="pagina-titulo-bloco">
+          <h1>Cadastros</h1>
+          <p>Contas, cartões, categorias, recorrências e orçamentos.</p>
+        </div>
+
+        <div class="cad-tabs">
+          <button type="button" class="cad-tab ativa" data-tab="contas">Contas <span class="contagem" id="contagem-contas"></span></button>
+          <button type="button" class="cad-tab" data-tab="cartoes">Cartões <span class="contagem" id="contagem-cartoes"></span></button>
+          <button type="button" class="cad-tab" data-tab="categorias">Categorias <span class="contagem" id="contagem-categorias"></span></button>
+          <button type="button" class="cad-tab" data-tab="recorrentes">Recorrentes <span class="contagem" id="contagem-recorrentes"></span></button>
+          <button type="button" class="cad-tab" data-tab="orcamentos">Orçamentos <span class="contagem" id="contagem-orcamentos"></span></button>
+        </div>
+
+        <div class="cad-secao ativa" data-secao="contas">
+          <div class="cad-secao-topo"><button type="button" class="btn-desktop primario" data-add-grupo="conta">+ Nova conta</button></div>
+          <div class="table-wrap"><table class="data-table"><thead><tr><th>Nome</th><th>Tipo</th><th class="num">Saldo</th></tr></thead><tbody id="lista-contas"></tbody></table></div>
+        </div>
+
+        <div class="cad-secao" data-secao="cartoes">
+          <div class="cad-secao-topo"><button type="button" class="btn-desktop primario" data-add-grupo="cartao">+ Novo cartão</button></div>
+          <div class="table-wrap"><table class="data-table"><thead><tr><th>Nome</th><th>Bandeira</th><th class="num">Limite</th><th>Fecha/Vence</th></tr></thead><tbody id="lista-cartoes"></tbody></table></div>
+        </div>
+
+        <div class="cad-secao" data-secao="categorias">
+          <div class="cad-secao-topo"><button type="button" class="btn-desktop primario" data-add-grupo="categoria">+ Nova categoria</button></div>
+          <div class="table-wrap"><table class="data-table"><thead><tr><th>Nome</th><th>Tipo</th></tr></thead><tbody id="lista-categorias"></tbody></table></div>
+        </div>
+
+        <div class="cad-secao" data-secao="recorrentes">
+          <div class="cad-secao-topo"><button type="button" class="btn-desktop primario" data-add-grupo="recorrente">+ Nova recorrência</button></div>
+          <div class="table-wrap"><table class="data-table"><thead><tr><th>Descrição</th><th>Frequência</th><th class="num">Valor</th></tr></thead><tbody id="lista-recorrentes"></tbody></table></div>
+        </div>
+
+        <div class="cad-secao" data-secao="orcamentos">
+          <div class="cad-secao-topo" style="justify-content:space-between;align-items:center">
+            <div class="orcamento-mes-nav">
+              <button type="button" id="btn-orcamento-mes-anterior">‹</button>
+              <span id="orcamento-mes-label"></span>
+              <button type="button" id="btn-orcamento-mes-proximo">›</button>
+            </div>
+            <button type="button" class="btn-desktop primario" data-add-grupo="orcamento">+ Novo orçamento</button>
+          </div>
+          <div id="area-orcamentos">
+            <div class="table-wrap"><table class="data-table"><thead><tr><th>Categoria</th><th class="num">Planejado</th></tr></thead><tbody id="lista-orcamentos"></tbody></table></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-acoes" hidden>
+    <div class="modal-caixa">
+      <button type="button" class="modal-fechar" id="btn-fechar-modal-acoes" aria-label="Fechar">✕</button>
+      <div id="modal-acoes-conteudo"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-form" hidden>
+    <div class="modal-caixa">
+      <button type="button" class="modal-fechar" id="btn-fechar-modal-form" aria-label="Fechar">✕</button>
+      <div id="modal-form-conteudo"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/desktop/cadastros.js"></script>
+</body>
+</html>
