@@ -28,6 +28,68 @@
       } catch (e) {}
     })();
   </script>
+  <style>
+    .home-mes-nav { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+    .home-mes-nav button { width: 30px; height: 30px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+
+    .ranking-linha { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+    .ranking-linha.clicavel { cursor: pointer; background: none; border: none; width: 100%; text-align: left; font-family: inherit; }
+    .ranking-nome { width: 110px; flex-shrink: 0; font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ranking-barra-fundo { flex: 1; height: 20px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+    .ranking-barra-fill { height: 100%; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; border-radius: 6px; min-width: 30px; }
+    .ranking-pct { font-size: 10px; font-weight: 800; color: #fff; }
+    .ranking-comparativo { font-size: 11px; margin: -2px 0 4px 120px; }
+    .ranking-comparativo.pior { color: var(--danger); }
+    .ranking-comparativo.melhor { color: var(--success); }
+
+    .economia-linha { display: flex; align-items: center; gap: 16px; }
+    .economia-aro, .metas-aro { width: 84px; height: 84px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .economia-aro-valor, .metas-aro-valor { width: 66px; height: 66px; border-radius: 50%; background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; }
+    .economia-aro-valor small, .metas-aro-valor small { font-size: 8px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+    .economia-detalhes { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    .economia-item { display: flex; align-items: center; gap: 8px; }
+    .economia-texto-rotulo { font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; }
+    .economia-texto-valor { font-size: 13px; font-weight: 800; }
+    .economia-texto-valor.receita { color: var(--success); }
+    .economia-texto-valor.despesa { color: var(--danger); }
+    .economia-valor-total { margin-top: 12px; text-align: center; }
+    .economia-valor-total .valor { font-size: 20px; font-weight: 800; }
+    .economia-valor-total .valor.negativo { color: var(--danger); }
+    .economia-valor-total .rotulo { font-size: 11px; color: var(--muted); font-weight: 700; }
+    .economia-comparativo { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 700; margin-top: 4px; }
+    .economia-comparativo.melhor { color: var(--success); }
+    .economia-comparativo.pior { color: var(--danger); }
+
+    .metas-linha { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+    .metas-resumo { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+    .metas-resumo .linha { display: flex; justify-content: space-between; }
+    .metas-estourou { color: var(--danger); font-size: 11px; font-weight: 700; margin-top: 4px; }
+    .metas-categoria { margin-bottom: 10px; }
+    .metas-categoria-topo { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+    .metas-categoria-topo.estourou { color: var(--danger); }
+    .metas-barra-fundo { height: 6px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+    .metas-barra-fill { height: 100%; background: var(--accent); }
+    .metas-barra-fill.estourou { background: var(--danger); }
+
+    .pendentes-abas { display: flex; gap: 6px; margin-bottom: 12px; }
+    .pendentes-aba { flex: 1; height: 32px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-family: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .pendentes-aba.ativa { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+    .pendentes-conteudo { text-align: center; }
+    .pendentes-texto { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .pendentes-total { font-size: 22px; font-weight: 800; margin-bottom: 14px; }
+    .pendentes-btn { width: 100%; height: 38px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .pendentes-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .mapa-calor-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .mapa-calor-semana { text-align: center; font-size: 10px; font-weight: 800; color: var(--muted); padding-bottom: 4px; }
+    .mapa-calor-dia { aspect-ratio: 1; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; }
+    .mapa-calor-dia .numero { font-weight: 700; opacity: 0.6; }
+    .mapa-calor-dia .valor { font-size: 9px; font-weight: 800; }
+    .mapa-calor-legenda { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); margin-top: 10px; }
+    .mapa-calor-legenda-ponto { width: 10px; height: 10px; border-radius: 3px; }
+    .mapa-calor-mes-atual { font-weight: 800; text-transform: capitalize; }
+    .mapa-calor-pico { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  </style>
 </head>
 <body class="desktop-body">
   <div class="app-shell">
@@ -36,6 +98,11 @@
       <div class="topbar">
         <div class="topbar-titulo">Início</div>
         <div class="topbar-acoes">
+          <div class="home-mes-nav">
+            <button type="button" id="btn-mes-anterior">‹</button>
+            <span id="mes-atual"></span>
+            <button type="button" id="btn-mes-proximo">›</button>
+          </div>
           <button type="button" class="topbar-busca" id="btn-topbar-busca">
             Buscar páginas <kbd>Ctrl K</kbd>
           </button>
@@ -57,12 +124,30 @@
             <div class="widget-redimensionar" aria-hidden="true"></div>
           </div>
 
-          <div class="widget" data-widget-id="resumo" style="--widget-cols:4">
+          <div class="widget" data-widget-id="ranking" style="--widget-cols:4">
             <div class="widget-cabecalho">
-              <span class="widget-titulo">Resumo do mês</span>
+              <span class="widget-titulo">Ranking categorias (despesas)</span>
               <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
             </div>
-            <div id="widget-resumo" class="kpi-grid"><div class="lista-vazia">Carregando…</div></div>
+            <div id="widget-ranking"><div class="lista-vazia">Carregando…</div></div>
+            <div class="widget-redimensionar" aria-hidden="true"></div>
+          </div>
+
+          <div class="widget" data-widget-id="economia" style="--widget-cols:4">
+            <div class="widget-cabecalho">
+              <span class="widget-titulo">Economia mensal</span>
+              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
+            </div>
+            <div id="widget-economia"><div class="lista-vazia">Carregando…</div></div>
+            <div class="widget-redimensionar" aria-hidden="true"></div>
+          </div>
+
+          <div class="widget" data-widget-id="pendentes" style="--widget-cols:4">
+            <div class="widget-cabecalho">
+              <span class="widget-titulo">Pendências</span>
+              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
+            </div>
+            <div id="widget-pendentes"><div class="lista-vazia">Carregando…</div></div>
             <div class="widget-redimensionar" aria-hidden="true"></div>
           </div>
 
@@ -72,6 +157,24 @@
               <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
             </div>
             <div id="widget-cartoes"><div class="lista-vazia">Carregando…</div></div>
+            <div class="widget-redimensionar" aria-hidden="true"></div>
+          </div>
+
+          <div class="widget" data-widget-id="metas" style="--widget-cols:4">
+            <div class="widget-cabecalho">
+              <span class="widget-titulo">Metas do mês</span>
+              <a class="btn-desktop" href="/pages/desktop/cadastros.html" style="height:26px;padding:0 10px;font-size:11px" title="Editar metas em Cadastros → Orçamentos">Editar</a>
+            </div>
+            <div id="widget-metas"><div class="lista-vazia">Carregando…</div></div>
+            <div class="widget-redimensionar" aria-hidden="true"></div>
+          </div>
+
+          <div class="widget" data-widget-id="mapacalor" style="--widget-cols:8">
+            <div class="widget-cabecalho">
+              <span class="widget-titulo">Mapa de calor (gastos por dia)</span>
+              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
+            </div>
+            <div id="widget-mapacalor"><div class="lista-vazia">Carregando…</div></div>
             <div class="widget-redimensionar" aria-hidden="true"></div>
           </div>
 
@@ -85,6 +188,14 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-pendentes" hidden>
+    <div class="modal-caixa">
+      <button type="button" class="modal-fechar" id="btn-fechar-modal-pendentes" aria-label="Fechar">✕</button>
+      <div class="modal-titulo" id="titulo-lista-pendentes">Pendências</div>
+      <div id="lista-pendentes-itens" style="margin-top:12px"></div>
     </div>
   </div>
 
