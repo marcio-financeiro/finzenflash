@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Saúde Financeira</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    .score-bloco { display: flex; align-items: center; gap: 24px; }
+    #score-numero { font-size: 48px; font-weight: 800; }
+    #score-numero span { font-size: 20px; color: var(--muted); font-weight: 700; }
+    .score-badge { display: inline-block; font-size: 12px; font-weight: 800; padding: 4px 12px; border-radius: 20px; margin-top: 6px; }
+    .score-badge.excelente { background: var(--success-soft); color: var(--success); }
+    .score-badge.bom { background: var(--accent-soft); color: var(--accent); }
+    .score-badge.regular { background: #f5e6c8; color: #93701f; }
+    .score-badge.atencao { background: var(--danger-soft); color: var(--danger); }
+    #score-data { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    .metrica { margin-bottom: 16px; }
+    .metrica-linha { display: flex; justify-content: space-between; font-size: 13px; font-weight: 800; margin-bottom: 4px; }
+    .metrica-barra { height: 6px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+    .metrica-barra-fill { height: 100%; }
+    .metrica-desc { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  </style>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo">Saúde Financeira</div>
+        <div class="topbar-acoes">
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">Buscar <kbd>Ctrl K</kbd></button>
+        </div>
+      </div>
+      <div class="content-scroll">
+        <div class="pagina-titulo-bloco">
+          <h1>Saúde Financeira</h1>
+          <p>Score do mês com base em 6 indicadores.</p>
+        </div>
+
+        <div class="board">
+          <div class="widget" style="--widget-cols:4">
+            <div class="widget-cabecalho"><span class="widget-titulo">Score geral</span></div>
+            <div class="score-bloco">
+              <div>
+                <div id="score-numero">– <span>/100</span></div>
+                <div class="score-badge" id="score-badge" hidden></div>
+              </div>
+            </div>
+            <div id="score-data"></div>
+            <p id="analise-texto" style="font-size:13px;color:var(--muted);margin-top:10px"></p>
+          </div>
+
+          <div class="widget" style="--widget-cols:8">
+            <div class="widget-cabecalho"><span class="widget-titulo">Indicadores</span></div>
+            <div id="lista-metricas"><div class="lista-vazia">Carregando…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/desktop/saude.js"></script>
+</body>
+</html>

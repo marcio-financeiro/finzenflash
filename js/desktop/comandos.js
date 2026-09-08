@@ -13,6 +13,7 @@ const PAGINAS = [
   { id: 'investimentos', nome: 'Investimentos', url: '/pages/desktop/investimentos.html', icone: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>' },
   { id: 'relatorios', nome: 'Relatórios', url: '/pages/desktop/relatorios.html', icone: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M4 19h16"/></svg>' },
   { id: 'projecao', nome: 'Saldo projetado', url: '/pages/desktop/projecao.html', icone: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l4-5 4 3 5-7 5 4"/></svg>' },
+  { id: 'saude', nome: 'Saúde Financeira', url: '/pages/desktop/saude.html', icone: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>' },
 ];
 
 let selecionado = 0;
