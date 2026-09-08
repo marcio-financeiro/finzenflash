@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Lançar</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    .lancar-form { max-width: 560px; display: flex; flex-direction: column; gap: 20px; }
+    .lancar-tipos { display: flex; gap: 10px; }
+    .lancar-tipo-btn {
+      flex: 1; height: 44px; border-radius: var(--radius-md); border: 1.5px solid var(--border);
+      background: var(--surface); color: var(--muted); font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+    }
+    .lancar-tipo-btn.ativo-despesa { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
+    .lancar-tipo-btn.ativo-receita { border-color: var(--success); background: var(--success-soft); color: var(--success); }
+    .lancar-valor {
+      height: 64px; border-radius: var(--radius-lg); border: 1.5px solid var(--border); background: var(--surface);
+      display: flex; align-items: center; padding: 0 20px; font-size: 30px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+    .lancar-valor.cor-despesa { color: var(--danger); }
+    .lancar-valor.cor-receita { color: var(--success); }
+    .lancar-campo label { display: block; font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; }
+    .lancar-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .lancar-recorrencia { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+    .lancar-recorrencia input[type="checkbox"] { width: 16px; height: 16px; flex-shrink: 0; }
+    .lancar-recorrencia-opcoes { display: flex; gap: 12px; margin-top: 10px; }
+    .lancar-recorrencia-opcoes[hidden] { display: none; }
+    .lancar-recorrencia-opcoes > div { flex: 1; }
+  </style>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo" id="topo-titulo">Lançar</div>
+        <div class="topbar-acoes">
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">
+            Buscar páginas <kbd>Ctrl K</kbd>
+          </button>
+        </div>
+      </div>
+      <div class="content-scroll">
+        <div class="pagina-titulo-bloco">
+          <h1>Novo lançamento</h1>
+          <p>Registre uma receita ou despesa de conta.</p>
+        </div>
+
+        <div class="lancar-form">
+          <div class="lancar-tipos">
+            <button type="button" class="lancar-tipo-btn" id="btn-despesa">Despesa</button>
+            <button type="button" class="lancar-tipo-btn" id="btn-receita">Receita</button>
+          </div>
+
+          <div class="lancar-valor" id="valor" data-centavos="0">R$ 0,00</div>
+
+          <div class="lancar-campo">
+            <label for="descricao">Descrição</label>
+            <input type="text" class="input-desktop" id="descricao" list="lista-descricoes" placeholder="Ex.: Mercado, Aluguel, Salário...">
+            <datalist id="lista-descricoes"></datalist>
+            <div id="aviso-sugestao" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
+          </div>
+
+          <div class="lancar-campo">
+            <label for="data">Data</label>
+            <input type="date" class="input-desktop" id="data" style="max-width:200px">
+          </div>
+
+          <div class="lancar-campo">
+            <label>Conta</label>
+            <div class="lancar-chips" id="lista-contas-chip"></div>
+          </div>
+
+          <div class="lancar-campo">
+            <label>Categoria</label>
+            <div class="lancar-chips" id="lista-categorias-chip"></div>
+          </div>
+
+          <div class="lancar-campo" id="secao-recorrencia">
+            <label class="lancar-recorrencia">
+              <input type="checkbox" id="chk-recorrente">
+              Repetir esse lançamento
+            </label>
+            <div class="lancar-recorrencia-opcoes" id="opcoes-recorrencia" hidden>
+              <div>
+                <label for="recorrencia-frequencia">Frequência</label>
+                <select class="input-desktop" id="recorrencia-frequencia">
+                  <option value="mensal">Mensal</option>
+                  <option value="semanal">Semanal</option>
+                  <option value="anual">Anual</option>
+                </select>
+              </div>
+              <div>
+                <label for="recorrencia-ate">Até (opcional)</label>
+                <input type="date" class="input-desktop" id="recorrencia-ate">
+              </div>
+            </div>
+          </div>
+
+          <div class="error-msg" id="erro-lancar"></div>
+          <button type="button" class="btn-desktop primario" id="btn-salvar" style="align-self:flex-start;padding:0 28px">Salvar lançamento</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-escopo-recorrencia" hidden>
+    <div class="modal-caixa">
+      <div id="modal-escopo-conteudo"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/desktop/lancar.js"></script>
+</body>
+</html>
