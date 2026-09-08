@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Extrato</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    .extrato-filtros { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .extrato-mes { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 15px; }
+    .extrato-mes button { width: 32px; height: 32px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+    .extrato-mes button:hover { border-color: var(--accent); color: var(--accent); }
+    .extrato-mes-label { min-width: 150px; text-align: center; text-transform: capitalize; }
+    .extrato-resumo { display: flex; gap: 24px; margin-left: auto; }
+    .extrato-resumo div span { display: block; }
+    .extrato-resumo .rotulo { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+  </style>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo">Extrato</div>
+        <div class="topbar-acoes">
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">
+            Buscar páginas <kbd>Ctrl K</kbd>
+          </button>
+        </div>
+      </div>
+      <div class="content-scroll">
+        <div class="pagina-titulo-bloco">
+          <h1>Extrato</h1>
+          <p>Lançamentos de contas do mês selecionado.</p>
+        </div>
+
+        <div class="extrato-filtros">
+          <div class="extrato-mes">
+            <button type="button" id="btn-mes-anterior" aria-label="Mês anterior">‹</button>
+            <span class="extrato-mes-label" id="mes-atual"></span>
+            <button type="button" id="btn-mes-proximo" aria-label="Próximo mês">›</button>
+          </div>
+          <select class="input-desktop" id="filtro-conta" style="max-width:200px"></select>
+          <select class="input-desktop" id="filtro-categoria" style="max-width:200px"></select>
+          <div class="extrato-resumo">
+            <div><span class="rotulo">Entradas</span><span class="num positivo valor-sensivel" id="total-entradas">R$ 0,00</span></div>
+            <div><span class="rotulo">Saídas</span><span class="num negativo valor-sensivel" id="total-saidas">R$ 0,00</span></div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data-table" id="tabela-lancamentos">
+            <thead>
+              <tr><th>Data</th><th>Descrição</th><th>Conta</th><th class="num">Valor</th><th></th></tr>
+            </thead>
+            <tbody id="corpo-lancamentos">
+              <tr><td colspan="5" class="lista-vazia">Carregando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-lancamento" hidden>
+    <div class="modal-caixa">
+      <button type="button" class="modal-fechar" id="btn-fechar-modal-lancamento" aria-label="Fechar">✕</button>
+      <div id="modal-lancamento-conteudo"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/desktop/extrato.js"></script>
+</body>
+</html>
