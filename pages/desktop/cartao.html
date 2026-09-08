@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Cartão</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    .cartao-topo { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+    .cartao-fatura-nav { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 15px; margin-left: auto; }
+    .cartao-fatura-nav button { width: 32px; height: 32px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+    .cartao-fatura-nav button:hover { border-color: var(--accent); color: var(--accent); }
+    .cartao-fatura-label { min-width: 150px; text-align: center; text-transform: capitalize; }
+    .cartao-fatura-venc { font-size: 12px; color: var(--muted); }
+
+    .limite-barra { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin: 10px 0; }
+    .limite-barra-fill { height: 100%; background: linear-gradient(90deg, var(--accent-grad-1), var(--accent-grad-2)); }
+    .limite-legenda { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-weight: 700; }
+
+    .compra-linha { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .compra-linha:last-child { border-bottom: none; }
+    .compra-linha:hover { background: var(--surface-2); }
+    .compra-parcela { font-size: 12px; color: var(--muted); }
+
+    .tendencia-numeros { display: flex; justify-content: space-around; margin-top: 12px; }
+    .tendencia-numeros div { text-align: center; }
+    .tendencia-numeros .rotulo { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+  </style>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo">Cartão</div>
+        <div class="topbar-acoes">
+          <a class="btn-desktop primario" href="/pages/comprar-cartao.html">+ Nova compra</a>
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">
+            Buscar páginas <kbd>Ctrl K</kbd>
+          </button>
+        </div>
+      </div>
+      <div class="content-scroll">
+        <div class="pagina-titulo-bloco">
+          <h1>Cartão de crédito</h1>
+          <p>Fatura, limite e tendência de gastos por cartão.</p>
+        </div>
+
+        <div class="cartao-topo">
+          <div class="lancar-chips" id="lista-cartoes-chip" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+          <div class="cartao-fatura-nav">
+            <button type="button" id="btn-fatura-anterior" aria-label="Fatura anterior">‹</button>
+            <div>
+              <div class="cartao-fatura-label" id="fatura-atual">—</div>
+              <div class="cartao-fatura-venc" id="venc-fatura"></div>
+            </div>
+            <button type="button" id="btn-fatura-proxima" aria-label="Próxima fatura">›</button>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="widget" style="--widget-cols:5">
+            <div class="widget-cabecalho"><span class="widget-titulo">Resumo da fatura</span></div>
+            <div class="kpi-grid">
+              <div>
+                <div class="kpi-rotulo">Total da fatura</div>
+                <div class="kpi-valor num valor-sensivel" id="total-fatura">R$ 0,00</div>
+              </div>
+            </div>
+            <div class="limite-barra"><div class="limite-barra-fill" id="limite-barra-fill" style="width:0%"></div></div>
+            <div class="limite-legenda">
+              <span id="limite-usado" class="valor-sensivel">Usado R$ 0,00</span>
+              <span id="limite-disponivel" class="valor-sensivel">Disp. R$ 0,00</span>
+            </div>
+            <button type="button" class="btn-desktop primario" id="btn-pagar-fatura" hidden>Pagar fatura</button>
+            <div class="lista-vazia" id="fatura-paga-aviso" hidden>Fatura já paga ou sem compras.</div>
+          </div>
+
+          <div class="widget" style="--widget-cols:7">
+            <div class="widget-cabecalho"><span class="widget-titulo">Tendência (3 faturas)</span></div>
+            <div style="height:140px"><canvas id="chart-tendencia-fatura"></canvas></div>
+            <div class="tendencia-numeros">
+              <div><span class="rotulo">Anterior</span><div class="num valor-sensivel" id="tendencia-anterior">R$ 0,00</div></div>
+              <div><span class="rotulo">Atual</span><div class="num valor-sensivel" id="tendencia-atual">R$ 0,00</div></div>
+              <div><span class="rotulo">Próxima</span><div class="num valor-sensivel" id="tendencia-proxima">R$ 0,00</div></div>
+            </div>
+          </div>
+
+          <div class="widget" style="--widget-cols:12">
+            <div class="widget-cabecalho"><span class="widget-titulo">Compras da fatura</span></div>
+            <div id="lista-compras"><div class="lista-vazia">Carregando…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-compra" hidden>
+    <div class="modal-caixa">
+      <button type="button" class="modal-fechar" id="btn-fechar-modal-compra" aria-label="Fechar">✕</button>
+      <div id="modal-compra-conteudo"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-pagar" hidden>
+    <div class="modal-caixa">
+      <button type="button" class="modal-fechar" id="btn-fechar-modal-pagar" aria-label="Fechar">✕</button>
+      <div class="modal-titulo">Pagar fatura</div>
+      <div class="kpi-valor num valor-sensivel" id="modal-valor-pagar" style="margin:6px 0 16px">R$ 0,00</div>
+      <label style="display:block;font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Conta de pagamento</label>
+      <select class="input-desktop" id="modal-select-conta"></select>
+      <div class="error-msg" id="erro-pagar" style="margin-top:10px"></div>
+      <button type="button" class="btn-desktop primario" id="btn-confirmar-pagamento" style="margin-top:16px">Confirmar pagamento</button>
+    </div>
+  </div>
+
+  <script type="module" src="/js/desktop/cartao.js"></script>
+</body>
+</html>
