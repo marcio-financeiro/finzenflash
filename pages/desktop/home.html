@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Início</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo">Início</div>
+        <div class="topbar-acoes">
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">
+            Buscar páginas <kbd>Ctrl K</kbd>
+          </button>
+        </div>
+      </div>
+      <div class="content-scroll">
+        <div class="pagina-titulo-bloco">
+          <h1>Visão geral</h1>
+          <p>Suas contas, lançamentos e faturas — arraste os widgets pra reorganizar.</p>
+        </div>
+
+        <div class="board" id="board">
+          <div class="widget" data-widget-id="contas" style="--widget-cols:4">
+            <div class="widget-cabecalho">
+              <span class="widget-titulo">Contas</span>
+              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
+            </div>
+            <div id="widget-contas"><div class="lista-vazia">Carregando…</div></div>
+            <div class="widget-redimensionar" aria-hidden="true"></div>
+          </div>
+
+          <div class="widget" data-widget-id="resumo" style="--widget-cols:4">
+            <div class="widget-cabecalho">
+              <span class="widget-titulo">Resumo do mês</span>
+              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
+            </div>
+            <div id="widget-resumo" class="kpi-grid"><div class="lista-vazia">Carregando…</div></div>
+            <div class="widget-redimensionar" aria-hidden="true"></div>
+          </div>
+
+          <div class="widget" data-widget-id="cartoes" style="--widget-cols:4">
+            <div class="widget-cabecalho">
+              <span class="widget-titulo">Cartões</span>
+              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
+            </div>
+            <div id="widget-cartoes"><div class="lista-vazia">Carregando…</div></div>
+            <div class="widget-redimensionar" aria-hidden="true"></div>
+          </div>
+
+          <div class="widget" data-widget-id="lancamentos" style="--widget-cols:12">
+            <div class="widget-cabecalho">
+              <span class="widget-titulo">Últimos lançamentos</span>
+              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
+            </div>
+            <div class="table-wrap" id="widget-lancamentos"><div class="lista-vazia">Carregando…</div></div>
+            <div class="widget-redimensionar" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/desktop/home.js"></script>
+</body>
+</html>

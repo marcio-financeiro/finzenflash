@@ -13,6 +13,7 @@ const ICONE_SAUDE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none"
 const ICONE_APARENCIA = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="13" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="11" cy="15" r="1" fill="currentColor" stroke="none"/><path d="M12 3a9 9 0 0 0 0 18c1.1 0 1.6-.7 1.6-1.5 0-.4-.2-.7-.4-1a1.4 1.4 0 0 1 1-2.4h1.4A3.4 3.4 0 0 0 19 12.6 9 9 0 0 0 12 3Z"/></svg>';
 const ICONE_PARCELAMENTOS = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="10.5" width="18" height="5" rx="1.5"/><rect x="3" y="17" width="18" height="5" rx="1.5"/></svg>';
 const ICONE_SAIR = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>';
+const ICONE_DESKTOP = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';
 
 const PAGINAS_NO_MAIS = ['cadastros', 'investimentos', 'offshore', 'relatorios', 'projecao', 'saude', 'aparencia', 'parcelamentos'];
 
@@ -53,6 +54,7 @@ export function montarNavInferior(paginaAtiva) {
         <a class="mais-item ${ativo('saude')}" href="/pages/saude.html">${ICONE_SAUDE}Saúde Financeira</a>
         <a class="mais-item ${ativo('parcelamentos')}" href="/pages/parcelamentos.html">${ICONE_PARCELAMENTOS}Parcelamentos</a>
         <a class="mais-item ${ativo('aparencia')}" href="/pages/aparencia.html">${ICONE_APARENCIA}Aparência</a>
+        <a class="mais-item" href="/pages/desktop/home.html" id="link-versao-desktop">${ICONE_DESKTOP}Versão desktop</a>
         <button type="button" class="mais-item perigo" id="btn-sair-nav">${ICONE_SAIR}Sair</button>
       </div>
     </div>
@@ -61,5 +63,8 @@ export function montarNavInferior(paginaAtiva) {
   const sheet = document.getElementById('sheet-mais');
   document.getElementById('btn-abrir-mais').addEventListener('click', () => { sheet.hidden = false; });
   sheet.addEventListener('click', (e) => { if (e.target === sheet) sheet.hidden = true; });
+  document.getElementById('link-versao-desktop').addEventListener('click', () => {
+    try { localStorage.setItem('flash_versao_preferida', 'desktop'); } catch { /* localStorage indisponível */ }
+  });
   ativarArrastarParaFechar(sheet);
 }
