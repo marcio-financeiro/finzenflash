@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Luna</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    .content-scroll.chat-scroll { display: flex; flex-direction: column; padding: 0; }
+    .chat-shell { max-width: 720px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; flex: 1; padding: 24px 24px 0; min-height: 0; }
+    #mensagens { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-bottom: 16px; }
+
+    .chat-empty { text-align: center; margin: auto; color: var(--muted); max-width: 320px; }
+    .chat-empty-icone { width: 48px; height: 48px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
+    .chat-empty h3 { color: var(--text); margin: 0 0 6px; }
+
+    .chat-msg { display: flex; gap: 10px; max-width: 80%; }
+    .chat-msg-user { align-self: flex-end; flex-direction: row-reverse; }
+    .chat-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--surface-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--muted); }
+    .chat-msg-ai .chat-avatar { background: var(--accent-soft); color: var(--accent); }
+    .chat-bubble { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px 14px; font-size: 14px; line-height: 1.5; }
+    .chat-msg-user .chat-bubble { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .chat-bubble p { margin: 0 0 8px; }
+    .chat-bubble p:last-child { margin-bottom: 0; }
+    .chat-cursor { display: inline-block; width: 6px; height: 14px; background: var(--accent); animation: piscar 1s infinite; vertical-align: middle; margin-left: 2px; }
+    @keyframes piscar { 50% { opacity: 0; } }
+    .chat-dots { display: flex; gap: 4px; }
+    .chat-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: pular 1.2s infinite; }
+    .chat-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .chat-dots span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes pular { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-4px); } }
+
+    .chat-suggestions { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 0; }
+    .chat-chip { border: 1.5px solid var(--border); background: var(--surface); color: var(--text); border-radius: 20px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .chat-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+    .chat-input-bar { display: flex; gap: 10px; align-items: flex-end; padding: 12px 0 24px; border-top: 1px solid var(--border); margin-top: 8px; }
+    #inputMsg { flex: 1; resize: none; min-height: 44px; max-height: 120px; border-radius: var(--radius-md); border: 1.5px solid var(--border); background: var(--surface); color: var(--text); padding: 10px 14px; font-family: inherit; font-size: 14px; outline: none; }
+    #inputMsg:focus { border-color: var(--accent); }
+  </style>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo">Luna</div>
+        <div class="topbar-acoes">
+          <span id="statusContexto" style="font-size:12px;color:var(--muted)"></span>
+          <button type="button" class="btn-desktop" id="btnLimpar">Limpar conversa</button>
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">Buscar <kbd>Ctrl K</kbd></button>
+        </div>
+      </div>
+      <div class="content-scroll chat-scroll">
+        <div class="chat-shell">
+          <div id="mensagens">
+            <div id="emptyState" class="chat-empty">
+              <div class="chat-empty-icone">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z"/></svg>
+              </div>
+              <h3>Olá! Eu sou a Luna</h3>
+              <p>Tenho acesso aos seus dados financeiros reais. Pergunte sobre gastos, receitas, cartões e mais.</p>
+            </div>
+          </div>
+
+          <div class="chat-suggestions" id="chatSuggestions">
+            <button class="chat-chip" data-msg="Como foram meus gastos esse mês?">Gastos do mês</button>
+            <button class="chat-chip" data-msg="Quanto tenho de fatura de cartão aberta?">Faturas abertas</button>
+            <button class="chat-chip" data-msg="Onde posso economizar esse mês?">Onde economizar</button>
+            <button class="chat-chip" data-msg="Vou fechar o mês no azul ou no vermelho?">Previsão do mês</button>
+            <button class="chat-chip" data-msg="Tenho algum lançamento pendente essa semana?">Pendentes</button>
+          </div>
+
+          <div class="chat-input-bar">
+            <textarea id="inputMsg" rows="1" placeholder="Carregando seus dados..." disabled></textarea>
+            <button type="button" class="btn-desktop primario" id="btnEnviar" disabled>Enviar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/desktop/luna.js"></script>
+</body>
+</html>
