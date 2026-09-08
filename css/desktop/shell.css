@@ -6,6 +6,15 @@ html, body {
   height: 100%;
 }
 
+/* Blindagem global: qualquer elemento com display explícito no CSS (ex.
+   .widget{display:flex}) sobrepõe o [hidden] nativo do navegador, que é
+   regra de user-agent e perde pra qualquer seletor de autor. Sem isso,
+   toggles feitos via `el.hidden = true` (ações/estado condicional) não
+   escondem nada nas páginas desktop. */
+[hidden] {
+  display: none !important;
+}
+
 body.desktop-body {
   margin: 0;
   display: flex;

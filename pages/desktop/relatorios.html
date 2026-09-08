@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Relatórios</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    .rel-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+    .rel-tab { padding: 8px 14px; border: 1.5px solid var(--border); background: var(--surface); color: var(--muted); font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer; border-radius: 20px; }
+    .rel-tab.ativo { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+    .rel-seletor { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+    .rel-mes-nav { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+    .rel-mes-nav button { width: 30px; height: 30px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+
+    .balanco-linha { display: flex; gap: 24px; align-items: center; margin-bottom: 8px; }
+    .balanco-badge { font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 20px; }
+    .balanco-badge.subiu { background: var(--danger-soft); color: var(--danger); }
+    .balanco-badge.desceu { background: var(--success-soft); color: var(--success); }
+
+    .ranking-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; }
+    .ranking-ponto { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .ranking-nome { flex: 1; }
+    .ranking-valor { font-weight: 700; }
+    .ranking-pct { color: var(--muted); width: 44px; text-align: right; }
+  </style>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo">Relatórios</div>
+        <div class="topbar-acoes">
+          <button type="button" class="btn-desktop" id="btn-exportar">Exportar / Imprimir</button>
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">Buscar <kbd>Ctrl K</kbd></button>
+        </div>
+      </div>
+      <div class="content-scroll">
+        <div class="pagina-titulo-bloco">
+          <h1>Relatórios</h1>
+          <p>Balanço, categorias e orçamento vs realizado.</p>
+        </div>
+
+        <div class="rel-tabs">
+          <button type="button" class="rel-tab ativo" id="tab-mes">Mês</button>
+          <button type="button" class="rel-tab" id="tab-periodo">Período</button>
+        </div>
+
+        <div class="rel-seletor">
+          <div class="rel-mes-nav" id="seletor-mes">
+            <button type="button" id="btn-mes-anterior">‹</button>
+            <span id="mes-atual"></span>
+            <button type="button" id="btn-mes-proximo">›</button>
+          </div>
+          <div class="rel-mes-nav" id="seletor-periodo" hidden>
+            <input type="date" class="input-desktop" id="periodo-inicio">
+            <span>até</span>
+            <input type="date" class="input-desktop" id="periodo-fim">
+          </div>
+        </div>
+
+        <div class="widget" id="card-balanco" hidden style="margin-bottom:16px">
+          <div class="widget-cabecalho"><span class="widget-titulo">Balanço do mês</span><span class="balanco-badge" id="balanco-badge" hidden></span></div>
+          <div class="balanco-linha">
+            <div><div class="kpi-rotulo">Receitas</div><div class="num positivo valor-sensivel" id="balanco-receitas">R$ 0,00</div></div>
+            <div><div class="kpi-rotulo">Despesas</div><div class="num negativo valor-sensivel" id="balanco-despesas">R$ 0,00</div></div>
+            <div><div class="kpi-rotulo">Saldo</div><div class="num valor-sensivel" id="balanco-total">R$ 0,00</div></div>
+          </div>
+        </div>
+
+        <div class="board">
+          <div class="widget" style="--widget-cols:7">
+            <div class="widget-cabecalho"><span class="widget-titulo" id="titulo-recdes">Receita vs Despesa</span></div>
+            <div class="grafico-wrap" style="height:260px"><canvas id="chart-recdes"></canvas></div>
+          </div>
+
+          <div class="widget" style="--widget-cols:5">
+            <div class="widget-cabecalho"><span class="widget-titulo">Despesas por categoria</span></div>
+            <div class="grafico-wrap" style="height:180px"><canvas id="chart-categorias"></canvas></div>
+            <div id="ranking-categorias"></div>
+          </div>
+
+          <div class="widget" style="--widget-cols:12">
+            <div class="widget-cabecalho"><span class="widget-titulo">Orçamento vs Realizado</span></div>
+            <div id="wrap-orcamento"><div class="lista-vazia">Carregando…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/desktop/relatorios.js"></script>
+</body>
+</html>
