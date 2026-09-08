@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Parcelamentos — FinZen Flash</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0E7C86">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FinZen Flash">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    body { display: flex; justify-content: center; align-items: flex-start; }
+    .shell {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    }
+    .topo {
+      padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .topo a { display: flex; color: var(--text); }
+    .topo-titulo { font-size: 17px; font-weight: 800; flex: 1; }
+    .btn-privacidade {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      background: var(--surface-2);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .filtros { display: flex; gap: 8px; padding: 0 20px 16px 20px; align-items: center; }
+    .filtros select {
+      flex: 1;
+      min-width: 0;
+      height: 40px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      font-family: inherit;
+      padding: 0 12px;
+    }
+    .filtro-quitadas {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .filtro-quitadas input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+    .resumo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 0 20px 16px 20px;
+    }
+    .resumo-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px; }
+    .resumo-rotulo { font-size: 11px; font-weight: 700; color: var(--muted); }
+    .resumo-valor { font-size: 17px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+    .secao {
+      flex: 1;
+      padding: 0 20px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .parcela-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+    .parcela-header { display: flex; flex-direction: column; gap: 10px; }
+    .parcela-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .parcela-desc { font-size: 14px; font-weight: 800; }
+    .parcela-origem { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .parcela-total { font-size: 14px; font-weight: 800; text-align: right; white-space: nowrap; }
+    .parcela-sub { font-size: 12px; color: var(--muted); text-align: right; margin-top: 2px; white-space: nowrap; }
+
+    .parcela-barra { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+    .parcela-barra-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+    .parcela-barra-fill.quitada { background: var(--success); }
+
+    .parcela-status { font-size: 12px; font-weight: 700; }
+    .parcela-status.quitada { color: var(--success); }
+    .parcela-status.andamento { color: var(--muted); }
+
+    .parcela-detalhe { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .parcela-detalhe.aberto { display: block; }
+    .parcela-linha-detalhe {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 0;
+      font-size: 12px;
+    }
+    .parcela-linha-detalhe:not(:last-child) { border-bottom: 1px solid var(--border); }
+    .parcela-linha-num { font-weight: 700; }
+    .parcela-linha-fatura { color: var(--muted); }
+    .parcela-linha-valor { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .parcela-linha-check.paga { color: var(--success); }
+    .parcela-linha-check.aberta { color: var(--muted); }
+
+    .conta-vazia { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
+
+    .nav-inferior { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; background: var(--surface); border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .nav-inferior-inner { width: 100%; max-width: 480px; display: flex; justify-content: space-around; padding: 10px 0; }
+    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); text-decoration: none; font-size: 10px; font-weight: 700; background: none; border: none; font-family: inherit; }
+    .nav-item.ativo { color: var(--accent); }
+
+    .mais-item { display: flex; align-items: center; gap: 12px; padding: 14px 4px; border-bottom: 1px solid var(--border); text-decoration: none; color: var(--text); font-size: 15px; font-weight: 700; background: none; border-left: none; border-right: none; border-top: none; width: 100%; font-family: inherit; text-align: left; }
+    .mais-item:last-child { border-bottom: none; }
+    .mais-item svg { flex-shrink: 0; color: var(--muted); }
+    .mais-item.ativo { color: var(--accent); }
+    .mais-item.ativo svg { color: var(--accent); }
+    .mais-item.perigo { color: var(--danger); }
+    .mais-item.perigo svg { color: var(--danger); }
+
+    .sheet-overlay { position: fixed; inset: 0; background: rgba(16,38,42,0.45); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
+    .sheet-overlay[hidden] { display: none; }
+    .sheet { width: 100%; max-width: 480px; max-height: calc(85vh - env(safe-area-inset-top, 0px)); overflow-y: auto; background: var(--surface); border-radius: 24px 24px 0 0; padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px; display: flex; flex-direction: column; gap: 16px; }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; flex-shrink: 0; }
+    .sheet-titulo { font-size: 16px; font-weight: 800; text-align: center; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topo">
+      <a href="/pages/cartao.html" aria-label="Voltar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <div class="topo-titulo">Parcelamentos</div>
+      <button type="button" id="btn-privacidade" class="btn-privacidade" aria-label="Ocultar valores"></button>
+    </div>
+
+    <div class="filtros">
+      <select id="filtro-cartao"><option value="">Todos os cartões</option></select>
+      <label class="filtro-quitadas">
+        <input type="checkbox" id="chk-mostrar-quitadas">
+        Quitadas
+      </label>
+    </div>
+
+    <div class="resumo-grid" id="resumo-grid" hidden>
+      <div class="resumo-card">
+        <div class="resumo-rotulo">RESTANTE EM ABERTO</div>
+        <div class="resumo-valor valor-sensivel" id="resumo-restante">R$ 0,00</div>
+      </div>
+      <div class="resumo-card">
+        <div class="resumo-rotulo">COMPRAS EM ANDAMENTO</div>
+        <div class="resumo-valor" id="resumo-qtd">0</div>
+      </div>
+      <div class="resumo-card">
+        <div class="resumo-rotulo" id="resumo-mes-atual-rotulo">COMPROMETIDO —</div>
+        <div class="resumo-valor valor-sensivel" id="resumo-mes-atual">R$ 0,00</div>
+      </div>
+      <div class="resumo-card">
+        <div class="resumo-rotulo" id="resumo-mes-proximo-rotulo">COMPROMETIDO —</div>
+        <div class="resumo-valor valor-sensivel" id="resumo-mes-proximo">R$ 0,00</div>
+      </div>
+    </div>
+
+    <div class="secao">
+      <div id="lista-parcelamentos"><div class="conta-vazia">Carregando...</div></div>
+    </div>
+
+    <div id="nav-inferior-slot"></div>
+  </div>
+
+  <script type="module" src="../js/parcelamentos.js"></script>
+</body>
+</html>

@@ -4,7 +4,7 @@ import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { loadChart } from './loadChart.js';
 import { getCotacoes, limparCache } from './quoteCache.js';
-import { montarNavInferior } from './navInferior.js?v=5';
+import { montarNavInferior } from './navInferior.js?v=6';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtPct = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2).replace('.', ',')}%`;

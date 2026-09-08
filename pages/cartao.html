@@ -188,6 +188,20 @@
       gap: 8px;
     }
     .secao-titulo { font-size: 14px; font-weight: 800; margin-top: 6px; }
+    .link-parcelamentos {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      text-decoration: none;
+    }
 
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 8px; }
     .card-titulo { font-size: 13px; font-weight: 800; margin-bottom: 12px; color: var(--muted); }
@@ -381,6 +395,11 @@
         <div class="tendencia-grafico-wrap"><canvas id="chart-tendencia-fatura"></canvas></div>
       </div>
 
+      <a class="link-parcelamentos" href="/pages/parcelamentos.html">
+        Ver todos os parcelamentos
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      </a>
+
       <div class="secao-titulo">Compras da fatura</div>
       <div id="lista-compras"></div>
     </div>
@@ -413,6 +432,6 @@
     </div>
   </div>
 
-  <script type="module" src="../js/cartaoHub.js?v=11"></script>
+  <script type="module" src="../js/cartaoHub.js?v=12"></script>
 </body>
 </html>

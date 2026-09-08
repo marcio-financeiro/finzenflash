@@ -1,6 +1,6 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { aplicarTemaSalvo } from './temaService.js?v=3';
-import { montarNavInferior } from './navInferior.js?v=5';
+import { montarNavInferior } from './navInferior.js?v=6';
 
 const fmtData = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
