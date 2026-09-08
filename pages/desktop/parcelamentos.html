@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Parcelamentos</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    .parc-filtros { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .parc-filtros label { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
+    .parc-filtros input[type="checkbox"] { width: 16px; height: 16px; }
+
+    .parcela-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 12px; overflow: hidden; }
+    .parcela-header { padding: 16px; cursor: pointer; }
+    .parcela-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .parcela-origem { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .parcela-total { font-weight: 800; text-align: right; }
+    .parcela-sub { font-size: 12px; color: var(--muted); text-align: right; }
+    .parcela-barra { height: 6px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin-top: 12px; }
+    .parcela-barra-fill { height: 100%; background: var(--accent); }
+    .parcela-barra-fill.quitada { background: var(--success); }
+    .parcela-status { font-size: 12px; font-weight: 700; margin-top: 6px; }
+    .parcela-status.quitada { color: var(--success); }
+    .parcela-status.andamento { color: var(--muted); }
+    .parcela-detalhe { display: none; border-top: 1px solid var(--border); }
+    .parcela-detalhe.aberto { display: block; }
+    .parcela-linha-detalhe { display: flex; align-items: center; gap: 12px; padding: 8px 16px; font-size: 12px; border-bottom: 1px solid var(--border); }
+    .parcela-linha-detalhe:last-child { border-bottom: none; }
+    .parcela-linha-num { width: 40px; color: var(--muted); }
+    .parcela-linha-fatura { flex: 1; }
+    .parcela-linha-check.paga { color: var(--success); }
+    .parcela-linha-check.aberta { color: var(--muted); }
+  </style>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo">Parcelamentos</div>
+        <div class="topbar-acoes">
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">Buscar <kbd>Ctrl K</kbd></button>
+        </div>
+      </div>
+      <div class="content-scroll">
+        <div class="pagina-titulo-bloco">
+          <h1>Compras parceladas</h1>
+          <p>Acompanhamento de todas as parcelas em aberto e quitadas.</p>
+        </div>
+
+        <div class="kpi-grid" id="resumo-grid" hidden style="margin-bottom:20px">
+          <div><div class="kpi-rotulo">Restante total</div><div class="kpi-valor num valor-sensivel" id="resumo-restante">R$ 0,00</div></div>
+          <div><div class="kpi-rotulo">Compras em andamento</div><div class="kpi-valor num" id="resumo-qtd">0</div></div>
+          <div><div class="kpi-rotulo" id="resumo-mes-atual-rotulo">Comprometido</div><div class="kpi-valor num valor-sensivel" id="resumo-mes-atual">R$ 0,00</div></div>
+          <div><div class="kpi-rotulo" id="resumo-mes-proximo-rotulo">Comprometido próx.</div><div class="kpi-valor num valor-sensivel" id="resumo-mes-proximo">R$ 0,00</div></div>
+        </div>
+
+        <div class="parc-filtros">
+          <select class="input-desktop" id="filtro-cartao" style="max-width:220px"></select>
+          <label><input type="checkbox" id="chk-mostrar-quitadas"> Mostrar quitadas</label>
+        </div>
+
+        <div id="lista-parcelamentos"><div class="lista-vazia">Carregando…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/desktop/parcelamentos.js"></script>
+</body>
+</html>
