@@ -29,19 +29,28 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function marcarSelecionado() {
+  document.querySelectorAll('#comandos-lista .comandos-item').forEach((btn, i) => {
+    btn.classList.toggle('selecionado', i === selecionado);
+  });
+}
+
 function render() {
   const lista = document.getElementById('comandos-lista');
   if (filtradas.length === 0) {
     lista.innerHTML = '<div class="lista-vazia">Nada encontrado.</div>';
     return;
   }
+  // Hover só troca a classe (marcarSelecionado) em vez de reconstruir o DOM
+  // aqui: recriar os botões a cada mouseenter derrubava o clique do usuário,
+  // porque o elemento embaixo do cursor era substituído bem no meio do gesto.
   lista.innerHTML = filtradas.map((p, i) => `
     <button type="button" class="comandos-item ${i === selecionado ? 'selecionado' : ''}" data-id="${p.id}">
       ${p.icone}${escapeHtml(p.nome)}
     </button>
   `).join('');
   lista.querySelectorAll('.comandos-item').forEach((btn, i) => {
-    btn.addEventListener('mouseenter', () => { selecionado = i; render(); });
+    btn.addEventListener('mouseenter', () => { selecionado = i; marcarSelecionado(); });
     btn.addEventListener('click', () => ir(filtradas[i]));
   });
 }
