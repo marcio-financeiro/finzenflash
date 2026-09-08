@@ -1,0 +1,872 @@
+import { supabase, requireAuth, configurarBotaoSair } from '../supabaseClient.js';
+import { aplicarTemaSalvo } from '../temaService.js';
+import { loadChart } from '../loadChart.js';
+import { getCotacoes, limparCache } from '../quoteCache.js';
+import { montarNavRail } from './navRail.js';
+import { abrirComandos } from './comandos.js';
+import { configurarModal, abrirModal, fecharModal } from './modal.js';
+
+const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtPct = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2).replace('.', ',')}%`;
+const fmtMesAno = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit' });
+
+const DEFAULT_USD_BRL = 5.15;
+const TIPOS_ATIVO = [
+  { valor: 'acao_br', texto: 'Ação BR' },
+  { valor: 'fii', texto: 'FII' },
+  { valor: 'etf_br', texto: 'ETF BR' },
+  { valor: 'acao_eua', texto: 'Ação EUA' },
+  { valor: 'etf_eua', texto: 'ETF EUA' },
+  { valor: 'renda_fixa', texto: 'Renda Fixa' },
+];
+const CORES_DONUT = ['#0E7C86', '#14A3AE', '#c9963f', '#d9583a', '#8ea198', '#1E9E6E'];
+const TIPOS_PROVENTO = [
+  { valor: 'dividendo', texto: 'Dividendo' },
+  { valor: 'jcp', texto: 'JCP' },
+  { valor: 'rendimento', texto: 'Rendimento FII' },
+  { valor: 'cupom', texto: 'Cupom / Juros' },
+];
+
+let usuarioAtual = null;
+let ativos = [];
+let contas = [];
+let todasContas = [];
+let dividendos = [];
+let dolarAtual = DEFAULT_USD_BRL;
+let chartDonut = null;
+let chartEvolucao = null;
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+
+function hojeISO() {
+  const hoje = new Date();
+  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+function lerValorMonetario(bruto) {
+  const normalizado = String(bruto ?? '').trim().replace(/\./g, '').replace(',', '.');
+  const numero = Number(normalizado);
+  return Number.isFinite(numero) ? numero : 0;
+}
+
+function tipoLabel(t) {
+  return TIPOS_ATIVO.find((o) => o.valor === t)?.texto ?? t ?? '-';
+}
+
+function classeKey(t) {
+  if (t === 'fii') return 'FIIs';
+  if (t === 'acao_br') return 'Ações BR';
+  if (t === 'etf_br') return 'ETFs BR';
+  if (t === 'acao_eua') return 'Ações EUA';
+  if (t === 'etf_eua') return 'ETFs EUA';
+  if (t === 'renda_fixa') return 'Renda Fixa';
+  return 'Outros';
+}
+
+function calcAplicado(a) { return Number(a.quantidade) * Number(a.preco_medio); }
+function calcAtual(a) { return Number(a.quantidade) * Number(a.cotacao_atual || a.preco_medio); }
+function calcBRL(a, v) { return (a.moeda || 'BRL') === 'USD' ? v * dolarAtual : v; }
+
+function campoTexto(id, label, valor, placeholder = '') {
+  return `
+    <div class="field">
+      <label for="${id}">${label}</label>
+      <input type="text" class="input-desktop" id="${id}" value="${escapeHtml(valor ?? '')}" placeholder="${placeholder}">
+    </div>
+  `;
+}
+
+function campoSelect(id, label, opcoes, valorAtual) {
+  const options = opcoes.map((o) => `<option value="${o.valor}" ${o.valor === valorAtual ? 'selected' : ''}>${o.texto}</option>`).join('');
+  return `
+    <div class="field">
+      <label for="${id}">${label}</label>
+      <select class="input-desktop" id="${id}">${options}</select>
+    </div>
+  `;
+}
+
+async function carregarDolar(userId) {
+  const { data } = await supabase
+    .from('user_settings')
+    .select('setting_value')
+    .eq('user_id', userId)
+    .eq('setting_key', 'usd_brl')
+    .maybeSingle();
+  dolarAtual = data ? Number(data.setting_value) || DEFAULT_USD_BRL : DEFAULT_USD_BRL;
+}
+
+async function salvarDolar(userId, valor) {
+  await supabase.from('user_settings').upsert({
+    user_id: userId, setting_key: 'usd_brl', setting_value: String(valor),
+  }, { onConflict: 'user_id,setting_key' });
+}
+
+let ultimaAtualizacaoCotacoes = null;
+let atualizandoCotacoes = false;
+
+function renderStatusCotacao() {
+  const el = document.getElementById('cotacao-status');
+  if (!ultimaAtualizacaoCotacoes) {
+    el.textContent = 'Cotações não atualizadas ainda';
+    return;
+  }
+  const minutos = Math.floor((Date.now() - ultimaAtualizacaoCotacoes) / 60000);
+  el.textContent = minutos < 1 ? 'Cotações atualizadas agora' : `Cotações atualizadas há ${minutos} min`;
+}
+
+async function atualizarCotacoes(userId, silencioso = false) {
+  if (atualizandoCotacoes) return;
+  atualizandoCotacoes = true;
+  const btn = document.getElementById('btn-atualizar-cotacao');
+  const svg = btn.querySelector('svg');
+  if (!silencioso) { svg.classList.add('girando'); btn.disabled = true; }
+
+  try {
+    const tickers = ativos.filter((a) => a.tipo !== 'renda_fixa').map((a) => a.ticker.toUpperCase());
+    const cots = await getCotacoes(tickers, true, false);
+
+    const novoDolar = cots['USD-BRL'];
+    if (novoDolar && Math.abs(novoDolar - dolarAtual) > 0.001) {
+      dolarAtual = novoDolar;
+      await salvarDolar(userId, dolarAtual);
+    }
+
+    const agora = new Date().toISOString();
+    for (const a of ativos) {
+      if (a.tipo === 'renda_fixa') continue;
+      const nova = cots[a.ticker.toUpperCase()];
+      if (!nova) continue;
+      const atual = Number(a.cotacao_atual || 0);
+      if (atual > 0 && Math.abs(nova - atual) / atual < 0.0001) continue;
+      await supabase.from('investments').update({ cotacao_atual: nova, atualizado_em: agora }).eq('id', a.id).eq('user_id', userId);
+      a.cotacao_atual = nova;
+    }
+
+    ultimaAtualizacaoCotacoes = Date.now();
+    renderStatusCotacao();
+    renderKpisDireto();
+    renderPosicoes();
+    await renderDonut();
+  } catch (err) {
+    console.error(err);
+  } finally {
+    atualizandoCotacoes = false;
+    if (!silencioso) { svg.classList.remove('girando'); btn.disabled = false; }
+  }
+}
+
+function renderKpisDireto() {
+  const aplicadoBRL = ativos.reduce((s, a) => s + calcBRL(a, calcAplicado(a)), 0);
+  const atualBRL = ativos.reduce((s, a) => s + calcBRL(a, calcAtual(a)), 0);
+  renderKpis({ aplicadoBRL, atualBRL, proventos: calcularKpisProventos().total });
+}
+
+async function carregarContas(userId) {
+  const { data: broker } = await supabase
+    .from('accounts')
+    .select('id, nome, currency, saldo_atual')
+    .eq('user_id', userId).eq('active', true).eq('account_kind', 'broker')
+    .order('nome');
+  contas = broker ?? [];
+
+  if (contas.length === 0) {
+    const { data: todas } = await supabase
+      .from('accounts')
+      .select('id, nome, currency, saldo_atual')
+      .eq('user_id', userId).eq('active', true)
+      .order('nome');
+    contas = todas ?? [];
+  }
+}
+
+async function carregarAtivos(userId) {
+  const { data, error } = await supabase
+    .from('investments')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('ativo', true)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  ativos = data ?? [];
+}
+
+async function carregarTodasContas(userId) {
+  const { data, error } = await supabase
+    .from('accounts')
+    .select('id, nome, currency, saldo_atual')
+    .eq('user_id', userId).eq('active', true)
+    .order('nome');
+  if (error) throw error;
+  todasContas = data ?? [];
+}
+
+async function carregarDividendos(userId) {
+  const { data, error } = await supabase
+    .from('dividends')
+    .select('*')
+    .eq('user_id', userId)
+    .order('data_pagamento', { ascending: false });
+  if (error) throw error;
+  dividendos = data ?? [];
+}
+
+function calcularKpisProventos() {
+  const hoje = new Date();
+  const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+  const anoAtual = String(hoje.getFullYear());
+
+  const mes = dividendos.filter((d) => d.data_pagamento?.startsWith(mesAtual)).reduce((s, d) => s + Number(d.valor_total), 0);
+  const ano = dividendos.filter((d) => d.data_pagamento?.startsWith(anoAtual)).reduce((s, d) => s + Number(d.valor_total), 0);
+  const total = dividendos.reduce((s, d) => s + Number(d.valor_total), 0);
+  return { mes, ano, total };
+}
+
+async function carregarHistoricoPatrimonio(userId) {
+  const { data, error } = await supabase
+    .from('patrimony_history')
+    .select('reference_month, investments_total')
+    .eq('user_id', userId)
+    .order('reference_month', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).slice(-12);
+}
+
+function renderKpis({ aplicadoBRL, atualBRL, proventos }) {
+  const ganhoCapital = atualBRL - aplicadoBRL;
+  const lucroTotal = ganhoCapital + proventos;
+  const rentabilidade = aplicadoBRL > 0 ? (ganhoCapital / aplicadoBRL) * 100 : 0;
+
+  document.getElementById('kpi-patrimonio').textContent = fmt.format(atualBRL);
+  document.getElementById('kpi-investido').textContent = fmt.format(aplicadoBRL);
+
+  const kpiLucro = document.getElementById('kpi-lucro');
+  kpiLucro.textContent = fmt.format(lucroTotal);
+  kpiLucro.classList.toggle('positivo', lucroTotal > 0);
+  kpiLucro.classList.toggle('negativo', lucroTotal < 0);
+  document.getElementById('kpi-ganho-capital').textContent = fmt.format(ganhoCapital);
+
+  document.getElementById('kpi-proventos').textContent = fmt.format(proventos);
+
+  const kpiRent = document.getElementById('kpi-rentabilidade');
+  kpiRent.textContent = fmtPct(rentabilidade);
+  kpiRent.classList.toggle('positivo', rentabilidade > 0);
+  kpiRent.classList.toggle('negativo', rentabilidade < 0);
+}
+
+function renderProventosMiniKpis({ mes, ano, total }) {
+  document.getElementById('div-mes').textContent = fmt.format(mes);
+  document.getElementById('div-ano').textContent = fmt.format(ano);
+  document.getElementById('div-total').textContent = fmt.format(total);
+}
+
+async function renderDonut() {
+  const porClasse = new Map();
+  for (const a of ativos) {
+    const valor = calcBRL(a, calcAtual(a));
+    if (valor <= 0) continue;
+    const chave = classeKey(a.tipo);
+    porClasse.set(chave, (porClasse.get(chave) ?? 0) + valor);
+  }
+
+  const legenda = document.getElementById('donut-legenda');
+  const canvas = document.getElementById('chart-donut');
+
+  if (porClasse.size === 0) {
+    legenda.innerHTML = '<div class="lista-vazia">Nenhum ativo na carteira ainda.</div>';
+    if (chartDonut) { chartDonut.destroy(); chartDonut = null; }
+    return;
+  }
+
+  const entradas = [...porClasse.entries()].sort((a, b) => b[1] - a[1]);
+  const total = entradas.reduce((s, [, v]) => s + v, 0);
+
+  legenda.innerHTML = entradas.map(([nome, valor], i) => `
+    <div class="donut-legenda-item">
+      <div class="donut-ponto" style="background:${CORES_DONUT[i % CORES_DONUT.length]}"></div>
+      <div class="donut-nome">${escapeHtml(nome)}</div>
+      <div class="donut-pct">${((valor / total) * 100).toFixed(1)}%</div>
+    </div>
+  `).join('');
+
+  const Chart = await loadChart();
+  if (chartDonut) { chartDonut.destroy(); chartDonut = null; }
+  chartDonut = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: entradas.map(([nome]) => nome),
+      datasets: [{ data: entradas.map(([, v]) => v), backgroundColor: entradas.map((_, i) => CORES_DONUT[i % CORES_DONUT.length]), borderWidth: 0 }],
+    },
+    options: { cutout: '68%', plugins: { legend: { display: false }, tooltip: { enabled: true } } },
+  });
+}
+
+async function renderGraficoEvolucao({ aplicadoBRL, atualBRL }, historico) {
+  const canvas = document.getElementById('chart-evolucao');
+  const wrap = canvas.closest('.grafico-wrap');
+
+  if (historico.length === 0) {
+    wrap.innerHTML = '<div class="lista-vazia">Nenhum histórico disponível ainda.</div>';
+    return;
+  }
+
+  const hoje = new Date();
+  const mesAtualKey = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+
+  const labels = [];
+  const serieAplicado = [];
+  const serieGanho = [];
+
+  historico.forEach((h) => {
+    const chave = h.reference_month.slice(0, 7);
+    const [y, m] = chave.split('-').map(Number);
+    labels.push(fmtMesAno.format(new Date(y, m - 1, 1)).replace('.', ''));
+
+    const total = chave === mesAtualKey && atualBRL > 0 ? atualBRL : Number(h.investments_total);
+    serieAplicado.push(Math.max(0, aplicadoBRL));
+    serieGanho.push(Math.max(0, total - aplicadoBRL));
+  });
+
+  const Chart = await loadChart();
+  if (chartEvolucao) { chartEvolucao.destroy(); chartEvolucao = null; }
+  chartEvolucao = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Valor aplicado', data: serieAplicado, backgroundColor: '#8ea198', stack: 's' },
+        { label: 'Ganho de Capital', data: serieGanho, backgroundColor: '#1E9E6E', stack: 's' },
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, ticks: { display: false }, grid: { display: false } } },
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+    },
+  });
+}
+
+function renderPosicaoItem(a) {
+  const aplicado = calcAplicado(a);
+  const atual = calcAtual(a);
+  const pct = aplicado > 0 ? ((atual - aplicado) / aplicado) * 100 : 0;
+  return `
+    <div class="posicao-linha" data-id="${a.id}">
+      <div class="posicao-icone">${escapeHtml((a.ticker || '?').slice(0, 4))}</div>
+      <div class="posicao-info">
+        <div>${escapeHtml(a.ticker)}</div>
+        <div class="posicao-detalhe">${tipoLabel(a.tipo)} · ${Number(a.quantidade)} cotas</div>
+      </div>
+      <div class="posicao-valores">
+        <div class="num valor-sensivel">${fmt.format(calcBRL(a, atual))}</div>
+        <div class="num ${pct >= 0 ? 'positivo' : 'negativo'}" style="font-size:12px">${fmtPct(pct)}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPosicoes() {
+  const container = document.getElementById('lista-posicoes');
+  if (ativos.length === 0) {
+    container.innerHTML = '<div class="lista-vazia">Nenhum ativo cadastrado ainda.</div>';
+    return;
+  }
+
+  const porClasse = new Map();
+  for (const a of ativos) {
+    const chave = classeKey(a.tipo);
+    if (!porClasse.has(chave)) porClasse.set(chave, []);
+    porClasse.get(chave).push(a);
+  }
+
+  const grupos = [...porClasse.entries()].sort((x, y) => {
+    const totalX = x[1].reduce((s, a) => s + calcBRL(a, calcAtual(a)), 0);
+    const totalY = y[1].reduce((s, a) => s + calcBRL(a, calcAtual(a)), 0);
+    return totalY - totalX;
+  });
+
+  container.innerHTML = grupos.map(([classe, itens]) => `
+    <div class="posicao-classe-titulo">${escapeHtml(classe)}</div>
+    ${itens.map(renderPosicaoItem).join('')}
+  `).join('');
+
+  container.querySelectorAll('.posicao-linha').forEach((el) => {
+    const ativo = ativos.find((a) => a.id === el.dataset.id);
+    if (ativo) el.addEventListener('click', () => abrirModalAcaoPosicao(ativo));
+  });
+}
+
+async function recarregarTudo() {
+  const aplicadoBRL = ativos.reduce((s, a) => s + calcBRL(a, calcAplicado(a)), 0);
+  const atualBRL = ativos.reduce((s, a) => s + calcBRL(a, calcAtual(a)), 0);
+
+  let historico = [];
+  try {
+    await Promise.all([
+      carregarDividendos(usuarioAtual.id),
+      carregarHistoricoPatrimonio(usuarioAtual.id).then((h) => { historico = h; }),
+    ]);
+  } catch (err) {
+    console.error(err);
+  }
+
+  const kpisProventos = calcularKpisProventos();
+  renderKpis({ aplicadoBRL, atualBRL, proventos: kpisProventos.total });
+  renderProventosMiniKpis(kpisProventos);
+  renderPosicoes();
+  try {
+    await Promise.all([
+      renderDonut(),
+      renderGraficoEvolucao({ aplicadoBRL, atualBRL }, historico),
+    ]);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function abrirModalAcaoPosicao(ativo) {
+  const conteudo = document.getElementById('modal-acao-posicao-conteudo');
+  conteudo.innerHTML = `
+    <div class="modal-titulo">${escapeHtml(ativo.ticker)}</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+      <button type="button" class="btn-desktop primario" id="btn-editar-posicao">Editar posição</button>
+      <button type="button" class="btn-desktop perigo" id="btn-excluir-posicao">Remover da carteira</button>
+    </div>
+  `;
+  document.getElementById('btn-editar-posicao').addEventListener('click', () => abrirModalEditarPosicao(ativo));
+  document.getElementById('btn-excluir-posicao').addEventListener('click', () => confirmarExclusaoPosicao(ativo));
+  abrirModal('modal-acao-posicao');
+}
+
+function confirmarExclusaoPosicao(ativo) {
+  const conteudo = document.getElementById('modal-acao-posicao-conteudo');
+  conteudo.innerHTML = `
+    <div class="modal-titulo">Remover ${escapeHtml(ativo.ticker)} da carteira?</div>
+    <p style="font-size:13px;color:var(--muted)">Não apaga o histórico de aportes/vendas já feitos, só some da lista de posições.</p>
+    <button type="button" class="btn-desktop perigo" id="btn-confirmar-excluir-posicao" style="margin-top:10px">Remover</button>
+  `;
+  document.getElementById('btn-confirmar-excluir-posicao').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-confirmar-excluir-posicao');
+    btn.disabled = true;
+    btn.textContent = 'Removendo...';
+    const { error } = await supabase.from('investments').update({ ativo: false }).eq('id', ativo.id).eq('user_id', usuarioAtual.id);
+    if (error) { btn.disabled = false; btn.textContent = 'Remover'; return; }
+    fecharModal('modal-acao-posicao');
+    await carregarAtivos(usuarioAtual.id);
+    await recarregarTudo();
+  });
+}
+
+function abrirModalEditarPosicao(ativo) {
+  const conteudo = document.getElementById('modal-form-conteudo');
+  conteudo.innerHTML = `
+    <div class="modal-titulo">Editar posição</div>
+    <div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">
+      ${campoTexto('f-ticker', 'Ticker', ativo.ticker)}
+      ${campoTexto('f-nome', 'Nome (opcional)', ativo.nome)}
+      ${campoSelect('f-tipo', 'Tipo', TIPOS_ATIVO, ativo.tipo)}
+      <div class="form-linha">
+        ${campoTexto('f-quantidade', 'Quantidade', String(ativo.quantidade).replace('.', ','))}
+        ${campoTexto('f-preco', 'Preço médio', String(ativo.preco_medio).replace('.', ','))}
+      </div>
+      ${campoSelect('f-moeda', 'Moeda', [{ valor: 'BRL', texto: 'BRL — Real' }, { valor: 'USD', texto: 'USD — Dólar' }], ativo.moeda || 'BRL')}
+      <div class="error-msg" id="erro-form"></div>
+      <button type="button" class="btn-desktop primario" id="btn-salvar-form">Salvar</button>
+    </div>
+  `;
+  document.getElementById('btn-salvar-form').addEventListener('click', () => salvarEdicaoPosicao(ativo.id));
+  fecharModal('modal-acao-posicao');
+  abrirModal('modal-form');
+}
+
+async function salvarEdicaoPosicao(id) {
+  const erroEl = document.getElementById('erro-form');
+  erroEl.textContent = '';
+
+  const ticker = document.getElementById('f-ticker').value.trim().toUpperCase();
+  const nome = document.getElementById('f-nome').value.trim();
+  const tipo = document.getElementById('f-tipo').value;
+  const quantidade = lerValorMonetario(document.getElementById('f-quantidade').value);
+  const preco = lerValorMonetario(document.getElementById('f-preco').value);
+  const moeda = document.getElementById('f-moeda').value;
+
+  if (!ticker || !tipo || quantidade <= 0 || preco <= 0) {
+    erroEl.textContent = 'Preencha ticker, tipo, quantidade e preço médio.';
+    return;
+  }
+
+  const btn = document.getElementById('btn-salvar-form');
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  const { error } = await supabase.from('investments').update({
+    ticker, nome, tipo, moeda, quantidade, preco_medio: preco, cotacao_atual: preco,
+  }).eq('id', id).eq('user_id', usuarioAtual.id);
+
+  if (error) {
+    erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
+    btn.disabled = false;
+    btn.textContent = 'Salvar';
+    return;
+  }
+
+  fecharModal('modal-form');
+  await carregarAtivos(usuarioAtual.id);
+  await recarregarTudo();
+}
+
+async function abrirModalListaProventos() {
+  const container = document.getElementById('lista-proventos-itens');
+  container.innerHTML = '<div class="lista-vazia">Carregando...</div>';
+  abrirModal('modal-lista-proventos');
+
+  if (dividendos.length === 0) {
+    container.innerHTML = '<div class="lista-vazia">Nenhum provento registrado ainda.</div>';
+    return;
+  }
+
+  container.innerHTML = dividendos.map((d) => {
+    const conta = todasContas.find((c) => c.id === d.account_id);
+    return `
+      <div class="posicao-linha" data-id="${d.id}">
+        <div class="posicao-icone">${escapeHtml((d.ticker || '?').slice(0, 4))}</div>
+        <div class="posicao-info">
+          <div>${escapeHtml(d.ticker)}</div>
+          <div class="posicao-detalhe">${tipoProventoLabel(d.tipo)} · ${escapeHtml(conta?.nome ?? '-')} · ${fmtDataCurta(d.data_pagamento)}</div>
+        </div>
+        <div class="posicao-valores">
+          <div class="num positivo valor-sensivel">+${fmt.format(d.valor_total)}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.querySelectorAll('.posicao-linha').forEach((el) => {
+    const dividendo = dividendos.find((d) => d.id === el.dataset.id);
+    if (dividendo) el.addEventListener('click', () => confirmarExclusaoProvento(dividendo));
+  });
+}
+
+function tipoProventoLabel(t) {
+  return TIPOS_PROVENTO.find((o) => o.valor === t)?.texto ?? t ?? '-';
+}
+
+function fmtDataCurta(iso) {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y.slice(2)}`;
+}
+
+function confirmarExclusaoProvento(dividendo) {
+  const conteudo = document.getElementById('modal-acao-provento-conteudo');
+  conteudo.innerHTML = `
+    <div class="modal-titulo">Excluir provento de ${escapeHtml(dividendo.ticker)}?</div>
+    <p style="font-size:13px;color:var(--muted)">Remove só o registro aqui — não estorna o saldo já creditado na conta.</p>
+    <button type="button" class="btn-desktop perigo" id="btn-confirmar-excluir-provento" style="margin-top:10px">Excluir</button>
+  `;
+  document.getElementById('btn-confirmar-excluir-provento').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-confirmar-excluir-provento');
+    btn.disabled = true;
+    btn.textContent = 'Excluindo...';
+    const { error } = await supabase.from('dividends').delete().eq('id', dividendo.id).eq('user_id', usuarioAtual.id);
+    if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+    fecharModal('modal-acao-provento');
+    await carregarDividendos(usuarioAtual.id);
+    renderProventosMiniKpis(calcularKpisProventos());
+    await abrirModalListaProventos();
+  });
+  abrirModal('modal-acao-provento');
+}
+
+function abrirModalFormDividendo() {
+  const conteudo = document.getElementById('modal-form-conteudo');
+  conteudo.innerHTML = `
+    <div class="modal-titulo">Registrar provento</div>
+    <div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">
+      ${campoSelect('f-div-ativo', 'Ativo', [{ valor: '', texto: 'Selecione o ativo' }, ...ativos.map((a) => ({ valor: a.id, texto: a.ticker }))], '')}
+      ${campoSelect('f-div-tipo', 'Tipo', TIPOS_PROVENTO, 'dividendo')}
+      <div class="form-linha">
+        ${campoTexto('f-div-valor-cota', 'Valor por cota', '', '0,00')}
+        ${campoTexto('f-div-qtd-cotas', 'Qtd cotas na data', '', 'Automático')}
+      </div>
+      ${campoSelect('f-div-moeda', 'Moeda do recebimento', [{ valor: 'BRL', texto: 'BRL — Real' }, { valor: 'USD', texto: 'USD — Dólar' }], 'BRL')}
+      ${campoTexto('f-div-valor-total', 'Ou valor total recebido', '', '0,00')}
+      ${campoSelect('f-div-conta', 'Conta de destino', [{ valor: '', texto: 'Selecione a conta' }, ...todasContas.map((c) => ({ valor: c.id, texto: c.nome }))], '')}
+      <div class="field"><label for="f-div-data">Data de pagamento</label><input type="date" class="input-desktop" id="f-div-data" value="${hojeISO()}"></div>
+      ${campoTexto('f-div-obs', 'Observação (opcional)', '', '')}
+      <div class="error-msg" id="erro-form"></div>
+      <button type="button" class="btn-desktop primario" id="btn-salvar-form">Registrar provento</button>
+    </div>
+  `;
+
+  document.getElementById('f-div-ativo').addEventListener('change', (e) => {
+    const ativo = ativos.find((a) => a.id === e.target.value);
+    if (ativo) document.getElementById('f-div-qtd-cotas').value = String(ativo.quantidade).replace('.', ',');
+  });
+  document.getElementById('btn-salvar-form').addEventListener('click', salvarDividendo);
+  abrirModal('modal-form');
+}
+
+async function salvarDividendo() {
+  const erroEl = document.getElementById('erro-form');
+  erroEl.textContent = '';
+
+  const ativoId = document.getElementById('f-div-ativo').value;
+  const tipo = document.getElementById('f-div-tipo').value;
+  const valorCota = lerValorMonetario(document.getElementById('f-div-valor-cota').value);
+  const qtdCotas = lerValorMonetario(document.getElementById('f-div-qtd-cotas').value);
+  const moedaDiv = document.getElementById('f-div-moeda').value;
+  const valorTotalInformado = lerValorMonetario(document.getElementById('f-div-valor-total').value);
+  const contaId = document.getElementById('f-div-conta').value;
+  const dataPag = document.getElementById('f-div-data').value || hojeISO();
+  const obs = document.getElementById('f-div-obs').value.trim();
+
+  const valorTotalMoeda = valorTotalInformado || valorCota * qtdCotas;
+
+  if (!ativoId || !tipo || !valorTotalMoeda || !contaId) {
+    erroEl.textContent = 'Preencha ativo, tipo, valor e conta.';
+    return;
+  }
+
+  const ativo = ativos.find((a) => a.id === ativoId);
+  const conta = todasContas.find((c) => c.id === contaId);
+  if (!ativo || !conta) { erroEl.textContent = 'Ativo ou conta não encontrados.'; return; }
+
+  const totalUSD = moedaDiv === 'USD' ? valorTotalMoeda : 0;
+  const totalBRL = moedaDiv === 'USD' ? valorTotalMoeda * dolarAtual : valorTotalMoeda;
+  const qtd = qtdCotas || Number(ativo.quantidade);
+  const valorCotaBRL = qtd > 0 ? totalBRL / qtd : 0;
+  const contaMoeda = conta.currency || 'BRL';
+  const valorConta = contaMoeda === 'USD' ? totalUSD : totalBRL;
+
+  const btn = document.getElementById('btn-salvar-form');
+  btn.disabled = true;
+  btn.textContent = 'Registrando...';
+
+  try {
+    const { data: divRow, error: erroDiv } = await supabase.from('dividends').insert({
+      user_id: usuarioAtual.id, investment_id: ativoId, ticker: ativo.ticker,
+      tipo, valor_por_cota: valorCotaBRL, quantidade_cotas: qtd,
+      valor_total: totalBRL, account_id: contaId, data_pagamento: dataPag,
+      observacao: obs || null,
+    }).select('id').single();
+    if (erroDiv) throw erroDiv;
+
+    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', { p_account_id: contaId, p_delta: valorConta });
+    if (erroSaldo) throw erroSaldo;
+
+    const { data: catInv } = await supabase.from('categories')
+      .select('id').eq('user_id', usuarioAtual.id).eq('tipo', 'receita')
+      .ilike('nome', 'Investimentos').limit(1).maybeSingle();
+
+    const { data: txRow } = await supabase.from('transactions').insert({
+      user_id: usuarioAtual.id, account_id: contaId, category_id: catInv?.id ?? null,
+      type: 'receita', amount: valorConta,
+      description: `Dividendo ${ativo.ticker} (${tipoProventoLabel(tipo)})`,
+      date: dataPag, status: 'pago',
+      notes: obs || `Provento de ${ativo.ticker}`,
+    }).select('id').single();
+
+    if (txRow?.id) {
+      await supabase.from('dividends').update({ transaction_id: txRow.id }).eq('id', divRow.id).eq('user_id', usuarioAtual.id);
+    }
+
+    fecharModal('modal-form');
+    await Promise.all([carregarDividendos(usuarioAtual.id), carregarTodasContas(usuarioAtual.id), carregarContas(usuarioAtual.id)]);
+    renderProventosMiniKpis(calcularKpisProventos());
+  } catch (err) {
+    console.error(err);
+    erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
+    btn.disabled = false;
+    btn.textContent = 'Registrar provento';
+  }
+}
+
+let operacaoAtual = 'compra';
+
+function abrirModalLancamento() {
+  operacaoAtual = 'compra';
+  const conteudo = document.getElementById('modal-form-conteudo');
+  conteudo.innerHTML = `
+    <div class="modal-titulo">Aportar / Vender</div>
+    <div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">
+      <div class="toggle-tipo">
+        <button type="button" id="btn-op-compra" class="ativo-compra">Compra</button>
+        <button type="button" id="btn-op-venda">Venda</button>
+      </div>
+      ${campoTexto('f-ticker', 'Ticker', '', 'Ex: BBAS3, VOO')}
+      ${campoTexto('f-nome', 'Nome (opcional)', '', 'Ex: Banco do Brasil')}
+      ${campoSelect('f-tipo', 'Tipo', [{ valor: '', texto: 'Selecione' }, ...TIPOS_ATIVO], '')}
+      ${campoSelect('f-corretora', 'Corretora (conta)', [{ valor: '', texto: 'Selecione a conta' }, ...contas.map((c) => ({ valor: c.id, texto: c.nome }))], '')}
+      <div class="form-linha">
+        ${campoTexto('f-quantidade', 'Quantidade', '', '0')}
+        ${campoTexto('f-preco', 'Preço unitário', '', '0,00')}
+      </div>
+      ${campoTexto('f-valor-total', 'Ou valor total (se não souber o unitário)', '', '0,00')}
+      <div class="form-linha">
+        ${campoSelect('f-moeda', 'Moeda', [{ valor: 'BRL', texto: 'BRL — Real' }, { valor: 'USD', texto: 'USD — Dólar' }], 'BRL')}
+        <div class="field"><label for="f-data">Data</label><input type="date" class="input-desktop" id="f-data" value="${hojeISO()}"></div>
+      </div>
+      ${campoTexto('f-obs', 'Observação (opcional)', '', 'Ex: aporte mensal')}
+      <div class="error-msg" id="erro-form"></div>
+      <button type="button" class="btn-desktop primario" id="btn-salvar-form">Salvar lançamento</button>
+    </div>
+  `;
+
+  document.getElementById('btn-op-compra').addEventListener('click', () => selecionarOperacao('compra'));
+  document.getElementById('btn-op-venda').addEventListener('click', () => selecionarOperacao('venda'));
+  document.getElementById('btn-salvar-form').addEventListener('click', salvarLancamento);
+  abrirModal('modal-form');
+}
+
+function selecionarOperacao(op) {
+  operacaoAtual = op;
+  document.getElementById('btn-op-compra').classList.toggle('ativo-compra', op === 'compra');
+  document.getElementById('btn-op-venda').classList.toggle('ativo-venda', op === 'venda');
+}
+
+async function salvarLancamento() {
+  const erroEl = document.getElementById('erro-form');
+  erroEl.textContent = '';
+
+  const ticker = document.getElementById('f-ticker').value.trim().toUpperCase();
+  const nome = document.getElementById('f-nome').value.trim();
+  const tipo = document.getElementById('f-tipo').value;
+  const contaId = document.getElementById('f-corretora').value;
+  const quantidade = lerValorMonetario(document.getElementById('f-quantidade').value);
+  let preco = lerValorMonetario(document.getElementById('f-preco').value);
+  const valorTotalInformado = lerValorMonetario(document.getElementById('f-valor-total').value);
+  const moeda = document.getElementById('f-moeda').value;
+  const data = document.getElementById('f-data').value || hojeISO();
+  const obs = document.getElementById('f-obs').value.trim();
+
+  if (!preco && valorTotalInformado && quantidade) preco = valorTotalInformado / quantidade;
+  const valorTotal = valorTotalInformado || quantidade * preco;
+
+  if (!ticker || !tipo || !contaId || !quantidade || !preco) {
+    erroEl.textContent = 'Preencha ticker, tipo, corretora, quantidade e preço (ou valor total).';
+    return;
+  }
+
+  const conta = contas.find((c) => c.id === contaId);
+  if (!conta) { erroEl.textContent = 'Conta não encontrada.'; return; }
+
+  if (operacaoAtual === 'compra' && Number(conta.saldo_atual) < valorTotal) {
+    erroEl.textContent = `Saldo insuficiente na conta (${fmt.format(conta.saldo_atual || 0)}).`;
+    return;
+  }
+
+  const btn = document.getElementById('btn-salvar-form');
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  try {
+    const existing = ativos.find((a) => a.ticker === ticker && (a.moeda || 'BRL') === moeda);
+    let investmentId;
+
+    if (operacaoAtual === 'compra') {
+      if (existing) {
+        const novaQtd = Number(existing.quantidade) + quantidade;
+        const novoPM = (Number(existing.quantidade) * Number(existing.preco_medio) + quantidade * preco) / novaQtd;
+        const { error } = await supabase.from('investments').update({
+          nome: nome || existing.nome, tipo, quantidade: novaQtd, preco_medio: novoPM,
+        }).eq('id', existing.id).eq('user_id', usuarioAtual.id);
+        if (error) throw error;
+        investmentId = existing.id;
+      } else {
+        const { data: novo, error } = await supabase.from('investments').insert({
+          user_id: usuarioAtual.id, ticker, nome, tipo, moeda,
+          quantidade, preco_medio: preco, cotacao_atual: preco,
+          corretora: conta.nome, exchange_rate: moeda === 'USD' ? dolarAtual : null, ativo: true,
+        }).select('id').single();
+        if (error) throw error;
+        investmentId = novo.id;
+      }
+    } else {
+      if (!existing) { erroEl.textContent = `Você não possui ${ticker} para vender.`; btn.disabled = false; btn.textContent = 'Salvar lançamento'; return; }
+      const novaQtd = Number(existing.quantidade) - quantidade;
+      if (novaQtd <= 0) {
+        const { error } = await supabase.from('investments').update({ ativo: false }).eq('id', existing.id).eq('user_id', usuarioAtual.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('investments').update({ quantidade: novaQtd }).eq('id', existing.id).eq('user_id', usuarioAtual.id);
+        if (error) throw error;
+      }
+      investmentId = existing.id;
+    }
+
+    const { error: erroTx } = await supabase.from('investment_transactions').insert({
+      user_id: usuarioAtual.id, investment_id: investmentId, ticker, tipo,
+      tipo_movimento: operacaoAtual, quantidade,
+      preco_unitario: preco, preco, valor_total: valorTotal,
+      moeda, account_id: contaId,
+      exchange_rate: moeda === 'USD' ? dolarAtual : null,
+      data_movimento: data, observacao: obs,
+    });
+    if (erroTx) throw erroTx;
+
+    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
+      p_account_id: contaId,
+      p_delta: operacaoAtual === 'compra' ? -valorTotal : valorTotal,
+    });
+    if (erroSaldo) throw erroSaldo;
+
+    const categoriaLabel = operacaoAtual === 'compra' ? 'Compra' : 'Venda';
+    await supabase.from('transactions').insert({
+      user_id: usuarioAtual.id, account_id: contaId,
+      type: operacaoAtual === 'compra' ? 'despesa' : 'receita',
+      amount: valorTotal,
+      description: `${categoriaLabel} ${ticker} (${quantidade}x ${fmt.format(preco)})`,
+      date: data, status: 'pago',
+      notes: obs || `${tipoLabel(tipo)} via ${conta.nome}`,
+    });
+
+    fecharModal('modal-form');
+    await Promise.all([carregarAtivos(usuarioAtual.id), carregarContas(usuarioAtual.id)]);
+    await recarregarTudo();
+  } catch (err) {
+    console.error(err);
+    erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
+    btn.disabled = false;
+    btn.textContent = 'Salvar lançamento';
+  }
+}
+
+async function iniciar() {
+  aplicarTemaSalvo();
+  const user = await requireAuth();
+  if (!user) return;
+  usuarioAtual = user;
+
+  montarNavRail('investimentos');
+  configurarBotaoSair();
+  document.getElementById('btn-topbar-busca').addEventListener('click', abrirComandos);
+
+  ['modal-acao-posicao', 'modal-form', 'modal-lista-proventos', 'modal-acao-provento'].forEach((id) => configurarModal(id));
+  document.querySelectorAll('[data-fechar-modal]').forEach((btn) => {
+    btn.addEventListener('click', () => fecharModal(btn.dataset.fecharModal));
+  });
+
+  document.getElementById('btn-novo-lancamento').addEventListener('click', abrirModalLancamento);
+  document.getElementById('btn-novo-provento').addEventListener('click', abrirModalFormDividendo);
+  document.getElementById('btn-ver-proventos').addEventListener('click', abrirModalListaProventos);
+  document.getElementById('btn-atualizar-cotacao').addEventListener('click', () => {
+    limparCache();
+    atualizarCotacoes(usuarioAtual.id, false);
+  });
+
+  try {
+    await carregarDolar(user.id);
+    await Promise.all([carregarContas(user.id), carregarTodasContas(user.id), carregarAtivos(user.id)]);
+    await recarregarTudo();
+    atualizarCotacoes(user.id, true);
+  } catch (err) {
+    console.error(err);
+    document.getElementById('lista-posicoes').innerHTML = '<div class="lista-vazia">Não foi possível carregar os investimentos.</div>';
+  }
+}
+
+iniciar();

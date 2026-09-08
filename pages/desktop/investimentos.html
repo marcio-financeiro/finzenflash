@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Investimentos</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    .inv-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+    .inv-kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+    .inv-kpi .rotulo { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; }
+    .inv-kpi .valor { font-size: 20px; font-weight: 800; margin-top: 4px; }
+
+    .donut-legenda-item { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; }
+    .donut-ponto { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .donut-nome { flex: 1; }
+    .donut-pct { font-weight: 800; color: var(--muted); }
+
+    .posicao-linha { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .posicao-linha:last-child { border-bottom: none; }
+    .posicao-linha:hover { background: var(--surface-2); }
+    .posicao-icone { width: 34px; height: 34px; border-radius: 50%; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; flex-shrink: 0; }
+    .posicao-info { flex: 1; }
+    .posicao-detalhe { font-size: 12px; color: var(--muted); }
+    .posicao-valores { text-align: right; }
+    .posicao-classe-titulo { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin: 12px 0 4px; }
+
+    .proventos-mini { display: flex; gap: 20px; align-items: center; margin-top: 10px; }
+    .proventos-mini div { text-align: center; }
+    .proventos-mini .rotulo { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+
+    .toggle-tipo { display: flex; gap: 8px; margin-bottom: 4px; }
+    .toggle-tipo button { flex: 1; height: 40px; border-radius: var(--radius-md); border: 1.5px solid var(--border); background: var(--surface); color: var(--muted); font-family: inherit; font-weight: 800; cursor: pointer; }
+    .toggle-tipo button.ativo-compra { border-color: var(--success); background: var(--success-soft); color: var(--success); }
+    .toggle-tipo button.ativo-venda { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
+    .form-linha { display: flex; gap: 12px; }
+    .form-linha > .field { flex: 1; }
+  </style>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo">Investimentos</div>
+        <div class="topbar-acoes">
+          <span id="cotacao-status" style="font-size:12px;color:var(--muted)"></span>
+          <button type="button" class="btn-desktop" id="btn-atualizar-cotacao">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+            Atualizar
+          </button>
+          <button type="button" class="btn-desktop primario" id="btn-novo-lancamento">+ Aportar / Vender</button>
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">Buscar <kbd>Ctrl K</kbd></button>
+        </div>
+      </div>
+      <div class="content-scroll">
+        <div class="pagina-titulo-bloco">
+          <h1>Carteira de investimentos</h1>
+          <p>Posições, alocação e proventos.</p>
+        </div>
+
+        <div class="inv-kpis">
+          <div class="inv-kpi"><div class="rotulo">Patrimônio</div><div class="valor valor-sensivel" id="kpi-patrimonio">R$ 0,00</div></div>
+          <div class="inv-kpi"><div class="rotulo">Investido</div><div class="valor valor-sensivel" id="kpi-investido">R$ 0,00</div></div>
+          <div class="inv-kpi"><div class="rotulo">Lucro total</div><div class="valor valor-sensivel" id="kpi-lucro">R$ 0,00</div><div style="font-size:11px;color:var(--muted)">Ganho capital: <span class="valor-sensivel" id="kpi-ganho-capital">R$ 0,00</span></div></div>
+          <div class="inv-kpi"><div class="rotulo">Rentabilidade</div><div class="valor" id="kpi-rentabilidade">0%</div></div>
+        </div>
+
+        <div class="board">
+          <div class="widget" style="--widget-cols:4">
+            <div class="widget-cabecalho"><span class="widget-titulo">Alocação</span></div>
+            <div style="height:160px"><canvas id="chart-donut"></canvas></div>
+            <div id="donut-legenda"></div>
+          </div>
+
+          <div class="widget" style="--widget-cols:8">
+            <div class="widget-cabecalho"><span class="widget-titulo">Evolução patrimonial</span></div>
+            <div class="grafico-wrap" style="height:220px"><canvas id="chart-evolucao"></canvas></div>
+          </div>
+
+          <div class="widget" style="--widget-cols:5">
+            <div class="widget-cabecalho">
+              <span class="widget-titulo">Proventos</span>
+              <button type="button" class="btn-desktop" id="btn-ver-proventos">Histórico</button>
+            </div>
+            <div class="kpi-valor num positivo valor-sensivel" id="kpi-proventos">R$ 0,00</div>
+            <div class="proventos-mini">
+              <div><span class="rotulo">Mês</span><div class="valor-sensivel" id="div-mes">R$ 0,00</div></div>
+              <div><span class="rotulo">Ano</span><div class="valor-sensivel" id="div-ano">R$ 0,00</div></div>
+              <div><span class="rotulo">Total</span><div class="valor-sensivel" id="div-total">R$ 0,00</div></div>
+            </div>
+            <button type="button" class="btn-desktop primario" id="btn-novo-provento" style="align-self:flex-start">+ Registrar provento</button>
+          </div>
+
+          <div class="widget" style="--widget-cols:7">
+            <div class="widget-cabecalho"><span class="widget-titulo">Posições</span></div>
+            <div id="lista-posicoes"><div class="lista-vazia">Carregando…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-acao-posicao" hidden>
+    <div class="modal-caixa"><button type="button" class="modal-fechar" data-fechar-modal="modal-acao-posicao" aria-label="Fechar">✕</button><div id="modal-acao-posicao-conteudo"></div></div>
+  </div>
+  <div class="modal-overlay" id="modal-form" hidden>
+    <div class="modal-caixa"><button type="button" class="modal-fechar" data-fechar-modal="modal-form" aria-label="Fechar">✕</button><div id="modal-form-conteudo"></div></div>
+  </div>
+  <div class="modal-overlay" id="modal-lista-proventos" hidden>
+    <div class="modal-caixa"><button type="button" class="modal-fechar" data-fechar-modal="modal-lista-proventos" aria-label="Fechar">✕</button>
+      <div class="modal-titulo">Histórico de proventos</div>
+      <div id="lista-proventos-itens" style="margin-top:12px"></div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="modal-acao-provento" hidden>
+    <div class="modal-caixa"><button type="button" class="modal-fechar" data-fechar-modal="modal-acao-provento" aria-label="Fechar">✕</button><div id="modal-acao-provento-conteudo"></div></div>
+  </div>
+
+  <script type="module" src="/js/desktop/investimentos.js"></script>
+</body>
+</html>
