@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Aparência</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    .grade-temas { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; max-width: 720px; }
+    .tema-item { display: flex; flex-direction: column; align-items: center; gap: 8px; background: none; border: none; cursor: pointer; font-family: inherit; }
+    .tema-amostra { width: 100%; aspect-ratio: 1; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; border: 2px solid transparent; }
+    .tema-item.selecionado .tema-amostra { border-color: var(--text); }
+    .tema-check { color: #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
+    .tema-nome { font-size: 12px; font-weight: 700; color: var(--muted); text-align: center; }
+  </style>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo">Aparência</div>
+        <div class="topbar-acoes">
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">Buscar <kbd>Ctrl K</kbd></button>
+        </div>
+      </div>
+      <div class="content-scroll">
+        <div class="pagina-titulo-bloco">
+          <h1>Aparência</h1>
+          <p>Escolha a cor de destaque do app — vale para mobile e desktop.</p>
+        </div>
+
+        <div class="grade-temas" id="grade-temas"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/desktop/aparencia.js"></script>
+</body>
+</html>
