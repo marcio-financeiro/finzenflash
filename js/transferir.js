@@ -100,18 +100,26 @@ function renderContasDestino() {
   });
 }
 
-async function carregarContas(userId) {
-  const { data, error } = await supabase
-    .from('accounts')
-    .select('id, nome, currency')
+async function carregarContaPrincipal(userId) {
+  const { data } = await supabase
+    .from('user_settings')
+    .select('setting_value')
     .eq('user_id', userId)
-    .eq('active', true)
-    .eq('account_kind', 'bank')
-    .order('sort_order');
+    .eq('setting_key', 'flash_conta_principal')
+    .maybeSingle();
+  return data?.setting_value || null;
+}
+
+async function carregarContas(userId) {
+  const [{ data, error }, contaPrincipalId] = await Promise.all([
+    supabase.from('accounts').select('id, nome, currency').eq('user_id', userId).eq('active', true).eq('account_kind', 'bank').order('sort_order'),
+    carregarContaPrincipal(userId),
+  ]);
   if (error) throw error;
   contas = data ?? [];
-  contaOrigem = contas[0]?.id ?? null;
-  contaDestino = contas[1]?.id ?? null;
+  const principalValida = contaPrincipalId && contas.some((c) => c.id === contaPrincipalId);
+  contaOrigem = principalValida ? contaPrincipalId : (contas[0]?.id ?? null);
+  contaDestino = contas.find((c) => c.id !== contaOrigem)?.id ?? null;
   renderContasOrigem();
   renderContasDestino();
 }

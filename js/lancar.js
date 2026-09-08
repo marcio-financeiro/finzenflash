@@ -137,10 +137,21 @@ function aplicarSugestaoDescricao() {
   if (preencheu) aviso.textContent = 'Categoria/conta preenchidas com base no último lançamento parecido.';
 }
 
+async function carregarContaPrincipal(userId) {
+  const { data } = await supabase
+    .from('user_settings')
+    .select('setting_value')
+    .eq('user_id', userId)
+    .eq('setting_key', 'flash_conta_principal')
+    .maybeSingle();
+  return data?.setting_value || null;
+}
+
 async function carregarContasECategorias(userId) {
-  const [{ data: dadosContas, error: erroContas }, { data: dadosCategorias, error: erroCategorias }] = await Promise.all([
+  const [{ data: dadosContas, error: erroContas }, { data: dadosCategorias, error: erroCategorias }, contaPrincipalId] = await Promise.all([
     supabase.from('accounts').select('id, nome').eq('user_id', userId).eq('active', true).eq('account_kind', 'bank').order('sort_order'),
     supabase.from('categories').select('id, nome, tipo').eq('user_id', userId).eq('ativo', true).in('tipo', ['despesa', 'receita']).order('nome'),
+    carregarContaPrincipal(userId),
   ]);
 
   if (erroContas) throw erroContas;
@@ -148,7 +159,8 @@ async function carregarContasECategorias(userId) {
 
   contas = dadosContas ?? [];
   categorias = dadosCategorias ?? [];
-  contaSelecionada = lancamentoOriginal?.account_id ?? (contas[0]?.id ?? null);
+  const principalValida = contaPrincipalId && contas.some((c) => c.id === contaPrincipalId);
+  contaSelecionada = lancamentoOriginal?.account_id ?? (principalValida ? contaPrincipalId : (contas[0]?.id ?? null));
 
   renderContas();
   renderCategorias();

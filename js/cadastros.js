@@ -18,25 +18,26 @@ let orcamentos = [];
 let orcamentoMes = '';
 let orcamentoMesHerdadoDe = null;
 let cartaoPrincipalId = null;
+let contaPrincipalId = null;
 
 const CHAVE_CARTAO_PRINCIPAL = 'flash_cartao_principal';
+const CHAVE_CONTA_PRINCIPAL = 'flash_conta_principal';
 
-async function carregarCartaoPrincipal(userId) {
+async function carregarPreferenciaPrincipal(userId, chave) {
   const { data } = await supabase
     .from('user_settings')
     .select('setting_value')
     .eq('user_id', userId)
-    .eq('setting_key', CHAVE_CARTAO_PRINCIPAL)
+    .eq('setting_key', chave)
     .maybeSingle();
   return data?.setting_value || null;
 }
 
-async function salvarCartaoPrincipal(userId, cardId) {
-  cartaoPrincipalId = cardId;
+async function salvarPreferenciaPrincipal(userId, chave, valorId) {
   await supabase
     .from('user_settings')
     .upsert(
-      { user_id: userId, setting_key: CHAVE_CARTAO_PRINCIPAL, setting_value: cardId },
+      { user_id: userId, setting_key: chave, setting_value: valorId },
       { onConflict: 'user_id,setting_key' },
     );
 }
@@ -210,7 +211,7 @@ function renderContas(container) {
     <button type="button" class="item-cadastro ${c.active ? '' : 'item-inativo'}" data-tipo="conta" data-id="${c.id}">
       <div class="item-avatar" style="background:${c.color || '#0E7C86'}">${c.icon || inicial(c.nome)}</div>
       <div class="item-info">
-        <div class="item-nome">${escapeHtml(c.nome)}${c.active ? '' : '<span class="badge-inativo">inativa</span>'}</div>
+        <div class="item-nome">${escapeHtml(c.nome)}${c.id === contaPrincipalId ? '<span class="badge-principal">principal</span>' : ''}${c.active ? '' : '<span class="badge-inativo">inativa</span>'}</div>
         <div class="item-detalhe">${escapeHtml(c.tipo || '')}${c.bank ? ` · ${escapeHtml(c.bank)}` : ''} · ${fmt.format(c.saldo_atual || 0)}</div>
       </div>
     </button>
@@ -469,6 +470,10 @@ function formConta(c) {
       <div class="field"><label for="f-cor">Cor</label><input type="color" id="f-cor" value="${c?.color || '#0E7C86'}"></div>
       ${campoSelect('f-ativo', 'Status', [{ valor: 'true', texto: 'Ativa' }, { valor: 'false', texto: 'Inativa' }], String(c?.active !== false))}
     </div>
+    <label class="toggle-linha">
+      <span>Conta principal</span>
+      <input type="checkbox" id="f-principal" ${c && c.id === contaPrincipalId ? 'checked' : ''}>
+    </label>
     <div class="error-msg" id="erro-form"></div>
     <button type="button" class="btn-primary" id="btn-salvar-form">Salvar</button>
     <button type="button" class="sheet-acao-btn" id="btn-cancelar-form">Cancelar</button>
@@ -651,7 +656,7 @@ async function salvarForm(tipo, item) {
   let novoId = null;
   if (item) {
     ({ error } = await supabase.from(tabela).update(dados).eq('id', item.id).eq('user_id', usuarioAtual.id));
-  } else if (tipo === 'cartao') {
+  } else if (tipo === 'cartao' || tipo === 'conta') {
     const { data: inserido, error: erroInsert } = await supabase.from(tabela).insert({ ...dados, user_id: usuarioAtual.id }).select('id').single();
     error = erroInsert;
     novoId = inserido?.id ?? null;
@@ -670,9 +675,21 @@ async function salvarForm(tipo, item) {
     const cardId = item ? item.id : novoId;
     const marcarPrincipal = document.getElementById('f-principal').checked;
     if (marcarPrincipal && cardId) {
-      await salvarCartaoPrincipal(usuarioAtual.id, cardId);
+      cartaoPrincipalId = cardId;
+      await salvarPreferenciaPrincipal(usuarioAtual.id, CHAVE_CARTAO_PRINCIPAL, cardId);
     } else if (!marcarPrincipal && cartaoPrincipalId === cardId) {
-      await salvarCartaoPrincipal(usuarioAtual.id, null);
+      cartaoPrincipalId = null;
+      await salvarPreferenciaPrincipal(usuarioAtual.id, CHAVE_CARTAO_PRINCIPAL, null);
+    }
+  } else if (tipo === 'conta') {
+    const contaId = item ? item.id : novoId;
+    const marcarPrincipal = document.getElementById('f-principal').checked;
+    if (marcarPrincipal && contaId) {
+      contaPrincipalId = contaId;
+      await salvarPreferenciaPrincipal(usuarioAtual.id, CHAVE_CONTA_PRINCIPAL, contaId);
+    } else if (!marcarPrincipal && contaPrincipalId === contaId) {
+      contaPrincipalId = null;
+      await salvarPreferenciaPrincipal(usuarioAtual.id, CHAVE_CONTA_PRINCIPAL, null);
     }
   }
 
@@ -690,7 +707,10 @@ async function init() {
   usuarioAtual = user;
 
   try {
-    cartaoPrincipalId = await carregarCartaoPrincipal(user.id);
+    [cartaoPrincipalId, contaPrincipalId] = await Promise.all([
+      carregarPreferenciaPrincipal(user.id, CHAVE_CARTAO_PRINCIPAL),
+      carregarPreferenciaPrincipal(user.id, CHAVE_CONTA_PRINCIPAL),
+    ]);
   } catch (err) {
     console.error(err);
   }
