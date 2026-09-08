@@ -17,6 +17,29 @@ let recorrentes = [];
 let orcamentos = [];
 let orcamentoMes = '';
 let orcamentoMesHerdadoDe = null;
+let cartaoPrincipalId = null;
+
+const CHAVE_CARTAO_PRINCIPAL = 'flash_cartao_principal';
+
+async function carregarCartaoPrincipal(userId) {
+  const { data } = await supabase
+    .from('user_settings')
+    .select('setting_value')
+    .eq('user_id', userId)
+    .eq('setting_key', CHAVE_CARTAO_PRINCIPAL)
+    .maybeSingle();
+  return data?.setting_value || null;
+}
+
+async function salvarCartaoPrincipal(userId, cardId) {
+  cartaoPrincipalId = cardId;
+  await supabase
+    .from('user_settings')
+    .upsert(
+      { user_id: userId, setting_key: CHAVE_CARTAO_PRINCIPAL, setting_value: cardId },
+      { onConflict: 'user_id,setting_key' },
+    );
+}
 
 const LABELS_FREQUENCIA = { mensal: 'Mensal', semanal: 'Semanal', anual: 'Anual' };
 
@@ -89,7 +112,6 @@ async function carregarCategorias(userId) {
     .in('tipo', ['despesa', 'receita'])
     .order('tipo')
     .order('ativo', { ascending: false })
-    .order('sort_order')
     .order('nome');
   if (error) throw error;
   return data ?? [];
@@ -205,7 +227,7 @@ function renderCartoes(container) {
     <button type="button" class="item-cadastro ${c.ativo ? '' : 'item-inativo'}" data-tipo="cartao" data-id="${c.id}">
       <div class="item-avatar" style="background:${c.cor || '#14A3AE'}">${inicial(c.nome)}</div>
       <div class="item-info">
-        <div class="item-nome">${escapeHtml(c.nome)}${c.ativo ? '' : '<span class="badge-inativo">inativo</span>'}</div>
+        <div class="item-nome">${escapeHtml(c.nome)}${c.id === cartaoPrincipalId ? '<span class="badge-principal">principal</span>' : ''}${c.ativo ? '' : '<span class="badge-inativo">inativo</span>'}</div>
         <div class="item-detalhe">${escapeHtml(c.banco || '')}${c.bandeira ? ` · ${escapeHtml(c.bandeira)}` : ''} · Limite ${fmt.format(c.limite || 0)} · Fecha ${c.fechamento_dia ?? '-'} / Vence ${c.vencimento_dia ?? '-'}</div>
       </div>
     </button>
@@ -468,6 +490,10 @@ function formCartao(c) {
       <div class="field"><label for="f-cor">Cor</label><input type="color" id="f-cor" value="${c?.cor || '#14A3AE'}"></div>
       ${campoSelect('f-ativo', 'Status', [{ valor: 'true', texto: 'Ativo' }, { valor: 'false', texto: 'Inativo' }], String(c?.ativo !== false))}
     </div>
+    <label class="toggle-linha">
+      <span>Cartão principal</span>
+      <input type="checkbox" id="f-principal" ${c && c.id === cartaoPrincipalId ? 'checked' : ''}>
+    </label>
     <div class="error-msg" id="erro-form"></div>
     <button type="button" class="btn-primary" id="btn-salvar-form">Salvar</button>
     <button type="button" class="sheet-acao-btn" id="btn-cancelar-form">Cancelar</button>
@@ -621,15 +647,33 @@ async function salvarForm(tipo, item) {
   btn.disabled = true;
   btn.textContent = 'Salvando...';
 
-  const { error } = item
-    ? await supabase.from(tabela).update(dados).eq('id', item.id).eq('user_id', usuarioAtual.id)
-    : await supabase.from(tabela).insert({ ...dados, user_id: usuarioAtual.id });
+  let error;
+  let novoId = null;
+  if (item) {
+    ({ error } = await supabase.from(tabela).update(dados).eq('id', item.id).eq('user_id', usuarioAtual.id));
+  } else if (tipo === 'cartao') {
+    const { data: inserido, error: erroInsert } = await supabase.from(tabela).insert({ ...dados, user_id: usuarioAtual.id }).select('id').single();
+    error = erroInsert;
+    novoId = inserido?.id ?? null;
+  } else {
+    ({ error } = await supabase.from(tabela).insert({ ...dados, user_id: usuarioAtual.id }));
+  }
 
   if (error) {
     erro.textContent = 'Erro: ' + error.message;
     btn.disabled = false;
     btn.textContent = 'Salvar';
     return;
+  }
+
+  if (tipo === 'cartao') {
+    const cardId = item ? item.id : novoId;
+    const marcarPrincipal = document.getElementById('f-principal').checked;
+    if (marcarPrincipal && cardId) {
+      await salvarCartaoPrincipal(usuarioAtual.id, cardId);
+    } else if (!marcarPrincipal && cartaoPrincipalId === cardId) {
+      await salvarCartaoPrincipal(usuarioAtual.id, null);
+    }
   }
 
   fecharSheet('sheet-form');
@@ -644,6 +688,12 @@ async function init() {
   const user = await requireAuth();
   if (!user) return;
   usuarioAtual = user;
+
+  try {
+    cartaoPrincipalId = await carregarCartaoPrincipal(user.id);
+  } catch (err) {
+    console.error(err);
+  }
 
   gruposColapsados = carregarGruposColapsados();
   document.querySelectorAll('.grupo-cadastro').forEach((el) => {

@@ -114,10 +114,21 @@ function renderCategorias() {
   });
 }
 
+async function carregarCartaoPrincipal(userId) {
+  const { data } = await supabase
+    .from('user_settings')
+    .select('setting_value')
+    .eq('user_id', userId)
+    .eq('setting_key', 'flash_cartao_principal')
+    .maybeSingle();
+  return data?.setting_value || null;
+}
+
 async function carregarCartoesECategorias(userId) {
-  const [{ data: dadosCartoes, error: erroCartoes }, { data: dadosCategorias, error: erroCategorias }] = await Promise.all([
+  const [{ data: dadosCartoes, error: erroCartoes }, { data: dadosCategorias, error: erroCategorias }, cartaoPrincipalId] = await Promise.all([
     supabase.from('credit_cards').select('id, nome, fechamento_dia, vencimento_dia').eq('user_id', userId).eq('ativo', true).order('sort_order'),
-    supabase.from('categories').select('id, nome').eq('user_id', userId).eq('ativo', true).eq('tipo', 'despesa').order('sort_order'),
+    supabase.from('categories').select('id, nome').eq('user_id', userId).eq('ativo', true).eq('tipo', 'despesa').order('nome'),
+    carregarCartaoPrincipal(userId),
   ]);
 
   if (erroCartoes) throw erroCartoes;
@@ -125,7 +136,8 @@ async function carregarCartoesECategorias(userId) {
 
   cartoes = dadosCartoes ?? [];
   categorias = dadosCategorias ?? [];
-  cartaoSelecionado = compraOriginal?.card_id ?? (cartoes[0]?.id ?? null);
+  const principalValido = cartaoPrincipalId && cartoes.some((c) => c.id === cartaoPrincipalId);
+  cartaoSelecionado = compraOriginal?.card_id ?? (principalValido ? cartaoPrincipalId : (cartoes[0]?.id ?? null));
 
   renderCartoes();
   renderCategorias();

@@ -140,7 +140,7 @@ function aplicarSugestaoDescricao() {
 async function carregarContasECategorias(userId) {
   const [{ data: dadosContas, error: erroContas }, { data: dadosCategorias, error: erroCategorias }] = await Promise.all([
     supabase.from('accounts').select('id, nome').eq('user_id', userId).eq('active', true).eq('account_kind', 'bank').order('sort_order'),
-    supabase.from('categories').select('id, nome, tipo').eq('user_id', userId).eq('ativo', true).in('tipo', ['despesa', 'receita']).order('sort_order'),
+    supabase.from('categories').select('id, nome, tipo').eq('user_id', userId).eq('ativo', true).in('tipo', ['despesa', 'receita']).order('nome'),
   ]);
 
   if (erroContas) throw erroContas;

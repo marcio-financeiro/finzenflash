@@ -46,7 +46,7 @@ function limitesMes(ref) {
 async function carregarFiltros(userId) {
   const [{ data: dadosContas }, { data: dadosCategorias }] = await Promise.all([
     supabase.from('accounts').select('id, nome').eq('user_id', userId).eq('active', true).eq('account_kind', 'bank').order('sort_order'),
-    supabase.from('categories').select('id, nome').eq('user_id', userId).eq('ativo', true).in('tipo', ['despesa', 'receita']).order('sort_order'),
+    supabase.from('categories').select('id, nome').eq('user_id', userId).eq('ativo', true).in('tipo', ['despesa', 'receita']).order('nome'),
   ]);
   contas = dadosContas ?? [];
   categorias = dadosCategorias ?? [];
