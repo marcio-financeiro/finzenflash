@@ -110,6 +110,7 @@
 }
 .modal-overlay[hidden] { display: none; }
 .modal-caixa {
+  position: relative;
   width: 100%;
   max-width: 480px;
   max-height: 85vh;

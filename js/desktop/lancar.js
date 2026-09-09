@@ -154,6 +154,7 @@ async function carregarContasECategorias(userId) {
 
 function escolherEscopoEdicao() {
   return new Promise((resolve) => {
+    const overlay = document.getElementById('modal-escopo-recorrencia');
     const conteudo = document.getElementById('modal-escopo-conteudo');
     conteudo.innerHTML = `
       <div class="modal-titulo">Alterar recorrência</div>
@@ -163,10 +164,25 @@ function escolherEscopoEdicao() {
         <button type="button" class="btn-desktop" id="btn-escopo-future">Alterar esta e futuras</button>
       </div>
     `;
+
+    let resolvido = false;
     const finalizar = (valor) => {
+      if (resolvido) return;
+      resolvido = true;
+      observer.disconnect();
       fecharModal('modal-escopo-recorrencia');
       resolve(valor);
     };
+
+    // Fechar pelo X, Esc ou clique fora do card (configurarModal cuida dos
+    // dois últimos) também precisa resolver a Promise — sem isso o
+    // salvamento ficava travado esperando pra sempre se o usuário saísse
+    // do modal sem escolher nenhuma das duas opções.
+    const observer = new MutationObserver(() => {
+      if (overlay.hidden) finalizar(null);
+    });
+    observer.observe(overlay, { attributes: true, attributeFilter: ['hidden'] });
+
     document.getElementById('btn-escopo-only').addEventListener('click', () => finalizar('only'));
     document.getElementById('btn-escopo-future').addEventListener('click', () => finalizar('future'));
     abrirModal('modal-escopo-recorrencia');
@@ -348,6 +364,7 @@ async function iniciar() {
   montarNavRail('lancar');
   document.getElementById('btn-topbar-busca').addEventListener('click', abrirComandos);
   configurarModal('modal-escopo-recorrencia');
+  document.getElementById('btn-fechar-modal-escopo-recorrencia').addEventListener('click', () => fecharModal('modal-escopo-recorrencia'));
 
   configurarInputValor();
   document.getElementById('btn-despesa').addEventListener('click', () => selecionarTipo('despesa'));
