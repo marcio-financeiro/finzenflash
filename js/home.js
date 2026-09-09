@@ -345,12 +345,19 @@ function attachToqueSegurar(el, aoAcionar) {
 function abrirSheetLancamento(lancamento) {
   const conteudo = document.getElementById('sheet-lancamento-conteudo');
   const pendente = lancamento.status === 'pendente';
+  const paga = lancamento.status === 'pago';
   conteudo.innerHTML = `
     <div class="sheet-titulo">${escapeHtml(lancamento.description)}</div>
     ${pendente ? `
     <button type="button" class="sheet-acao-btn" id="btn-dar-baixa">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
       Marcar como ${lancamento.type === 'receita' ? 'recebida' : 'paga'}
+    </button>
+    ` : ''}
+    ${paga ? `
+    <button type="button" class="sheet-acao-btn" id="btn-desfazer-baixa">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-6.7L3 9"/></svg>
+      Desfazer baixa
     </button>
     ` : ''}
     <button type="button" class="sheet-acao-btn" id="btn-editar-lancamento">
@@ -366,6 +373,9 @@ function abrirSheetLancamento(lancamento) {
 
   if (pendente) {
     document.getElementById('btn-dar-baixa').addEventListener('click', () => darBaixa(lancamento));
+  }
+  if (paga) {
+    document.getElementById('btn-desfazer-baixa').addEventListener('click', () => desfazerBaixa(lancamento));
   }
   document.getElementById('btn-editar-lancamento').addEventListener('click', () => {
     window.location.href = `/pages/lancar.html?id=${lancamento.id}`;
@@ -394,6 +404,22 @@ async function darBaixa(lancamento) {
 
   const delta = lancamento.type === 'receita' ? Number(lancamento.amount) : -Number(lancamento.amount);
   await supabase.rpc('increment_account_balance', { p_account_id: lancamento.accountId, p_delta: delta });
+
+  fecharSheetLancamento();
+  await init();
+}
+
+async function desfazerBaixa(lancamento) {
+  document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = true; });
+
+  // RPC atômica (mesma do FinZen completo): volta status pra pendente e
+  // reverte o delta de saldo numa transação só do banco.
+  const { error } = await supabase.rpc('fz_desfazer_baixa', { p_transaction_id: lancamento.id });
+
+  if (error) {
+    document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = false; });
+    return;
+  }
 
   fecharSheetLancamento();
   await init();
