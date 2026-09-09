@@ -379,13 +379,15 @@ function abrirSheetLancamento(lancamento) {
 async function darBaixa(lancamento) {
   document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = true; });
 
-  const { error: erroUpdate } = await supabase
+  const { data: atualizados, error: erroUpdate } = await supabase
     .from('transactions')
     .update({ status: 'pago' })
     .eq('id', lancamento.id)
-    .eq('user_id', usuarioAtual.id);
+    .eq('user_id', usuarioAtual.id)
+    .eq('status', 'pendente')
+    .select('id');
 
-  if (erroUpdate) {
+  if (erroUpdate || !atualizados?.length) {
     document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = false; });
     return;
   }

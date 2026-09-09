@@ -598,7 +598,7 @@ async function abrirModalPendentes() {
     container.querySelectorAll('button[data-id]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const lancamento = itens.find((l) => l.id === btn.dataset.id);
-        if (lancamento) darBaixa(lancamento);
+        if (lancamento) darBaixa(lancamento, btn);
       });
     });
   } catch (err) {
@@ -607,13 +607,20 @@ async function abrirModalPendentes() {
   }
 }
 
-async function darBaixa(lancamento) {
-  const { error: erroUpdate } = await supabase
+async function darBaixa(lancamento, btn) {
+  if (btn) btn.disabled = true;
+
+  const { data: atualizados, error: erroUpdate } = await supabase
     .from('transactions')
     .update({ status: 'pago' })
     .eq('id', lancamento.id)
-    .eq('user_id', usuarioAtual.id);
-  if (erroUpdate) return;
+    .eq('user_id', usuarioAtual.id)
+    .eq('status', 'pendente')
+    .select('id');
+  if (erroUpdate || !atualizados?.length) {
+    if (btn) btn.disabled = false;
+    return;
+  }
 
   const delta = lancamento.type === 'receita' ? Number(lancamento.amount) : -Number(lancamento.amount);
   await supabase.rpc('increment_account_balance', { p_account_id: lancamento.account_id, p_delta: delta });

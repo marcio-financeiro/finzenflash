@@ -121,12 +121,19 @@ function abrirDetalhes(lancamento) {
 }
 
 async function darBaixa(lancamento) {
-  const { error: erroUpdate } = await supabase
+  document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = true; });
+
+  const { data: atualizados, error: erroUpdate } = await supabase
     .from('transactions')
     .update({ status: 'pago' })
     .eq('id', lancamento.id)
-    .eq('user_id', usuarioAtual.id);
-  if (erroUpdate) return;
+    .eq('user_id', usuarioAtual.id)
+    .eq('status', 'pendente')
+    .select('id');
+  if (erroUpdate || !atualizados?.length) {
+    document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = false; });
+    return;
+  }
 
   const delta = lancamento.type === 'receita' ? Number(lancamento.amount) : -Number(lancamento.amount);
   await supabase.rpc('increment_account_balance', { p_account_id: lancamento.account_id, p_delta: delta });
