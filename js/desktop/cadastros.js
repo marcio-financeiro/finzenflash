@@ -4,6 +4,7 @@ import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
 import { attachValorMask } from '../utils/valorMask.js';
+import { formatarMoeda } from '../currencyService.js';
 
 const CAMPOS_VALOR_POR_TIPO = {
   conta: ['f-saldo'],
@@ -167,7 +168,7 @@ function renderContas() {
     <tr class="item-cadastro ${c.active ? '' : 'item-inativo'}" data-tipo="conta" data-id="${c.id}">
       <td><div class="cad-item-nome">${escapeHtml(c.nome)}${c.id === contaPrincipalId ? '<span class="badge-principal">principal</span>' : ''}${c.active ? '' : '<span class="badge-inativo">inativa</span>'}</div></td>
       <td>${escapeHtml(c.tipo || '')}${c.bank ? ` · ${escapeHtml(c.bank)}` : ''}</td>
-      <td class="num valor-sensivel">${fmt.format(c.saldo_atual || 0)}</td>
+      <td class="num valor-sensivel">${formatarMoeda(c.saldo_atual || 0, c.currency)}</td>
     </tr>
   `).join('');
   wireItens();

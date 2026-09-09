@@ -3,6 +3,7 @@ import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { loadChart } from './loadChart.js';
+import { carregarCotacaoDolar, paraBRL } from './currencyService.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDataCurta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
@@ -33,14 +34,13 @@ function fmtData(iso) {
 }
 
 async function carregarSaldoInicial(userId) {
-  const { data, error } = await supabase
-    .from('accounts')
-    .select('saldo_atual')
-    .eq('user_id', userId)
-    .eq('active', true)
-    .eq('account_kind', 'bank');
+  const [{ data, error }, dolarAtual] = await Promise.all([
+    supabase.from('accounts').select('saldo_atual, currency')
+      .eq('user_id', userId).eq('active', true).eq('account_kind', 'bank'),
+    carregarCotacaoDolar(supabase, userId),
+  ]);
   if (error) throw error;
-  return (data ?? []).reduce((s, c) => s + Number(c.saldo_atual || 0), 0);
+  return (data ?? []).reduce((s, c) => s + paraBRL(c.saldo_atual || 0, c.currency, dolarAtual), 0);
 }
 
 async function carregarLancamentosPendentes(userId, inicio, fim) {

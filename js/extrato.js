@@ -3,8 +3,10 @@ import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
+import { carregarCotacaoDolar, paraBRL, formatarMoeda } from './currencyService.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+let dolarAtual;
 const fmtDia = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' });
 const fmtMesAno = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 
@@ -44,12 +46,14 @@ function limitesMes(ref) {
 }
 
 async function carregarFiltros(userId) {
-  const [{ data: dadosContas }, { data: dadosCategorias }] = await Promise.all([
+  const [{ data: dadosContas }, { data: dadosCategorias }, dolar] = await Promise.all([
     supabase.from('accounts').select('id, nome').eq('user_id', userId).eq('active', true).eq('account_kind', 'bank').order('sort_order'),
     supabase.from('categories').select('id, nome').eq('user_id', userId).eq('ativo', true).in('tipo', ['despesa', 'receita']).order('nome'),
+    carregarCotacaoDolar(supabase, userId),
   ]);
   contas = dadosContas ?? [];
   categorias = dadosCategorias ?? [];
+  dolarAtual = dolar;
 
   const selectConta = document.getElementById('filtro-conta');
   selectConta.innerHTML = '<option value="">Todas contas</option>' + contas.map((c) => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
@@ -64,7 +68,7 @@ async function carregarLancamentos(userId) {
   const { inicio, fim } = limitesMes(mesRef);
   let query = supabase
     .from('transactions')
-    .select('id, type, amount, description, date, status, account_id, category_id, is_recurring, recurrence_group_id, accounts(nome), categories(nome, icon)')
+    .select('id, type, amount, description, date, status, account_id, category_id, is_recurring, recurrence_group_id, accounts(nome, currency), categories(nome, icon)')
     .eq('user_id', userId)
     .gte('date', inicio)
     .lte('date', fim)
@@ -83,8 +87,9 @@ function renderResumo(lancamentos) {
   let entradas = 0;
   let saidas = 0;
   for (const l of lancamentos) {
-    if (l.type === 'receita') entradas += Number(l.amount);
-    else saidas += Number(l.amount);
+    const valorBRL = paraBRL(l.amount, l.accounts?.currency, dolarAtual);
+    if (l.type === 'receita') entradas += valorBRL;
+    else saidas += valorBRL;
   }
   document.getElementById('total-entradas').textContent = fmt.format(entradas);
   document.getElementById('total-saidas').textContent = fmt.format(saidas);
@@ -115,7 +120,7 @@ function renderLista(lancamentos) {
           <div class="lancamento-desc">${escapeHtml(l.description)}</div>
           <div class="lancamento-conta">${escapeHtml(l.accounts?.nome ?? '')}${categoria ? ` · ${categoria}` : ''}</div>
         </div>
-        <div class="lancamento-valor valor-sensivel ${receita ? 'is-receita' : 'is-despesa'}">${sinal}${fmt.format(Math.abs(l.amount))}</div>
+        <div class="lancamento-valor valor-sensivel ${receita ? 'is-receita' : 'is-despesa'}">${sinal}${formatarMoeda(Math.abs(l.amount), l.accounts?.currency)}</div>
       </button>
     `;
   }

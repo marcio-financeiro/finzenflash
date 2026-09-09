@@ -3,6 +3,7 @@ import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { ativarArrastarParaFechar } from './sheetGestos.js';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { attachValorMask } from './utils/valorMask.js';
+import { formatarMoeda } from './currencyService.js';
 
 const CAMPOS_VALOR_POR_TIPO = {
   conta: ['f-saldo'],
@@ -220,7 +221,7 @@ function renderContas(container) {
       <div class="item-avatar" style="background:${c.color || '#0E7C86'}">${c.icon || inicial(c.nome)}</div>
       <div class="item-info">
         <div class="item-nome">${escapeHtml(c.nome)}${c.id === contaPrincipalId ? '<span class="badge-principal">principal</span>' : ''}${c.active ? '' : '<span class="badge-inativo">inativa</span>'}</div>
-        <div class="item-detalhe">${escapeHtml(c.tipo || '')}${c.bank ? ` · ${escapeHtml(c.bank)}` : ''} · ${fmt.format(c.saldo_atual || 0)}</div>
+        <div class="item-detalhe">${escapeHtml(c.tipo || '')}${c.bank ? ` · ${escapeHtml(c.bank)}` : ''} · ${formatarMoeda(c.saldo_atual || 0, c.currency)}</div>
       </div>
     </button>
   `).join('');

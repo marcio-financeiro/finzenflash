@@ -5,6 +5,7 @@ import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { inicializarBoard } from './board.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
+import { formatarMoeda } from '../currencyService.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtData = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -347,7 +348,7 @@ function renderContas(contas) {
   el.innerHTML = contas.map((c) => `
     <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
       <span>${escapeHtml(c.nome)}</span>
-      <span class="num valor-sensivel">${fmt.format(c.saldo_atual)}</span>
+      <span class="num valor-sensivel">${formatarMoeda(c.saldo_atual, c.currency)}</span>
     </div>
   `).join('');
 }

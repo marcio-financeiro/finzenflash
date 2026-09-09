@@ -1,6 +1,7 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { montarNavInferior } from './navInferior.js?v=6';
+import { carregarCotacaoDolar, paraBRL } from './currencyService.js';
 
 const fmtData = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
@@ -43,8 +44,9 @@ async function coletarDados(userId) {
     { data: cartoes },
     { data: cardTxAbertas },
     { data: budgets },
+    dolarAtual,
   ] = await Promise.all([
-    supabase.from('accounts').select('saldo_atual').eq('user_id', userId).eq('active', true).eq('account_kind', 'bank'),
+    supabase.from('accounts').select('saldo_atual, currency').eq('user_id', userId).eq('active', true).eq('account_kind', 'bank'),
     supabase.from('transactions').select('type,amount,date,category_id').eq('user_id', userId)
       .eq('status', 'pago').gte('date', inicio).lte('date', fim),
     supabase.from('card_transactions').select('valor_parcela,category_id').eq('user_id', userId).eq('fatura_referencia', mesAtual),
@@ -53,10 +55,11 @@ async function coletarDados(userId) {
     supabase.from('credit_cards').select('id,limite').eq('user_id', userId).eq('ativo', true),
     supabase.from('card_transactions').select('card_id,valor_parcela').eq('user_id', userId).eq('status', 'aberta'),
     supabase.from('budgets').select('category_id,valor_planejado').eq('user_id', userId).eq('mes_referencia', mesAtual),
+    carregarCotacaoDolar(supabase, userId),
   ]);
 
   return {
-    mesAtual, hoje,
+    mesAtual, hoje, dolarAtual,
     contas: contas ?? [],
     txMes: txMes ?? [],
     cardTxMes: cardTxMes ?? [],
@@ -69,7 +72,7 @@ async function coletarDados(userId) {
 
 // ── Cálculo das 6 sub-métricas ────────────────────────────────────────────
 function calcularMetricas(dados) {
-  const { contas, txMes, cardTxMes, txHist, cartoes, cardTxAbertas, budgets, hoje } = dados;
+  const { contas, txMes, cardTxMes, txHist, cartoes, cardTxAbertas, budgets, hoje, dolarAtual } = dados;
 
   const receitasMes = txMes.filter((t) => t.type === 'receita').reduce((s, t) => s + Number(t.amount || 0), 0);
   const despesasTx = txMes.filter((t) => t.type === 'despesa').reduce((s, t) => s + Number(t.amount || 0), 0);
@@ -81,7 +84,7 @@ function calcularMetricas(dados) {
   const poupanca = { nome: 'Poupança', nota: Math.round(clamp((taxaPoupanca / 20) * 100, 0, 100)), desc: `Taxa de poupança em ${taxaPoupanca.toFixed(1)}% (referência: 20%).` };
 
   // 2) Reserva — saldo em conta ÷ média de despesa mensal (últimos 3 meses)
-  const saldoContas = contas.reduce((s, c) => s + Number(c.saldo_atual || 0), 0);
+  const saldoContas = contas.reduce((s, c) => s + paraBRL(c.saldo_atual || 0, c.currency, dolarAtual), 0);
   const porMes = {};
   txHist.forEach((t) => { const m = t.date.slice(0, 7); porMes[m] = (porMes[m] || 0) + Number(t.amount || 0); });
   const mesesComDado = Object.keys(porMes).length;

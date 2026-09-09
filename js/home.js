@@ -5,8 +5,10 @@ import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { iniciarLunaInsights } from './lunaInsights.js';
+import { carregarCotacaoDolar, paraBRL, formatarMoeda } from './currencyService.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+let dolarAtual;
 const fmtDia = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' });
 const fmtMes = new Intl.DateTimeFormat('pt-BR', { month: 'long' });
 const fmtDataCurta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -248,7 +250,7 @@ function renderContas(contas) {
     return `
     <div class="conta-card ${destacar && i === 0 ? 'destaque' : ''}">
       <div class="conta-nome">${escapeHtml(c.nome).toUpperCase()}</div>
-      <div class="conta-saldo valor-sensivel ${saldo < 0 ? 'negativo' : ''}">${fmt.format(saldo)}</div>
+      <div class="conta-saldo valor-sensivel ${saldo < 0 ? 'negativo' : ''}">${formatarMoeda(saldo, c.currency)}</div>
     </div>`;
   }).join('');
 }
@@ -1537,7 +1539,7 @@ let contasCache = [];
 
 async function recarregarTimeline(user) {
   try {
-    const saldoAtualReal = contasCache.reduce((soma, c) => soma + Number(c.saldo_atual), 0);
+    const saldoAtualReal = contasCache.reduce((soma, c) => soma + paraBRL(c.saldo_atual, c.currency, dolarAtual), 0);
     const timeline = await carregarTimeline(user.id, contasCache.map((c) => c.id), saldoAtualReal);
     renderTimeline(timeline);
   } catch (err) {
@@ -1587,14 +1589,16 @@ async function init() {
   ativarArrastarParaFechar(sheetListaPendentes);
 
   try {
-    const [contas, lancamentos, preferencias, categoriasDespesa, categoriasOcultas] = await Promise.all([
+    const [contas, lancamentos, preferencias, categoriasDespesa, categoriasOcultas, dolar] = await Promise.all([
       carregarContas(user.id),
       carregarLancamentos(user.id),
       carregarPreferenciasCards(user.id),
       carregarCategoriasDespesa(user.id),
       carregarCategoriasOcultasRanking(user.id),
+      carregarCotacaoDolar(supabase, user.id),
     ]);
     contasCache = contas;
+    dolarAtual = dolar;
     ordemCards = preferencias.ordem;
     cardsOcultos = preferencias.ocultos;
     cardsColapsados = preferencias.colapsados;
