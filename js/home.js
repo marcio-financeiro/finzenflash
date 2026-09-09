@@ -112,7 +112,7 @@ async function carregarTimeline(userId, contaIds, saldoAtualReal) {
   if (contaIds.length > 0) {
     const { data, error } = await supabase
       .from('transactions')
-      .select('type, amount, date')
+      .select('type, amount, date, status')
       .eq('user_id', userId)
       .in('account_id', contaIds)
       .gte('date', desde)
@@ -121,16 +121,35 @@ async function carregarTimeline(userId, contaIds, saldoAtualReal) {
     transacoes = data ?? [];
   }
 
-  function fluxo(de, ateData) {
+  // Passado (antes de hoje): só o que já foi de fato pago afetou o saldo
+  // real das contas — uma conta vencida e ainda pendente não deve ser
+  // descontada do saldo inicial.
+  function fluxoRealizado(de, ateData) {
     if (de > ateData) return 0;
     return transacoes
-      .filter((t) => t.date >= de && t.date <= ateData)
+      .filter((t) => t.status === 'pago' && t.date >= de && t.date <= ateData)
+      .reduce((soma, t) => soma + (t.type === 'receita' ? Number(t.amount) : -Number(t.amount)), 0);
+  }
+
+  // Futuro (a partir de hoje): soma só o que ainda está pendente. O que já
+  // foi pago (dar baixa) já está dentro de saldoAtualReal — somar nesse
+  // fluxo de novo duplicava o valor no Previsto.
+  function fluxoPendente(de, ateData) {
+    if (de > ateData) return 0;
+    return transacoes
+      .filter((t) => t.status === 'pendente' && t.date >= de && t.date <= ateData)
       .reduce((soma, t) => soma + (t.type === 'receita' ? Number(t.amount) : -Number(t.amount)), 0);
   }
 
   function saldoNoFimDoDia(dataISO) {
-    if (dataISO >= hoje) return saldoAtualReal + fluxo(addDiasISO(hoje, 1), dataISO);
-    return saldoAtualReal - fluxo(addDiasISO(dataISO, 1), hoje);
+    if (dataISO >= hoje) return saldoAtualReal + fluxoPendente(addDiasISO(hoje, 1), dataISO);
+    // Limite superior normalmente é hoje, mas dentro do mês em curso uma
+    // conta paga adiantada (dar baixa antes do vencimento) fica com data
+    // depois de hoje — sem isso ela nunca seria descontada do Saldo Inicial,
+    // que ficava subindo/descendo a cada baixa. Usar o fim do mês visto como
+    // limite (quando ele é depois de hoje) cobre esse caso.
+    const limiteSuperior = fim > hoje ? fim : hoje;
+    return saldoAtualReal - fluxoRealizado(addDiasISO(dataISO, 1), limiteSuperior);
   }
 
   const diaAntesInicio = addDiasISO(inicio, -1);
