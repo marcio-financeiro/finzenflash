@@ -446,16 +446,15 @@ async function iniciar() {
   document.getElementById('btn-pagar-fatura').addEventListener('click', abrirModalPagar);
   document.getElementById('btn-confirmar-pagamento').addEventListener('click', confirmarPagamento);
 
-  try {
-    contasBancarias = await carregarContasBancarias(user.id);
-  } catch (err) {
-    console.error(err);
-  }
+  // contasBancarias só alimenta o select da modal de pagar fatura — não tem
+  // relação com carregarCartoes, então não precisa esperar uma pra começar
+  // a outra.
+  const [, resultadoCartoes] = await Promise.all([
+    carregarContasBancarias(user.id).then((r) => { contasBancarias = r; }).catch((err) => console.error(err)),
+    carregarCartoes(user.id).then(() => ({ ok: true })).catch((err) => { console.error(err); return { ok: false, err }; }),
+  ]);
 
-  try {
-    await carregarCartoes(user.id);
-  } catch (err) {
-    console.error(err);
+  if (!resultadoCartoes.ok) {
     document.getElementById('lista-compras').innerHTML = '<div class="lista-vazia">Não foi possível carregar os cartões.</div>';
     return;
   }

@@ -800,14 +800,17 @@ async function iniciar() {
   document.getElementById('btn-mes-anterior').addEventListener('click', () => mudarMes(-1));
   document.getElementById('btn-mes-proximo').addEventListener('click', () => mudarMes(1));
 
-  const categoriasDespesa = await carregarCategoriasDespesa(user.id).catch(() => []);
-  idCategoriaFatura = categoriasDespesa.find((c) => c.nome === 'Fatura de Cartão')?.id ?? null;
-
-  const [contas, cartoes, lancamentos] = await Promise.all([
+  // As quatro buscas são independentes entre si (nenhuma usa o resultado
+  // da outra pra montar sua própria query) — rodar em paralelo em vez de
+  // esperar as categorias antes de sequer começar a buscar contas/cartões/
+  // lançamentos cortava um estágio inteiro de rede do carregamento inicial.
+  const [categoriasDespesa, contas, cartoes, lancamentos] = await Promise.all([
+    carregarCategoriasDespesa(user.id).catch(() => []),
     carregarContas(user.id),
     carregarCartoesResumo(user.id),
     carregarLancamentos(user.id),
   ]);
+  idCategoriaFatura = categoriasDespesa.find((c) => c.nome === 'Fatura de Cartão')?.id ?? null;
 
   renderContas(contas);
   renderCartoes(cartoes);

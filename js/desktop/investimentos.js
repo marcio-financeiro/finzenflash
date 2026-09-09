@@ -859,8 +859,9 @@ async function iniciar() {
   });
 
   try {
-    await carregarDolar(user.id);
-    await Promise.all([carregarContas(user.id), carregarTodasContas(user.id), carregarAtivos(user.id)]);
+    // carregarDolar só é lido depois, na renderização (recarregarTudo) —
+    // não precisa terminar antes das outras três buscas começarem.
+    await Promise.all([carregarDolar(user.id), carregarContas(user.id), carregarTodasContas(user.id), carregarAtivos(user.id)]);
     await recarregarTudo();
     atualizarCotacoes(user.id, true);
   } catch (err) {
