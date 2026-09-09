@@ -684,7 +684,7 @@ function abrirDetalhesLancamento(lancamento) {
     document.getElementById('btn-desfazer-baixa').addEventListener('click', () => desfazerBaixa(lancamento));
   }
   document.getElementById('btn-editar-lancamento').addEventListener('click', () => {
-    window.location.href = `/pages/lancar.html?id=${lancamento.id}`;
+    window.location.href = `/pages/desktop/lancar.html?id=${lancamento.id}`;
   });
   document.getElementById('btn-excluir-lancamento').addEventListener('click', () => confirmarExclusaoLancamento(lancamento));
   abrirModal('modal-lancamento');

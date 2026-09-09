@@ -206,7 +206,7 @@ async function abrirDetalhesCompra(compra) {
   conteudo.innerHTML = `
     <div class="modal-titulo">${escapeHtml(compra.descricao)}</div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
-      <a class="btn-desktop primario" href="/pages/comprar-cartao.html?grupo=${compra.purchase_group_id}">Editar</a>
+      <a class="btn-desktop primario" href="/pages/desktop/comprar-cartao.html?grupo=${compra.purchase_group_id}">Editar</a>
       <button type="button" class="btn-desktop perigo" id="btn-excluir-compra">Excluir</button>
     </div>
   `;

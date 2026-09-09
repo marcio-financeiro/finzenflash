@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Comprar no cartão</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    .lancar-form { max-width: 560px; display: flex; flex-direction: column; gap: 20px; }
+    .lancar-valor {
+      height: 64px; border-radius: var(--radius-lg); border: 1.5px solid var(--border); background: var(--surface);
+      display: flex; align-items: center; padding: 0 20px; font-size: 30px; font-weight: 800;
+      font-variant-numeric: tabular-nums; color: var(--danger);
+    }
+    .lancar-campo label { display: block; font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; }
+    .lancar-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .lancar-parcelas { display: flex; align-items: center; gap: 14px; }
+    .lancar-parcelas button {
+      width: 36px; height: 36px; border-radius: var(--radius-md); border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); font-size: 18px; font-weight: 800; cursor: pointer;
+    }
+    .lancar-parcelas-num { font-size: 16px; font-weight: 800; min-width: 36px; text-align: center; }
+    .lancar-parcelas-valor { font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo" id="topo-titulo">Comprar no cartão</div>
+        <div class="topbar-acoes">
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">
+            Buscar páginas <kbd>Ctrl K</kbd>
+          </button>
+        </div>
+      </div>
+      <div class="content-scroll">
+        <div class="pagina-titulo-bloco">
+          <h1>Nova compra no cartão</h1>
+          <p>Registre uma compra parcelada ou à vista no cartão de crédito.</p>
+        </div>
+
+        <div class="lancar-form">
+          <div class="lancar-valor" id="valor" data-centavos="0">R$ 0,00</div>
+
+          <div class="lancar-campo">
+            <label for="descricao">Descrição</label>
+            <input type="text" class="input-desktop" id="descricao" placeholder="Ex.: Mercado, Farmácia, Loja...">
+          </div>
+
+          <div class="lancar-campo">
+            <label>Cartão</label>
+            <div class="lancar-chips" id="lista-cartoes-chip"></div>
+          </div>
+
+          <div class="lancar-campo">
+            <label>Categoria</label>
+            <div class="lancar-chips" id="lista-categorias-chip"></div>
+          </div>
+
+          <div class="lancar-campo">
+            <label>Parcelas</label>
+            <div class="lancar-parcelas">
+              <button type="button" id="btn-menos-parcela" aria-label="Menos parcelas">−</button>
+              <span class="lancar-parcelas-num" id="parcelas-num">1x</span>
+              <button type="button" id="btn-mais-parcela" aria-label="Mais parcelas">+</button>
+              <span class="lancar-parcelas-valor" id="valor-parcela">R$ 0,00 por parcela</span>
+            </div>
+          </div>
+
+          <div class="error-msg" id="erro-cartao"></div>
+          <button type="button" class="btn-desktop primario" id="btn-salvar" style="align-self:flex-start;padding:0 28px">Salvar compra</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/desktop/comprarCartao.js"></script>
+</body>
+</html>
