@@ -46,7 +46,7 @@ async function carregarLancamentos(userId) {
   const { inicio, fim } = limitesMes(mesRef);
   let query = supabase
     .from('transactions')
-    .select('id, type, amount, description, date, status, account_id, is_recurring, recurrence_group_id, accounts(nome)')
+    .select('id, type, amount, description, date, status, account_id, category_id, is_recurring, recurrence_group_id, accounts(nome), categories(nome, icon)')
     .eq('user_id', userId)
     .gte('date', inicio)
     .lte('date', fim)
@@ -75,15 +75,17 @@ function renderResumo(lancamentos) {
 function renderTabela(lancamentos) {
   const corpo = document.getElementById('corpo-lancamentos');
   if (lancamentos.length === 0) {
-    corpo.innerHTML = '<tr><td colspan="5" class="lista-vazia">Nenhum lançamento neste mês.</td></tr>';
+    corpo.innerHTML = '<tr><td colspan="6" class="lista-vazia">Nenhum lançamento neste mês.</td></tr>';
     return;
   }
   corpo.innerHTML = lancamentos.map((l) => {
     const receita = l.type === 'receita';
+    const categoria = l.categories?.nome ? `${l.categories.icon ? escapeHtml(l.categories.icon) + ' ' : ''}${escapeHtml(l.categories.nome)}` : '—';
     return `
       <tr>
         <td>${fmtData.format(new Date(l.date + 'T00:00:00'))}</td>
         <td>${escapeHtml(l.description)}</td>
+        <td>${categoria}</td>
         <td>${escapeHtml(l.accounts?.nome ?? '')}</td>
         <td class="num ${receita ? 'positivo' : 'negativo'} valor-sensivel">${receita ? '+' : '-'} ${fmt.format(Math.abs(l.amount))}</td>
         <td><button type="button" class="btn-desktop" data-id="${l.id}">Detalhes</button></td>

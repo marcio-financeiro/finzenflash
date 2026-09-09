@@ -64,7 +64,7 @@ async function carregarLancamentos(userId) {
   const { inicio, fim } = limitesMes(mesRef);
   let query = supabase
     .from('transactions')
-    .select('id, type, amount, description, date, status, account_id, is_recurring, recurrence_group_id, accounts(nome)')
+    .select('id, type, amount, description, date, status, account_id, category_id, is_recurring, recurrence_group_id, accounts(nome), categories(nome, icon)')
     .eq('user_id', userId)
     .gte('date', inicio)
     .lte('date', fim)
@@ -105,12 +105,15 @@ function renderLista(lancamentos) {
     }
     const receita = l.type === 'receita';
     const sinal = receita ? '+' : '-';
+    const categoria = l.categories?.nome
+      ? `${l.categories.icon ? escapeHtml(l.categories.icon) + ' ' : ''}${escapeHtml(l.categories.nome)}`
+      : null;
     html += `
       <button type="button" class="lancamento-card" data-id="${l.id}">
         <div class="lancamento-icone ${receita ? 'is-receita' : 'is-despesa'}">${receita ? iconReceita() : iconDespesa()}</div>
         <div class="lancamento-info">
           <div class="lancamento-desc">${escapeHtml(l.description)}</div>
-          <div class="lancamento-conta">${escapeHtml(l.accounts?.nome ?? '')}</div>
+          <div class="lancamento-conta">${escapeHtml(l.accounts?.nome ?? '')}${categoria ? ` · ${categoria}` : ''}</div>
         </div>
         <div class="lancamento-valor valor-sensivel ${receita ? 'is-receita' : 'is-despesa'}">${sinal}${fmt.format(Math.abs(l.amount))}</div>
       </button>
