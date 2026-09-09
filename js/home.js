@@ -344,8 +344,15 @@ function attachToqueSegurar(el, aoAcionar) {
 
 function abrirSheetLancamento(lancamento) {
   const conteudo = document.getElementById('sheet-lancamento-conteudo');
+  const pendente = lancamento.status === 'pendente';
   conteudo.innerHTML = `
     <div class="sheet-titulo">${escapeHtml(lancamento.description)}</div>
+    ${pendente ? `
+    <button type="button" class="sheet-acao-btn" id="btn-dar-baixa">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+      Marcar como ${lancamento.type === 'receita' ? 'recebida' : 'paga'}
+    </button>
+    ` : ''}
     <button type="button" class="sheet-acao-btn" id="btn-editar-lancamento">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
       Editar
@@ -357,6 +364,9 @@ function abrirSheetLancamento(lancamento) {
     <button type="button" class="sheet-acao-btn" id="btn-cancelar-sheet-lancamento">Cancelar</button>
   `;
 
+  if (pendente) {
+    document.getElementById('btn-dar-baixa').addEventListener('click', () => darBaixa(lancamento));
+  }
   document.getElementById('btn-editar-lancamento').addEventListener('click', () => {
     window.location.href = `/pages/lancar.html?id=${lancamento.id}`;
   });
@@ -364,6 +374,27 @@ function abrirSheetLancamento(lancamento) {
   document.getElementById('btn-cancelar-sheet-lancamento').addEventListener('click', fecharSheetLancamento);
 
   document.getElementById('sheet-lancamento').hidden = false;
+}
+
+async function darBaixa(lancamento) {
+  document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = true; });
+
+  const { error: erroUpdate } = await supabase
+    .from('transactions')
+    .update({ status: 'pago' })
+    .eq('id', lancamento.id)
+    .eq('user_id', usuarioAtual.id);
+
+  if (erroUpdate) {
+    document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = false; });
+    return;
+  }
+
+  const delta = lancamento.type === 'receita' ? Number(lancamento.amount) : -Number(lancamento.amount);
+  await supabase.rpc('increment_account_balance', { p_account_id: lancamento.accountId, p_delta: delta });
+
+  fecharSheetLancamento();
+  await init();
 }
 
 function confirmarExclusao(lancamento) {

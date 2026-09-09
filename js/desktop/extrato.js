@@ -101,18 +101,38 @@ function renderTabela(lancamentos) {
 
 function abrirDetalhes(lancamento) {
   const conteudo = document.getElementById('modal-lancamento-conteudo');
+  const pendente = lancamento.status === 'pendente';
   conteudo.innerHTML = `
     <div class="modal-titulo">${escapeHtml(lancamento.description)}</div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+      ${pendente ? `<button type="button" class="btn-desktop primario" id="btn-dar-baixa">Marcar como ${lancamento.type === 'receita' ? 'recebida' : 'paga'}</button>` : ''}
       <button type="button" class="btn-desktop primario" id="btn-editar-lancamento">Editar</button>
       <button type="button" class="btn-desktop perigo" id="btn-excluir-lancamento">Excluir</button>
     </div>
   `;
+  if (pendente) {
+    document.getElementById('btn-dar-baixa').addEventListener('click', () => darBaixa(lancamento));
+  }
   document.getElementById('btn-editar-lancamento').addEventListener('click', () => {
     window.location.href = `/pages/lancar.html?id=${lancamento.id}`;
   });
   document.getElementById('btn-excluir-lancamento').addEventListener('click', () => confirmarExclusao(lancamento));
   abrirModal('modal-lancamento');
+}
+
+async function darBaixa(lancamento) {
+  const { error: erroUpdate } = await supabase
+    .from('transactions')
+    .update({ status: 'pago' })
+    .eq('id', lancamento.id)
+    .eq('user_id', usuarioAtual.id);
+  if (erroUpdate) return;
+
+  const delta = lancamento.type === 'receita' ? Number(lancamento.amount) : -Number(lancamento.amount);
+  await supabase.rpc('increment_account_balance', { p_account_id: lancamento.account_id, p_delta: delta });
+
+  fecharModal('modal-lancamento');
+  await recarregar(usuarioAtual.id);
 }
 
 function confirmarExclusao(lancamento) {
