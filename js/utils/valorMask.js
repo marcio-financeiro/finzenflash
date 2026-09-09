@@ -8,7 +8,7 @@ export function attachValorMask(input) {
   if (!input || input.dataset.valorMascarado) return;
   input.dataset.valorMascarado = '1';
 
-  const formatar = () => {
+  const formatarDigitado = () => {
     // Saldo de conta pode ser negativo (conta no vermelho) — mantém o sinal
     // se já estava lá, mas todo o resto do texto vira só dígitos.
     const negativo = input.value.trim().startsWith('-');
@@ -18,6 +18,21 @@ export function attachValorMask(input) {
     input.value = negativo && centavos !== 0 ? `-${formatado}` : formatado;
   };
 
-  input.addEventListener('input', formatar);
-  if (input.value) formatar();
+  input.addEventListener('input', formatarDigitado);
+
+  // Valor inicial (pré-preenchido pelo JS ao editar um registro existente) é
+  // um número de verdade, não uma sequência de dígitos digitados — tratá-lo
+  // como "dígitos = centavos" (a mesma lógica do digitado) erraria: "0,1"
+  // viraria "0,01" e "1000" viraria "10,00". Aqui só a vírgula do valor
+  // recebido é a separadora decimal (o valor nunca chega com ponto de
+  // milhar, é sempre um Number.toString() com '.' trocado por ',').
+  const bruto = input.value.trim();
+  if (bruto) {
+    const negativo = bruto.startsWith('-');
+    const numero = Number(bruto.replace('-', '').replace(',', '.'));
+    if (Number.isFinite(numero)) {
+      const formatado = numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      input.value = negativo && numero !== 0 ? `-${formatado}` : formatado;
+    }
+  }
 }

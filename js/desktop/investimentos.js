@@ -562,45 +562,62 @@ function fmtDataCurta(iso) {
   return `${d}/${m}/${y.slice(2)}`;
 }
 
+async function reverterEfeitoProvento(dividendo) {
+  let valor = Number(dividendo.valor_total);
+  let contaId = dividendo.account_id;
+  if (dividendo.transaction_id) {
+    const { data: tx } = await supabase.from('transactions').select('amount, account_id')
+      .eq('id', dividendo.transaction_id).eq('user_id', usuarioAtual.id).maybeSingle();
+    if (tx) { valor = Number(tx.amount); contaId = tx.account_id; }
+    await supabase.from('transactions').delete().eq('id', dividendo.transaction_id).eq('user_id', usuarioAtual.id);
+  }
+  await supabase.rpc('increment_account_balance', { p_account_id: contaId, p_delta: -valor });
+}
+
 function confirmarExclusaoProvento(dividendo) {
   const conteudo = document.getElementById('modal-acao-provento-conteudo');
   conteudo.innerHTML = `
-    <div class="modal-titulo">Excluir provento de ${escapeHtml(dividendo.ticker)}?</div>
-    <p style="font-size:13px;color:var(--muted)">Remove só o registro aqui — não estorna o saldo já creditado na conta.</p>
-    <button type="button" class="btn-desktop perigo" id="btn-confirmar-excluir-provento" style="margin-top:10px">Excluir</button>
+    <div class="modal-titulo">Provento de ${escapeHtml(dividendo.ticker)}</div>
+    <p style="font-size:13px;color:var(--muted)">Editar ou excluir ajusta o saldo da conta automaticamente.</p>
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button type="button" class="btn-desktop" id="btn-editar-provento" style="flex:1">Editar</button>
+      <button type="button" class="btn-desktop perigo" id="btn-confirmar-excluir-provento" style="flex:1">Excluir</button>
+    </div>
   `;
+  document.getElementById('btn-editar-provento').addEventListener('click', () => abrirModalFormDividendo(dividendo));
   document.getElementById('btn-confirmar-excluir-provento').addEventListener('click', async () => {
     const btn = document.getElementById('btn-confirmar-excluir-provento');
     btn.disabled = true;
     btn.textContent = 'Excluindo...';
+    await reverterEfeitoProvento(dividendo);
     const { error } = await supabase.from('dividends').delete().eq('id', dividendo.id).eq('user_id', usuarioAtual.id);
     if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
     fecharModal('modal-acao-provento');
-    await carregarDividendos(usuarioAtual.id);
+    await Promise.all([carregarDividendos(usuarioAtual.id), carregarTodasContas(usuarioAtual.id), carregarContas(usuarioAtual.id)]);
     renderProventosMiniKpis(calcularKpisProventos());
     await abrirModalListaProventos();
   });
   abrirModal('modal-acao-provento');
 }
 
-function abrirModalFormDividendo() {
+function abrirModalFormDividendo(dividendoEditando = null) {
   const conteudo = document.getElementById('modal-form-conteudo');
   conteudo.innerHTML = `
-    <div class="modal-titulo">Registrar provento</div>
+    <div class="modal-titulo">${dividendoEditando ? 'Editar provento' : 'Registrar provento'}</div>
     <div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">
-      ${campoSelect('f-div-ativo', 'Ativo', [{ valor: '', texto: 'Selecione o ativo' }, ...ativos.map((a) => ({ valor: a.id, texto: a.ticker }))], '')}
-      ${campoSelect('f-div-tipo', 'Tipo', TIPOS_PROVENTO, 'dividendo')}
+      ${campoSelect('f-div-ativo', 'Ativo', [{ valor: '', texto: 'Selecione o ativo' }, ...ativos.map((a) => ({ valor: a.id, texto: a.ticker }))], dividendoEditando?.investment_id ?? '')}
+      ${campoSelect('f-div-tipo', 'Tipo', TIPOS_PROVENTO, dividendoEditando?.tipo ?? 'dividendo')}
       <div class="form-linha">
-        ${campoTexto('f-div-valor-cota', 'Valor por cota', '', '0,00')}
-        ${campoTexto('f-div-qtd-cotas', 'Qtd cotas na data', '', 'Automático')}
+        ${campoTexto('f-div-valor-cota', 'Valor por cota', dividendoEditando ? String(dividendoEditando.valor_por_cota).replace('.', ',') : '', '0,00')}
+        ${campoTexto('f-div-qtd-cotas', 'Qtd cotas na data', dividendoEditando ? String(dividendoEditando.quantidade_cotas).replace('.', ',') : '', 'Automático')}
       </div>
       ${campoSelect('f-div-moeda', 'Moeda do recebimento', [{ valor: 'BRL', texto: 'BRL — Real' }, { valor: 'USD', texto: 'USD — Dólar' }], 'BRL')}
-      ${campoTexto('f-div-valor-total', 'Ou valor total recebido', '', '0,00')}
-      ${campoSelect('f-div-conta', 'Conta de destino', [{ valor: '', texto: 'Selecione a conta' }, ...todasContas.map((c) => ({ valor: c.id, texto: c.nome }))], '')}
-      <div class="field"><label for="f-div-data">Data de pagamento</label><input type="date" class="input-desktop" id="f-div-data" value="${hojeISO()}"></div>
-      ${campoTexto('f-div-obs', 'Observação (opcional)', '', '')}
+      ${campoTexto('f-div-valor-total', 'Ou valor total recebido', dividendoEditando ? String(dividendoEditando.valor_total).replace('.', ',') : '', '0,00')}
+      ${campoSelect('f-div-conta', 'Conta de destino', [{ valor: '', texto: 'Selecione a conta' }, ...todasContas.map((c) => ({ valor: c.id, texto: c.nome }))], dividendoEditando?.account_id ?? '')}
+      <div class="field"><label for="f-div-data">Data de pagamento</label><input type="date" class="input-desktop" id="f-div-data" value="${dividendoEditando?.data_pagamento ?? hojeISO()}"></div>
+      ${campoTexto('f-div-obs', 'Observação (opcional)', dividendoEditando?.observacao ?? '', '')}
       <div class="error-msg" id="erro-form"></div>
-      <button type="button" class="btn-desktop primario" id="btn-salvar-form">Registrar provento</button>
+      <button type="button" class="btn-desktop primario" id="btn-salvar-form">${dividendoEditando ? 'Salvar alterações' : 'Registrar provento'}</button>
     </div>
   `;
 
@@ -610,11 +627,13 @@ function abrirModalFormDividendo() {
     const ativo = ativos.find((a) => a.id === e.target.value);
     if (ativo) document.getElementById('f-div-qtd-cotas').value = String(ativo.quantidade).replace('.', ',');
   });
-  document.getElementById('btn-salvar-form').addEventListener('click', salvarDividendo);
+  document.getElementById('btn-salvar-form').addEventListener('click', () => salvarDividendo(dividendoEditando));
+  fecharModal('modal-acao-provento');
+  fecharModal('modal-lista-proventos');
   abrirModal('modal-form');
 }
 
-async function salvarDividendo() {
+async function salvarDividendo(dividendoEditando = null) {
   const erroEl = document.getElementById('erro-form');
   erroEl.textContent = '';
 
@@ -648,15 +667,26 @@ async function salvarDividendo() {
 
   const btn = document.getElementById('btn-salvar-form');
   btn.disabled = true;
-  btn.textContent = 'Registrando...';
+  btn.textContent = dividendoEditando ? 'Salvando...' : 'Registrando...';
 
   try {
-    const { data: divRow, error: erroDiv } = await supabase.from('dividends').insert({
-      user_id: usuarioAtual.id, investment_id: ativoId, ticker: ativo.ticker,
-      tipo, valor_por_cota: valorCotaBRL, quantidade_cotas: qtd,
-      valor_total: totalBRL, account_id: contaId, data_pagamento: dataPag,
-      observacao: obs || null,
-    }).select('id').single();
+    if (dividendoEditando) {
+      await reverterEfeitoProvento(dividendoEditando);
+    }
+
+    const { data: divRow, error: erroDiv } = dividendoEditando
+      ? await supabase.from('dividends').update({
+          investment_id: ativoId, ticker: ativo.ticker,
+          tipo, valor_por_cota: valorCotaBRL, quantidade_cotas: qtd,
+          valor_total: totalBRL, account_id: contaId, data_pagamento: dataPag,
+          observacao: obs || null, transaction_id: null,
+        }).eq('id', dividendoEditando.id).eq('user_id', usuarioAtual.id).select('id').single()
+      : await supabase.from('dividends').insert({
+          user_id: usuarioAtual.id, investment_id: ativoId, ticker: ativo.ticker,
+          tipo, valor_por_cota: valorCotaBRL, quantidade_cotas: qtd,
+          valor_total: totalBRL, account_id: contaId, data_pagamento: dataPag,
+          observacao: obs || null,
+        }).select('id').single();
     if (erroDiv) throw erroDiv;
 
     const { error: erroSaldo } = await supabase.rpc('increment_account_balance', { p_account_id: contaId, p_delta: valorConta });
@@ -685,7 +715,7 @@ async function salvarDividendo() {
     console.error(err);
     erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
     btn.disabled = false;
-    btn.textContent = 'Registrar provento';
+    btn.textContent = dividendoEditando ? 'Salvar alterações' : 'Registrar provento';
   }
 }
 
@@ -857,7 +887,7 @@ async function iniciar() {
   });
 
   document.getElementById('btn-novo-lancamento').addEventListener('click', abrirModalLancamento);
-  document.getElementById('btn-novo-provento').addEventListener('click', abrirModalFormDividendo);
+  document.getElementById('btn-novo-provento').addEventListener('click', () => abrirModalFormDividendo());
   document.getElementById('btn-ver-proventos').addEventListener('click', abrirModalListaProventos);
   document.getElementById('btn-atualizar-cotacao').addEventListener('click', () => {
     limparCache();
