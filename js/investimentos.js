@@ -5,6 +5,7 @@ import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { loadChart } from './loadChart.js';
 import { getCotacoes, limparCache } from './quoteCache.js';
 import { montarNavInferior } from './navInferior.js?v=6';
+import { attachValorMask } from './utils/valorMask.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtPct = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2).replace('.', ',')}%`;
@@ -514,6 +515,8 @@ function abrirSheetEditarPosicao(ativo) {
     <button type="button" class="btn-primary" id="btn-salvar-form">Salvar</button>
     <button type="button" class="sheet-acao-btn" id="btn-cancelar-form">Cancelar</button>
   `;
+  attachValorMask(document.getElementById('f-preco'));
+
   document.getElementById('btn-cancelar-form').addEventListener('click', () => { document.getElementById('sheet-form').hidden = true; });
   document.getElementById('btn-salvar-form').addEventListener('click', () => salvarEdicaoPosicao(ativo.id));
   document.getElementById('sheet-acao-posicao').hidden = true;
@@ -644,6 +647,9 @@ function abrirSheetFormDividendo() {
     <button type="button" class="sheet-acao-btn" id="btn-cancelar-form">Cancelar</button>
   `;
 
+  attachValorMask(document.getElementById('f-div-valor-cota'));
+  attachValorMask(document.getElementById('f-div-valor-total'));
+
   document.getElementById('f-div-ativo').addEventListener('change', (e) => {
     const ativo = ativos.find((a) => a.id === e.target.value);
     if (ativo) document.getElementById('f-div-qtd-cotas').value = String(ativo.quantidade).replace('.', ',');
@@ -758,6 +764,9 @@ function abrirSheetLancamento() {
     <button type="button" class="btn-primary" id="btn-salvar-form">Salvar lançamento</button>
     <button type="button" class="sheet-acao-btn" id="btn-cancelar-form">Cancelar</button>
   `;
+
+  attachValorMask(document.getElementById('f-preco'));
+  attachValorMask(document.getElementById('f-valor-total'));
 
   document.getElementById('btn-op-compra').addEventListener('click', () => selecionarOperacao('compra'));
   document.getElementById('btn-op-venda').addEventListener('click', () => selecionarOperacao('venda'));

@@ -3,6 +3,7 @@ import { aplicarTemaSalvo } from '../temaService.js';
 import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
+import { attachValorMask } from '../utils/valorMask.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDataCurta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -331,6 +332,7 @@ function abrirModalFormHE() {
       <button type="button" class="btn-desktop primario" id="btn-salvar-form">Salvar</button>
     </div>
   `;
+  attachValorMask(document.getElementById('f-he-valor-hora'));
   document.getElementById('btn-salvar-form').addEventListener('click', salvarHE);
   abrirModal('modal-form');
 }

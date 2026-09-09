@@ -5,6 +5,7 @@ import { getCotacoes, limparCache } from '../quoteCache.js';
 import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
+import { attachValorMask } from '../utils/valorMask.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtPct = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2).replace('.', ',')}%`;
@@ -478,6 +479,7 @@ function abrirModalEditarPosicao(ativo) {
       <button type="button" class="btn-desktop primario" id="btn-salvar-form">Salvar</button>
     </div>
   `;
+  attachValorMask(document.getElementById('f-preco'));
   document.getElementById('btn-salvar-form').addEventListener('click', () => salvarEdicaoPosicao(ativo.id));
   fecharModal('modal-acao-posicao');
   abrirModal('modal-form');
@@ -602,6 +604,8 @@ function abrirModalFormDividendo() {
     </div>
   `;
 
+  attachValorMask(document.getElementById('f-div-valor-cota'));
+  attachValorMask(document.getElementById('f-div-valor-total'));
   document.getElementById('f-div-ativo').addEventListener('change', (e) => {
     const ativo = ativos.find((a) => a.id === e.target.value);
     if (ativo) document.getElementById('f-div-qtd-cotas').value = String(ativo.quantidade).replace('.', ',');
@@ -716,6 +720,8 @@ function abrirModalLancamento() {
     </div>
   `;
 
+  attachValorMask(document.getElementById('f-preco'));
+  attachValorMask(document.getElementById('f-valor-total'));
   document.getElementById('btn-op-compra').addEventListener('click', () => selecionarOperacao('compra'));
   document.getElementById('btn-op-venda').addEventListener('click', () => selecionarOperacao('venda'));
   document.getElementById('btn-salvar-form').addEventListener('click', salvarLancamento);

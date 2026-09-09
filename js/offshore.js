@@ -3,6 +3,7 @@ import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
+import { attachValorMask } from './utils/valorMask.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDataCurta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -344,6 +345,7 @@ function abrirSheetFormHE() {
     <button type="button" class="btn-primary" id="btn-salvar-form">Salvar</button>
     <button type="button" class="sheet-acao-btn" id="btn-cancelar-form">Cancelar</button>
   `;
+  attachValorMask(document.getElementById('f-he-valor-hora'));
   document.getElementById('btn-cancelar-form').addEventListener('click', () => { document.getElementById('sheet-form').hidden = true; });
   document.getElementById('btn-salvar-form').addEventListener('click', salvarHE);
   document.getElementById('sheet-form').hidden = false;

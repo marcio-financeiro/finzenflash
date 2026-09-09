@@ -2,6 +2,14 @@ import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js'
 import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { ativarArrastarParaFechar } from './sheetGestos.js';
 import { montarNavInferior } from './navInferior.js?v=6';
+import { attachValorMask } from './utils/valorMask.js';
+
+const CAMPOS_VALOR_POR_TIPO = {
+  conta: ['f-saldo'],
+  cartao: ['f-limite'],
+  recorrente: ['f-valor'],
+  orcamento: ['f-valor'],
+};
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -452,6 +460,8 @@ function abrirSheetForm(tipo, item) {
   else if (tipo === 'recorrente') conteudo.innerHTML = formRecorrente(item);
   else if (tipo === 'orcamento') conteudo.innerHTML = formOrcamento(item);
   else conteudo.innerHTML = formCategoria(item);
+
+  (CAMPOS_VALOR_POR_TIPO[tipo] || []).forEach((id) => attachValorMask(document.getElementById(id)));
 
   document.getElementById('btn-cancelar-form').addEventListener('click', () => fecharSheet('sheet-form'));
   document.getElementById('btn-salvar-form').addEventListener('click', () => salvarForm(tipo, item));
