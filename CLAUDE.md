@@ -31,7 +31,7 @@ vercel.json      → Cache-Control must-revalidate em /js e /*.html (evita servi
 ## Banco de dados
 
 Usa só estas tabelas do FinZen (já existentes, RLS `auth.uid() = user_id`):
-- `accounts` (filtrar `account_kind = 'bank'`, `active = true` — exclui contas de corretora tipo Rico/Nomad)
+- `accounts` (filtrar `account_kind = 'bank'`, `active = true` — Rico e Nomad USD são `bank` também, usadas como conta corrente além de receber dividendos; `account_kind = 'broker'` hoje não tem nenhuma conta, é só para o caso de existir uma conta só de corretora no futuro)
 - `transactions` — **atenção:** o FinZen projeta lançamentos recorrentes com data futura (contas fixas já lançadas meses à frente). Sempre filtrar `date <= hoje` em listas de "últimos lançamentos", senão entradas futuras aparecem antes das reais.
 - `categories` (tipo `despesa`/`receita`, `ativo = true`)
 - Ajuste de saldo: RPC `increment_account_balance(p_account_id, p_delta)` — mesma RPC atômica do FinZen, nunca fazer SELECT→soma→UPDATE manual.
