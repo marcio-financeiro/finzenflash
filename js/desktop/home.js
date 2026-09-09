@@ -113,7 +113,7 @@ async function carregarLancamentos(userId) {
   const [{ data: transacoes, error: erroTransacoes }, { data: compras, error: erroCompras }] = await Promise.all([
     supabase
       .from('transactions')
-      .select('id, type, amount, description, date, account_id, accounts(nome)')
+      .select('id, type, amount, description, date, status, account_id, is_recurring, recurrence_group_id, accounts(nome)')
       .eq('user_id', userId)
       .or(`date.lte.${hojeISO()},parent_transaction_id.is.null`)
       .order('date', { ascending: false })
@@ -132,6 +132,13 @@ async function carregarLancamentos(userId) {
   if (erroCompras) throw erroCompras;
 
   const doConta = (transacoes ?? []).map((t) => ({
+    id: t.id,
+    fonte: 'transacao',
+    type: t.type,
+    status: t.status,
+    account_id: t.account_id,
+    is_recurring: t.is_recurring,
+    recurrence_group_id: t.recurrence_group_id,
     origem: t.type === 'receita' ? 'Receita' : 'Despesa',
     positivo: t.type === 'receita',
     amount: t.amount,
@@ -140,6 +147,7 @@ async function carregarLancamentos(userId) {
     nomeOrigem: t.accounts?.nome ?? '',
   }));
   const doCartao = (compras ?? []).map((c) => ({
+    fonte: 'cartao',
     origem: 'Cartão',
     positivo: false,
     amount: c.valor_total,
@@ -368,8 +376,8 @@ function renderLancamentos(itens) {
     <table class="data-table">
       <thead><tr><th>Data</th><th>Descrição</th><th>Origem</th><th class="num">Valor</th></tr></thead>
       <tbody>
-        ${itens.map((i) => `
-          <tr>
+        ${itens.map((i, idx) => `
+          <tr ${i.fonte === 'transacao' ? `class="clicavel" data-idx="${idx}"` : ''}>
             <td>${fmtData.format(new Date(i.date + 'T00:00:00'))}</td>
             <td>${escapeHtml(i.description || i.origem)} <span style="color:var(--muted)">· ${escapeHtml(i.nomeOrigem)}</span></td>
             <td>${escapeHtml(i.origem)}</td>
@@ -379,6 +387,10 @@ function renderLancamentos(itens) {
       </tbody>
     </table>
   `;
+  el.querySelectorAll('tr.clicavel').forEach((tr) => {
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', () => abrirDetalhesLancamento(itens[Number(tr.dataset.idx)]));
+  });
 }
 
 function renderRanking({ itens }) {
@@ -598,7 +610,7 @@ async function abrirModalPendentes() {
     container.querySelectorAll('button[data-id]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const lancamento = itens.find((l) => l.id === btn.dataset.id);
-        if (lancamento) darBaixa(lancamento, btn);
+        if (lancamento) darBaixa(lancamento, btn, 'modal-pendentes');
       });
     });
   } catch (err) {
@@ -607,7 +619,17 @@ async function abrirModalPendentes() {
   }
 }
 
-async function darBaixa(lancamento, btn) {
+async function recarregarSaldosELista() {
+  const [contas, lancamentos] = await Promise.all([
+    carregarContas(usuarioAtual.id),
+    carregarLancamentos(usuarioAtual.id),
+    carregarDadosDoMes(),
+  ]);
+  renderContas(contas);
+  renderLancamentos(lancamentos);
+}
+
+async function darBaixa(lancamento, btn, modalId = 'modal-pendentes') {
   if (btn) btn.disabled = true;
 
   const { data: atualizados, error: erroUpdate } = await supabase
@@ -625,14 +647,100 @@ async function darBaixa(lancamento, btn) {
   const delta = lancamento.type === 'receita' ? Number(lancamento.amount) : -Number(lancamento.amount);
   await supabase.rpc('increment_account_balance', { p_account_id: lancamento.account_id, p_delta: delta });
 
-  fecharModal('modal-pendentes');
-  const [contas, lancamentos] = await Promise.all([
-    carregarContas(usuarioAtual.id),
-    carregarLancamentos(usuarioAtual.id),
-    carregarDadosDoMes(),
-  ]);
-  renderContas(contas);
-  renderLancamentos(lancamentos);
+  fecharModal(modalId);
+  await recarregarSaldosELista();
+}
+
+async function desfazerBaixa(lancamento) {
+  document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = true; });
+
+  const { error } = await supabase.rpc('fz_desfazer_baixa', { p_transaction_id: lancamento.id });
+  if (error) {
+    document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = false; });
+    return;
+  }
+
+  fecharModal('modal-lancamento');
+  await recarregarSaldosELista();
+}
+
+function abrirDetalhesLancamento(lancamento) {
+  const conteudo = document.getElementById('modal-lancamento-conteudo');
+  const pendente = lancamento.status === 'pendente';
+  const paga = lancamento.status === 'pago';
+  conteudo.innerHTML = `
+    <div class="modal-titulo">${escapeHtml(lancamento.description)}</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+      ${pendente ? `<button type="button" class="btn-desktop primario" id="btn-dar-baixa">Marcar como ${lancamento.type === 'receita' ? 'recebida' : 'paga'}</button>` : ''}
+      ${paga ? `<button type="button" class="btn-desktop" id="btn-desfazer-baixa">Desfazer baixa</button>` : ''}
+      <button type="button" class="btn-desktop primario" id="btn-editar-lancamento">Editar</button>
+      <button type="button" class="btn-desktop perigo" id="btn-excluir-lancamento">Excluir</button>
+    </div>
+  `;
+  if (pendente) {
+    document.getElementById('btn-dar-baixa').addEventListener('click', () => darBaixa(lancamento, null, 'modal-lancamento'));
+  }
+  if (paga) {
+    document.getElementById('btn-desfazer-baixa').addEventListener('click', () => desfazerBaixa(lancamento));
+  }
+  document.getElementById('btn-editar-lancamento').addEventListener('click', () => {
+    window.location.href = `/pages/lancar.html?id=${lancamento.id}`;
+  });
+  document.getElementById('btn-excluir-lancamento').addEventListener('click', () => confirmarExclusaoLancamento(lancamento));
+  abrirModal('modal-lancamento');
+}
+
+function confirmarExclusaoLancamento(lancamento) {
+  const recorrente = Boolean(lancamento.is_recurring || lancamento.recurrence_group_id);
+  const conteudo = document.getElementById('modal-lancamento-conteudo');
+
+  if (recorrente) {
+    conteudo.innerHTML = `
+      <div class="modal-titulo">Excluir recorrência</div>
+      <p style="color:var(--muted);font-size:13px">Este lançamento faz parte de uma recorrência. Escolha o alcance da exclusão.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+        <button type="button" class="btn-desktop perigo" id="btn-excluir-only">Excluir somente esta ocorrência</button>
+        <button type="button" class="btn-desktop perigo" id="btn-excluir-future">Excluir esta e futuras</button>
+        <button type="button" class="btn-desktop perigo" id="btn-excluir-series">Excluir toda a série</button>
+      </div>
+    `;
+    document.getElementById('btn-excluir-only').addEventListener('click', () => excluirLancamentoDaHome(lancamento, 'only'));
+    document.getElementById('btn-excluir-future').addEventListener('click', () => excluirLancamentoDaHome(lancamento, 'future'));
+    document.getElementById('btn-excluir-series').addEventListener('click', () => excluirLancamentoDaHome(lancamento, 'series'));
+    return;
+  }
+
+  conteudo.innerHTML = `
+    <div class="modal-titulo">Excluir "${escapeHtml(lancamento.description)}"?</div>
+    <p style="color:var(--muted);font-size:13px">Essa ação não pode ser desfeita.</p>
+    <button type="button" class="btn-desktop perigo" id="btn-confirmar-exclusao" style="margin-top:10px">Excluir lançamento</button>
+  `;
+  document.getElementById('btn-confirmar-exclusao').addEventListener('click', () => excluirLancamentoDaHome(lancamento, 'only'));
+}
+
+async function excluirLancamentoDaHome(lancamento, scope) {
+  const grupoId = lancamento.recurrence_group_id || lancamento.id;
+  let query = supabase.from('transactions').select('id, type, amount, status, account_id').eq('user_id', usuarioAtual.id);
+  if (scope === 'future') query = query.eq('recurrence_group_id', grupoId).gte('date', lancamento.date);
+  else if (scope === 'series') query = query.eq('recurrence_group_id', grupoId);
+  else query = query.eq('id', lancamento.id);
+
+  const { data: alvos, error: erroAlvos } = await query;
+  if (erroAlvos || !alvos || !alvos.length) return;
+
+  const ids = alvos.map((a) => a.id);
+  const { error: erroDelete } = await supabase.from('transactions').delete().eq('user_id', usuarioAtual.id).in('id', ids);
+  if (erroDelete) return;
+
+  for (const item of alvos) {
+    if (item.status === 'pago') {
+      const delta = item.type === 'receita' ? -Number(item.amount) : Number(item.amount);
+      await supabase.rpc('increment_account_balance', { p_account_id: item.account_id, p_delta: delta });
+    }
+  }
+
+  fecharModal('modal-lancamento');
+  await recarregarSaldosELista();
 }
 
 async function recarregarPendentes() {
@@ -685,6 +793,8 @@ async function iniciar() {
   document.getElementById('btn-topbar-busca').addEventListener('click', abrirComandos);
   configurarModal('modal-pendentes');
   document.getElementById('btn-fechar-modal-pendentes').addEventListener('click', () => fecharModal('modal-pendentes'));
+  configurarModal('modal-lancamento');
+  document.getElementById('btn-fechar-modal-lancamento').addEventListener('click', () => fecharModal('modal-lancamento'));
 
   renderMesLabel();
   document.getElementById('btn-mes-anterior').addEventListener('click', () => mudarMes(-1));
