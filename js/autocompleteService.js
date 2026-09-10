@@ -43,11 +43,17 @@ export async function getDescricoesRecentes(supabase, userId) {
   return Array.from(map.values());
 }
 
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+
 /** Popula um <datalist> com as descrições (sem duplicar valores). */
 export function popularDatalist(datalistEl, descricoes) {
   if (!datalistEl) return;
   datalistEl.innerHTML = descricoes
-    .map((d) => `<option value="${d.description.replace(/"/g, '&quot;')}"></option>`)
+    .map((d) => `<option value="${escapeHtml(d.description)}"></option>`)
     .join('');
 }
 
