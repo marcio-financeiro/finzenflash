@@ -213,6 +213,9 @@ async function salvar(user) {
   const referenciaBase = document.getElementById('fatura-ref').value
     || invoiceRef(dataCompra, cartao.fechamento_dia, cartao.vencimento_dia);
   const valorParcela = Math.round((valorTotal / parcelas) * 100) / 100;
+  // Ajusta a última parcela pra a soma bater exatamente com valorTotal
+  // (ex.: R$100 em 3x = 33,33+33,33+33,34, não 33,33x3=99,99).
+  const diferencaArredondamento = Math.round((valorTotal - valorParcela * parcelas) * 100) / 100;
 
   if (compraOriginal) {
     const { error: erroDelete } = await supabase
@@ -236,7 +239,7 @@ async function salvar(user) {
     valor_total: valorTotal,
     parcelas,
     parcela_atual: i + 1,
-    valor_parcela: valorParcela,
+    valor_parcela: i === parcelas - 1 ? Math.round((valorParcela + diferencaArredondamento) * 100) / 100 : valorParcela,
     data_compra: dataCompra,
     fatura_referencia: addMonthsRef(referenciaBase, i),
     purchase_group_id: grupo,
