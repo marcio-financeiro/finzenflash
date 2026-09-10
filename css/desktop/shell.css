@@ -177,3 +177,16 @@ body.desktop-body {
   overflow-y: auto;
   padding: 28px;
 }
+
+/* Largura mínima confortável pra essa versão — abaixo disso (notebook
+   pequeno) encolhe a trilha/topbar/respiro em vez de deixar o layout
+   rígido de 68px + 28px de padding forçar scroll horizontal. */
+@media (max-width: 960px) {
+  .rail { width: 56px; padding: 14px 0; }
+  .rail-logo { width: 32px; height: 32px; margin-bottom: 10px; }
+  .rail-item { width: 38px; height: 38px; }
+  .topbar { padding: 0 16px; gap: 10px; }
+  .topbar-titulo { font-size: 16px; }
+  .topbar-busca { max-width: 200px; }
+  .content-scroll { padding: 16px; }
+}
