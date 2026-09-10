@@ -376,7 +376,7 @@ function campoSelect(id, label, opcoes, valorAtual) {
   const options = opcoes.map((o) => {
     const valor = typeof o === 'string' ? o : o.valor;
     const texto = typeof o === 'string' ? o : o.texto;
-    return `<option value="${valor}" ${valor === valorAtual ? 'selected' : ''}>${texto}</option>`;
+    return `<option value="${escapeHtml(valor)}" ${valor === valorAtual ? 'selected' : ''}>${escapeHtml(texto)}</option>`;
   }).join('');
   return `
     <div class="field">
@@ -693,12 +693,14 @@ async function iniciar() {
     ]);
   } catch (err) {
     console.error(err);
+    document.getElementById('erro-cadastros').textContent = 'Não foi possível carregar os dados. Recarregue a página.';
   }
 
   try {
     await recarregarTudo();
   } catch (err) {
     console.error(err);
+    document.getElementById('erro-cadastros').textContent = 'Não foi possível carregar os dados. Recarregue a página.';
   }
 }
 

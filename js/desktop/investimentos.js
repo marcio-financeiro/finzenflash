@@ -82,7 +82,7 @@ function campoTexto(id, label, valor, placeholder = '') {
 }
 
 function campoSelect(id, label, opcoes, valorAtual) {
-  const options = opcoes.map((o) => `<option value="${o.valor}" ${o.valor === valorAtual ? 'selected' : ''}>${o.texto}</option>`).join('');
+  const options = opcoes.map((o) => `<option value="${escapeHtml(o.valor)}" ${o.valor === valorAtual ? 'selected' : ''}>${escapeHtml(o.texto)}</option>`).join('');
   return `
     <div class="field">
       <label for="${id}">${label}</label>
