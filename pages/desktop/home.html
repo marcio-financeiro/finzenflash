@@ -119,103 +119,81 @@
       <div class="content-scroll">
         <div class="pagina-titulo-bloco">
           <h1>Visão geral</h1>
-          <p>Suas contas, lançamentos e faturas — arraste os widgets pra reorganizar.</p>
+          <p>Suas contas, lançamentos e faturas — arraste os cards pra reorganizar dentro da coluna.</p>
         </div>
 
-        <div class="board" id="board">
-          <div class="widget" data-widget-id="saldo-mes" style="--widget-cols:12">
-            <div class="widget-cabecalho">
-              <span class="widget-titulo">Saldo do mês</span>
-              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
-            </div>
-            <div class="saldo-mes-valores">
-              <div class="saldo-mes-item">
-                <div class="valor valor-sensivel" id="valor-inicial">R$ 0,00</div>
-                <div class="rotulo">Inicial</div>
+        <div class="kpi-strip">
+          <div class="kpi-tile"><div class="rotulo">Saldo atual</div><div class="valor num valor-sensivel" id="kpi-saldo-atual">R$ 0,00</div></div>
+          <div class="kpi-tile"><div class="rotulo">Previsto no mês</div><div class="valor num valor-sensivel" id="kpi-previsto">R$ 0,00</div></div>
+          <div class="kpi-tile"><div class="rotulo">Pendências</div><div class="valor num valor-sensivel" id="kpi-pendencias">R$ 0,00</div></div>
+          <div class="kpi-tile"><div class="rotulo">Economia do mês</div><div class="valor num" id="kpi-economia">0%</div></div>
+        </div>
+
+        <div class="board-zonas">
+          <div class="board-col" id="board-principal">
+            <div class="widget" data-widget-id="saldo-mes">
+              <div class="widget-cabecalho"><span class="widget-titulo">Saldo do mês</span></div>
+              <div class="saldo-mes-valores">
+                <div class="saldo-mes-item">
+                  <div class="valor valor-sensivel" id="valor-inicial">R$ 0,00</div>
+                  <div class="rotulo">Inicial</div>
+                </div>
+                <div class="saldo-mes-item destaque">
+                  <div class="valor valor-sensivel" id="valor-atual">R$ 0,00</div>
+                  <div class="rotulo">Saldo atual</div>
+                </div>
+                <div class="saldo-mes-item">
+                  <div class="valor valor-sensivel" id="valor-previsto">R$ 0,00</div>
+                  <div class="rotulo">Previsto</div>
+                </div>
               </div>
-              <div class="saldo-mes-item destaque">
-                <div class="valor valor-sensivel" id="valor-atual">R$ 0,00</div>
-                <div class="rotulo">Saldo atual</div>
+              <div class="saldo-mes-grafico"><canvas id="chart-saldo-mes"></canvas></div>
+            </div>
+
+            <div class="widget" data-widget-id="mapacalor">
+              <div class="widget-cabecalho"><span class="widget-titulo">Mapa de calor (gastos por dia)</span></div>
+              <div id="widget-mapacalor"><div class="lista-vazia">Carregando…</div></div>
+            </div>
+
+            <div class="widget" data-widget-id="ranking">
+              <div class="widget-cabecalho"><span class="widget-titulo">Ranking categorias (despesas)</span></div>
+              <div id="widget-ranking"><div class="lista-vazia">Carregando…</div></div>
+            </div>
+
+            <div class="widget" data-widget-id="lancamentos">
+              <div class="widget-cabecalho"><span class="widget-titulo">Últimos lançamentos</span></div>
+              <div class="table-wrap" id="widget-lancamentos"><div class="lista-vazia">Carregando…</div></div>
+            </div>
+          </div>
+
+          <div class="board-col" id="board-lateral">
+            <div class="widget" data-widget-id="contas">
+              <div class="widget-cabecalho"><span class="widget-titulo">Contas</span></div>
+              <div id="widget-contas"><div class="lista-vazia">Carregando…</div></div>
+            </div>
+
+            <div class="widget" data-widget-id="economia">
+              <div class="widget-cabecalho"><span class="widget-titulo">Economia mensal</span></div>
+              <div id="widget-economia"><div class="lista-vazia">Carregando…</div></div>
+            </div>
+
+            <div class="widget" data-widget-id="pendentes">
+              <div class="widget-cabecalho"><span class="widget-titulo">Pendências</span></div>
+              <div id="widget-pendentes"><div class="lista-vazia">Carregando…</div></div>
+            </div>
+
+            <div class="widget" data-widget-id="cartoes">
+              <div class="widget-cabecalho"><span class="widget-titulo">Cartões</span></div>
+              <div id="widget-cartoes"><div class="lista-vazia">Carregando…</div></div>
+            </div>
+
+            <div class="widget" data-widget-id="metas">
+              <div class="widget-cabecalho">
+                <span class="widget-titulo">Metas do mês</span>
+                <a class="btn-desktop" href="/pages/desktop/cadastros.html" style="height:26px;padding:0 10px;font-size:11px" title="Editar metas em Cadastros → Orçamentos">Editar</a>
               </div>
-              <div class="saldo-mes-item">
-                <div class="valor valor-sensivel" id="valor-previsto">R$ 0,00</div>
-                <div class="rotulo">Previsto</div>
-              </div>
+              <div id="widget-metas"><div class="lista-vazia">Carregando…</div></div>
             </div>
-            <div class="saldo-mes-grafico"><canvas id="chart-saldo-mes"></canvas></div>
-            <div class="widget-redimensionar" aria-hidden="true"></div>
-          </div>
-
-          <div class="widget" data-widget-id="contas" style="--widget-cols:4">
-            <div class="widget-cabecalho">
-              <span class="widget-titulo">Contas</span>
-              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
-            </div>
-            <div id="widget-contas"><div class="lista-vazia">Carregando…</div></div>
-            <div class="widget-redimensionar" aria-hidden="true"></div>
-          </div>
-
-          <div class="widget" data-widget-id="ranking" style="--widget-cols:4">
-            <div class="widget-cabecalho">
-              <span class="widget-titulo">Ranking categorias (despesas)</span>
-              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
-            </div>
-            <div id="widget-ranking"><div class="lista-vazia">Carregando…</div></div>
-            <div class="widget-redimensionar" aria-hidden="true"></div>
-          </div>
-
-          <div class="widget" data-widget-id="economia" style="--widget-cols:4">
-            <div class="widget-cabecalho">
-              <span class="widget-titulo">Economia mensal</span>
-              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
-            </div>
-            <div id="widget-economia"><div class="lista-vazia">Carregando…</div></div>
-            <div class="widget-redimensionar" aria-hidden="true"></div>
-          </div>
-
-          <div class="widget" data-widget-id="pendentes" style="--widget-cols:4">
-            <div class="widget-cabecalho">
-              <span class="widget-titulo">Pendências</span>
-              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
-            </div>
-            <div id="widget-pendentes"><div class="lista-vazia">Carregando…</div></div>
-            <div class="widget-redimensionar" aria-hidden="true"></div>
-          </div>
-
-          <div class="widget" data-widget-id="cartoes" style="--widget-cols:4">
-            <div class="widget-cabecalho">
-              <span class="widget-titulo">Cartões</span>
-              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
-            </div>
-            <div id="widget-cartoes"><div class="lista-vazia">Carregando…</div></div>
-            <div class="widget-redimensionar" aria-hidden="true"></div>
-          </div>
-
-          <div class="widget" data-widget-id="metas" style="--widget-cols:4">
-            <div class="widget-cabecalho">
-              <span class="widget-titulo">Metas do mês</span>
-              <a class="btn-desktop" href="/pages/desktop/cadastros.html" style="height:26px;padding:0 10px;font-size:11px" title="Editar metas em Cadastros → Orçamentos">Editar</a>
-            </div>
-            <div id="widget-metas"><div class="lista-vazia">Carregando…</div></div>
-            <div class="widget-redimensionar" aria-hidden="true"></div>
-          </div>
-
-          <div class="widget" data-widget-id="mapacalor" style="--widget-cols:8">
-            <div class="widget-cabecalho">
-              <span class="widget-titulo">Mapa de calor (gastos por dia)</span>
-              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
-            </div>
-            <div id="widget-mapacalor"><div class="lista-vazia">Carregando…</div></div>
-            <div class="widget-redimensionar" aria-hidden="true"></div>
-          </div>
-
-          <div class="widget" data-widget-id="lancamentos" style="--widget-cols:12">
-            <div class="widget-cabecalho">
-              <span class="widget-titulo">Últimos lançamentos</span>
-              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
-            </div>
-            <div class="table-wrap" id="widget-lancamentos"><div class="lista-vazia">Carregando…</div></div>
-            <div class="widget-redimensionar" aria-hidden="true"></div>
           </div>
         </div>
       </div>

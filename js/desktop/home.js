@@ -447,6 +447,12 @@ function renderEconomia({ receitas, despesas }, anterior) {
   const pctAro = Math.max(0, Math.min(100, pct));
   const corAro = economia >= 0 ? 'var(--success)' : 'var(--danger)';
 
+  const kpiEconomia = document.getElementById('kpi-economia');
+  if (kpiEconomia) {
+    kpiEconomia.textContent = `${Math.round(pct)}%`;
+    kpiEconomia.classList.toggle('negativo', economia < 0);
+  }
+
   let comparativoHtml = '';
   if (anterior && (anterior.receitas > 0 || anterior.despesas > 0)) {
     const economiaAnterior = anterior.receitas - anterior.despesas;
@@ -572,6 +578,9 @@ function renderMapaCalor({ ano, mes, totalDias, primeiroDiaSemana, porDia, porDi
 function renderPendentes({ tipo, count, total }) {
   const el = document.getElementById('widget-pendentes');
   const textoTipo = tipo === 'despesa' ? 'despesas' : 'receitas';
+
+  const kpiPendencias = document.getElementById('kpi-pendencias');
+  if (kpiPendencias) kpiPendencias.textContent = fmt.format(total);
   el.innerHTML = `
     <div class="pendentes-abas">
       <button type="button" class="pendentes-aba ${tipo === 'despesa' ? 'ativa' : ''}" data-tipo="despesa">Despesas</button>
@@ -844,6 +853,17 @@ function renderTimeline({ inicial, atual, previsto }) {
   elInicial.classList.toggle('negativo', inicial < 0);
   elAtual.classList.toggle('negativo', atual < 0);
   elPrevisto.classList.toggle('negativo', previsto < 0);
+
+  const kpiSaldoAtual = document.getElementById('kpi-saldo-atual');
+  const kpiPrevisto = document.getElementById('kpi-previsto');
+  if (kpiSaldoAtual) {
+    kpiSaldoAtual.textContent = fmt.format(atual);
+    kpiSaldoAtual.classList.toggle('negativo', atual < 0);
+  }
+  if (kpiPrevisto) {
+    kpiPrevisto.textContent = fmt.format(previsto);
+    kpiPrevisto.classList.toggle('negativo', previsto < 0);
+  }
 }
 
 async function renderGraficoSaldoMes(serie, hoje) {
@@ -981,7 +1001,7 @@ async function iniciar() {
   renderLancamentos(lancamentos);
   await carregarDadosDoMes();
 
-  await inicializarBoard('board', 'home', user.id);
+  await inicializarBoard({ principal: 'board-principal', lateral: 'board-lateral' }, 'home', user.id);
 }
 
 iniciar();

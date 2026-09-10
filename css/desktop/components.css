@@ -16,24 +16,16 @@
 .num.negativo { color: var(--danger); }
 
 /* Board de widgets — grid de 12 colunas, cada widget declara quantas ocupa.
-   grid-auto-rows pequeno + grid-row-end calculado por JS (board.js, via
-   ResizeObserver) simula masonry: cada widget ocupa só a altura real do seu
-   conteúdo, em vez da altura do vizinho mais alto da "linha" — sem isso,
-   um widget curto ao lado de um alto (ex: Contas ao lado de Mapa de calor)
-   deixa um buraco em branco embaixo do curto até a régua da linha inteira. */
+   Usado hoje só em páginas com no máximo um "andar" de cards lado a lado
+   seguido de blocos full-width (Cartão, Saúde, Relatórios, Investimentos)
+   — nesse caso não existe uma segunda fileira de itens pra desalinhar
+   embaixo de um vizinho mais alto, então o grid padrão (sem truque nenhum)
+   já não deixa buraco. O Início tem widgets empilhados em várias fileiras
+   e por isso usa um layout à parte — ver .board-zonas mais abaixo. */
 .board {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  grid-auto-rows: 10px;
-  grid-auto-flow: row dense;
   gap: 16px;
-  /* Sem isso o grid estica cada widget pra altura exata do seu grid-row-end
-     (default align-self:stretch) — como esse span é recalculado a partir da
-     própria altura do widget (ver board.js), width teria um valor de
-     conteúdo velho (ex: ainda em "Carregando…") "congelado" pra sempre: o
-     conteúdo real cresce por dentro mas a caixa não acompanha, e vaza pra
-     fora do card. align-items:start deixa o widget se dimensionar pelo
-     próprio conteúdo; o grid-row-end só reserva o espaço vertical dele. */
   align-items: start;
 }
 
@@ -89,6 +81,25 @@
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; }
 .kpi-rotulo { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
 .kpi-valor { font-size: 22px; margin-top: 4px; }
+
+/* Início: tira de KPIs + board em duas colunas independentes (larga +
+   lateral estreita). Cada coluna é uma pilha simples (flex column) —
+   nunca depende da altura da vizinha, então nunca sobra vão em branco,
+   sem precisar medir altura por JS como o .board de uma grade só. */
+.kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+.kpi-tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; }
+.kpi-tile .rotulo { font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.kpi-tile .valor { font-size: 19px; margin-top: 4px; }
+
+.board-zonas { display: grid; grid-template-columns: 1.7fr 1fr; gap: 16px; align-items: start; }
+.board-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.board-col .widget { grid-column: auto; }
+.board-col .widget.arrastando { opacity: 0.5; }
+
+@media (max-width: 1100px) {
+  .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+  .board-zonas { grid-template-columns: 1fr; }
+}
 
 /* Tabela densa */
 .table-wrap { overflow-x: auto; }
