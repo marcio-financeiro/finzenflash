@@ -14,6 +14,8 @@ let mesRef = new Date();
 mesRef.setDate(1);
 let contaFiltro = '';
 let categoriaFiltro = '';
+let diaFiltro = '';
+const fmtDataCompleta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 let contas = [];
 let categorias = [];
 let usuarioAtual = null;
@@ -70,15 +72,19 @@ async function carregarFiltros(userId) {
 }
 
 async function carregarLancamentos(userId) {
-  const { inicio, fim } = limitesMes(mesRef);
   let query = supabase
     .from('transactions')
     .select('id, type, amount, description, date, status, account_id, category_id, is_recurring, recurrence_group_id, accounts(nome, currency), categories(nome, icon)')
     .eq('user_id', userId)
-    .gte('date', inicio)
-    .lte('date', fim)
     .order('date', { ascending: false })
     .order('created_at', { ascending: false });
+
+  if (diaFiltro) {
+    query = query.eq('date', diaFiltro);
+  } else {
+    const { inicio, fim } = limitesMes(mesRef);
+    query = query.gte('date', inicio).lte('date', fim);
+  }
 
   if (contaFiltro) query = query.eq('account_id', contaFiltro);
   if (categoriaFiltro) query = query.eq('category_id', categoriaFiltro);
@@ -325,6 +331,16 @@ function renderMes() {
   document.getElementById('mes-atual').textContent = fmtMesAno.format(mesRef).replace(/^\w/, (c) => c.toUpperCase());
 }
 
+function renderChipDia() {
+  const chip = document.getElementById('chip-filtro-dia');
+  if (!diaFiltro) {
+    chip.hidden = true;
+    return;
+  }
+  document.getElementById('chip-filtro-dia-texto').textContent = `Dia ${fmtDataCompleta.format(new Date(diaFiltro + 'T00:00:00'))}`;
+  chip.hidden = false;
+}
+
 async function recarregar(userId) {
   try {
     const lancamentos = await carregarLancamentos(userId);
@@ -360,15 +376,26 @@ async function init() {
     const [ano, mes] = mesUrl.split('-').map(Number);
     mesRef = new Date(ano, mes - 1, 1);
   }
+  const diaUrl = params.get('dia');
+  if (diaUrl && /^\d{4}-\d{2}-\d{2}$/.test(diaUrl)) {
+    diaFiltro = diaUrl;
+    const [ano, mes] = diaUrl.split('-').map(Number);
+    mesRef = new Date(ano, mes - 1, 1);
+  }
 
   renderMes();
+  renderChipDia();
 
   document.getElementById('btn-mes-anterior').addEventListener('click', () => {
+    diaFiltro = '';
+    renderChipDia();
     mesRef.setMonth(mesRef.getMonth() - 1);
     renderMes();
     recarregar(user.id);
   });
   document.getElementById('btn-mes-proximo').addEventListener('click', () => {
+    diaFiltro = '';
+    renderChipDia();
     mesRef.setMonth(mesRef.getMonth() + 1);
     renderMes();
     recarregar(user.id);
@@ -379,6 +406,11 @@ async function init() {
   });
   document.getElementById('filtro-categoria').addEventListener('change', (e) => {
     categoriaFiltro = e.target.value;
+    recarregar(user.id);
+  });
+  document.getElementById('chip-filtro-dia').addEventListener('click', () => {
+    diaFiltro = '';
+    renderChipDia();
     recarregar(user.id);
   });
 

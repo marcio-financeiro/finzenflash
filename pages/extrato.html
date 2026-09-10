@@ -83,7 +83,7 @@
     }
     #mes-atual { font-size: 14px; font-weight: 800; }
 
-    .filtros { display: flex; gap: 8px; }
+    .filtros { display: flex; gap: 8px; flex-wrap: wrap; }
     .filtros select {
       flex: 1;
       min-width: 0;
@@ -97,6 +97,18 @@
       font-family: inherit;
       padding: 0 12px;
     }
+    .chip-filtro-dia {
+      height: 40px;
+      border-radius: 20px;
+      border: 1.5px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      font-family: inherit;
+      padding: 0 14px;
+    }
+    .chip-filtro-dia[hidden] { display: none; }
 
     .resumo { display: flex; gap: 10px; }
     .resumo-card { flex: 1; border-radius: var(--radius-md); padding: 12px 14px; }
@@ -279,6 +291,9 @@
       <div class="filtros">
         <select id="filtro-conta"><option value="">Todas contas</option></select>
         <select id="filtro-categoria"><option value="">Todas categorias</option></select>
+        <button type="button" class="chip-filtro-dia" id="chip-filtro-dia" hidden>
+          <span id="chip-filtro-dia-texto"></span> ✕
+        </button>
       </div>
 
       <div class="resumo">

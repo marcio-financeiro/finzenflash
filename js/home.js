@@ -1295,8 +1295,9 @@ function renderConteudoMapaCalor({ ano, mes, totalDias, primeiroDiaSemana, porDi
       cor = 'var(--surface-2)';
       textoValor = '';
     }
+    const dataISO = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
     dias.push(`
-      <div class="mapa-calor-dia" style="background:${cor}">
+      <div class="mapa-calor-dia" data-dia="${dataISO}" style="background:${cor}">
         <div class="numero">${dia}</div>
         <div class="valor valor-sensivel">${textoValor}</div>
       </div>
@@ -1424,6 +1425,11 @@ function wireResumoEventos() {
   container.querySelector('.btn-editar-metas')?.addEventListener('click', abrirSheetEditarMetas);
   const gridMapaCalor = container.querySelector('.mapa-calor-grid');
   if (gridMapaCalor) ativarSwipeMes(gridMapaCalor);
+  container.querySelectorAll('.mapa-calor-dia[data-dia]').forEach((celula) => {
+    celula.addEventListener('click', () => {
+      window.location.href = `/pages/extrato.html?dia=${celula.dataset.dia}`;
+    });
+  });
 }
 
 function abrirSheetCategoriasRanking() {

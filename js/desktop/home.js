@@ -684,7 +684,8 @@ function renderMapaCalor({ ano, mes, totalDias, primeiroDiaSemana, porDia, porDi
       cor = 'var(--surface-2)';
       textoValor = '';
     }
-    dias.push(`<div class="mapa-calor-dia" style="background:${cor}"><div class="numero">${dia}</div><div class="valor valor-sensivel">${textoValor}</div></div>`);
+    const dataISO = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    dias.push(`<div class="mapa-calor-dia clicavel" data-dia="${dataISO}" style="background:${cor};cursor:pointer"><div class="numero">${dia}</div><div class="valor valor-sensivel">${textoValor}</div></div>`);
   }
 
   const legenda = ['var(--surface-2)', 'rgba(217,112,90,0.35)', 'rgba(217,112,90,0.6)', 'rgba(217,112,90,0.85)', 'var(--danger)']
@@ -697,6 +698,12 @@ function renderMapaCalor({ ano, mes, totalDias, primeiroDiaSemana, porDia, porDi
     <div class="mapa-calor-legenda mapa-calor-mes-atual">${nomeMes} · ${ano}</div>
     ${pico ? `<div class="mapa-calor-pico valor-sensivel">Pico do mês: dia ${pico.dia} (${fmt.format(pico.valor)})</div>` : ''}
   `;
+
+  el.querySelectorAll('.mapa-calor-dia[data-dia]').forEach((celula) => {
+    celula.addEventListener('click', () => {
+      window.location.href = `/pages/desktop/extrato.html?dia=${celula.dataset.dia}`;
+    });
+  });
 }
 
 function renderPendentes({ tipo, count, total }) {
