@@ -75,7 +75,41 @@ async function carregarLancamentos(userId) {
 
   const { data, error } = await query;
   if (error) throw error;
-  return data ?? [];
+  const doConta = (data ?? []).map((t) => ({ ...t, origem: 'conta' }));
+
+  // Compra no cartão não é uma "conta" — some junto só quando o filtro de
+  // conta não está ativo (senão a lista mostraria compra de cartão numa
+  // visão filtrada por conta bancária, o que não faz sentido).
+  if (contaFiltro) return doConta;
+
+  let queryCartao = supabase
+    .from('card_transactions')
+    .select('id, purchase_group_id, valor_parcela, descricao, data_compra, category_id, credit_cards(nome), categories(nome, icon)')
+    .eq('user_id', userId);
+
+  if (diaFiltro) {
+    queryCartao = queryCartao.eq('data_compra', diaFiltro);
+  } else {
+    const { inicio, fim } = limitesMes(mesRef);
+    queryCartao = queryCartao.gte('data_compra', inicio).lte('data_compra', fim);
+  }
+  if (categoriaFiltro) queryCartao = queryCartao.eq('category_id', categoriaFiltro);
+
+  const { data: compras, error: erroCompras } = await queryCartao;
+  if (erroCompras) throw erroCompras;
+  const doCartao = (compras ?? []).map((c) => ({
+    id: c.id,
+    origem: 'cartao',
+    purchaseGroupId: c.purchase_group_id,
+    type: 'despesa',
+    amount: c.valor_parcela,
+    description: c.descricao,
+    date: c.data_compra,
+    accounts: { nome: c.credit_cards?.nome ?? '', currency: 'BRL' },
+    categories: c.categories,
+  }));
+
+  return [...doConta, ...doCartao].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
 function renderResumo(lancamentos) {
@@ -98,15 +132,16 @@ function renderTabela(lancamentos) {
   }
   corpo.innerHTML = lancamentos.map((l) => {
     const receita = l.type === 'receita';
+    const doCartao = l.origem === 'cartao';
     const categoria = l.categories?.nome ? `${l.categories.icon ? escapeHtml(l.categories.icon) + ' ' : ''}${escapeHtml(l.categories.nome)}` : '—';
-    const vencida = l.status === 'pendente' && l.date <= hojeISO();
+    const vencida = !doCartao && l.status === 'pendente' && l.date <= hojeISO();
     const rotuloVencida = l.date === hojeISO() ? 'vence hoje' : 'vencida';
     return `
       <tr ${vencida ? 'style="background:var(--danger-soft)"' : ''}>
         <td>${vencida ? `<span style="color:var(--danger);font-weight:800">${rotuloVencida}</span> · ` : ''}${fmtData.format(new Date(l.date + 'T00:00:00'))}</td>
         <td>${escapeHtml(l.description)}</td>
         <td>${categoria}</td>
-        <td>${escapeHtml(l.accounts?.nome ?? '')}</td>
+        <td>${escapeHtml(l.accounts?.nome ?? '')}${doCartao ? ' <span style="color:var(--muted);font-size:11px">(cartão)</span>' : ''}</td>
         <td class="num ${receita ? 'positivo' : 'negativo'} valor-sensivel">${receita ? '+' : '-'} ${formatarMoeda(Math.abs(l.amount), l.accounts?.currency)}</td>
         <td><button type="button" class="btn-desktop" data-id="${l.id}">Detalhes</button></td>
       </tr>
@@ -116,7 +151,12 @@ function renderTabela(lancamentos) {
   corpo.querySelectorAll('button[data-id]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const lancamento = lancamentos.find((l) => l.id === btn.dataset.id);
-      if (lancamento) abrirDetalhes(lancamento);
+      if (!lancamento) return;
+      if (lancamento.origem === 'cartao') {
+        window.location.href = `/pages/desktop/comprar-cartao.html?grupo=${lancamento.purchaseGroupId}`;
+      } else {
+        abrirDetalhes(lancamento);
+      }
     });
   });
 }

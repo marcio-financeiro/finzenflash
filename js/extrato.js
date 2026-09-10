@@ -26,6 +26,9 @@ function iconReceita() {
 function iconDespesa() {
   return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M9 12h6"/></svg>';
 }
+function iconCartao() {
+  return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg>';
+}
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -91,7 +94,41 @@ async function carregarLancamentos(userId) {
 
   const { data, error } = await query;
   if (error) throw error;
-  return data ?? [];
+  const doConta = (data ?? []).map((t) => ({ ...t, origem: 'conta' }));
+
+  // Compra no cartão não é uma "conta" — some junto só quando o filtro de
+  // conta não está ativo (senão a lista mostraria compra de cartão numa
+  // visão filtrada por conta bancária, o que não faz sentido).
+  if (contaFiltro) return doConta;
+
+  let queryCartao = supabase
+    .from('card_transactions')
+    .select('id, purchase_group_id, valor_parcela, descricao, data_compra, category_id, credit_cards(nome), categories(nome, icon)')
+    .eq('user_id', userId);
+
+  if (diaFiltro) {
+    queryCartao = queryCartao.eq('data_compra', diaFiltro);
+  } else {
+    const { inicio, fim } = limitesMes(mesRef);
+    queryCartao = queryCartao.gte('data_compra', inicio).lte('data_compra', fim);
+  }
+  if (categoriaFiltro) queryCartao = queryCartao.eq('category_id', categoriaFiltro);
+
+  const { data: compras, error: erroCompras } = await queryCartao;
+  if (erroCompras) throw erroCompras;
+  const doCartao = (compras ?? []).map((c) => ({
+    id: c.id,
+    origem: 'cartao',
+    purchaseGroupId: c.purchase_group_id,
+    type: 'despesa',
+    amount: c.valor_parcela,
+    description: c.descricao,
+    date: c.data_compra,
+    accounts: { nome: c.credit_cards?.nome ?? '', currency: 'BRL' },
+    categories: c.categories,
+  }));
+
+  return [...doConta, ...doCartao].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
 function renderResumo(lancamentos) {
@@ -121,16 +158,17 @@ function renderLista(lancamentos) {
     }
     const receita = l.type === 'receita';
     const sinal = receita ? '+' : '-';
+    const doCartao = l.origem === 'cartao';
     const categoria = l.categories?.nome
       ? `${l.categories.icon ? escapeHtml(l.categories.icon) + ' ' : ''}${escapeHtml(l.categories.nome)}`
       : null;
-    const vencida = l.status === 'pendente' && l.date <= hojeISO();
+    const vencida = !doCartao && l.status === 'pendente' && l.date <= hojeISO();
     const statusTag = vencida
       ? `<span class="badge-vencida">${l.date === hojeISO() ? 'vence hoje' : 'vencida'}</span> · `
-      : '';
+      : (doCartao ? '<span class="badge-vencida" style="background:var(--surface-2);color:var(--muted)">cartão</span> · ' : '');
     html += `
       <button type="button" class="lancamento-card ${vencida ? 'vencida' : ''}" data-id="${l.id}">
-        <div class="lancamento-icone ${receita ? 'is-receita' : 'is-despesa'}">${receita ? iconReceita() : iconDespesa()}</div>
+        <div class="lancamento-icone ${receita ? 'is-receita' : 'is-despesa'}">${receita ? iconReceita() : (doCartao ? iconCartao() : iconDespesa())}</div>
         <div class="lancamento-info">
           <div class="lancamento-desc">${escapeHtml(l.description)}</div>
           <div class="lancamento-conta">${statusTag}${escapeHtml(l.accounts?.nome ?? '')}${categoria ? ` · ${categoria}` : ''}</div>
@@ -142,7 +180,12 @@ function renderLista(lancamentos) {
   container.innerHTML = html;
   container.querySelectorAll('.lancamento-card').forEach((el) => {
     const lancamento = lancamentos.find((l) => l.id === el.dataset.id);
-    if (lancamento) attachToqueSegurar(el, () => abrirSheetLancamento(lancamento));
+    if (!lancamento) return;
+    if (lancamento.origem === 'cartao') {
+      attachToqueSegurar(el, () => { window.location.href = `/pages/comprar-cartao.html?grupo=${lancamento.purchaseGroupId}`; });
+    } else {
+      attachToqueSegurar(el, () => abrirSheetLancamento(lancamento));
+    }
   });
 }
 
