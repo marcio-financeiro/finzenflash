@@ -389,12 +389,13 @@ function renderLancamentos(itens) {
   }
   el.innerHTML = `
     <table class="data-table">
-      <thead><tr><th>Data</th><th>Descrição</th><th>Origem</th><th class="num">Valor</th></tr></thead>
+      <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Origem</th><th class="num">Valor</th></tr></thead>
       <tbody>
         ${itens.map((i, idx) => `
           <tr ${i.fonte === 'transacao' ? `class="clicavel" data-idx="${idx}"` : ''}>
             <td>${fmtData.format(new Date(i.date + 'T00:00:00'))}</td>
-            <td>${escapeHtml(i.description || i.origem)} <span style="color:var(--muted)">· ${escapeHtml(i.nomeOrigem)}${i.categoria ? ` · ${i.categoria}` : ''}</span></td>
+            <td>${escapeHtml(i.description || i.origem)} <span style="color:var(--muted)">· ${escapeHtml(i.nomeOrigem)}</span></td>
+            <td>${i.categoria ?? '—'}</td>
             <td>${escapeHtml(i.origem)}</td>
             <td class="num ${i.positivo ? 'positivo' : 'negativo'} valor-sensivel">${i.positivo ? '+' : '-'} ${fmt.format(Math.abs(i.amount))}</td>
           </tr>
