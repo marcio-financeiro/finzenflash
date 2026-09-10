@@ -9,6 +9,7 @@
   --accent-grad-1: #0E7C86;
   --accent-grad-2: #14A3AE;
   --accent-soft: #dcf3ef;
+  --accent-contrast: #ffffff;
   --success: #1E9E6E;
   --success-soft: #dcf3ea;
   --danger: #D9583A;
@@ -30,6 +31,7 @@
     --accent-grad-1: #0E7C86;
     --accent-grad-2: #1AA6A0;
     --accent-soft: #163330;
+    --accent-contrast: #10151a;
     --success: #34caa0;
     --success-soft: #123128;
     --danger: #ff7a5c;

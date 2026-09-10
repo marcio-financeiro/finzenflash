@@ -24,6 +24,23 @@ export const TEMAS = [
   { id: 'skintone', nome: 'Skin Tone', light: { accent: '#9C2C43', grad1: '#741A2F', grad2: '#C4536B', soft: '#fbe3e2' }, dark: { accent: '#FFC6A8', grad1: '#C4536B', grad2: '#FFDCC4', soft: '#2c1319' } },
 ];
 
+// Calcula se o texto sobre uma cor de destaque deve ser branco ou escuro,
+// pela fórmula de luminância relativa do WCAG — evita ter que calibrar
+// "na mão" a legibilidade de cada tema (e reaproveita pra qualquer tema
+// futuro sem precisar lembrar de fazer essa conta de novo).
+function luminanciaRelativa(hex) {
+  const n = hex.replace('#', '');
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16) / 255);
+  const [rl, gl, bl] = [r, g, b].map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * rl + 0.7152 * gl + 0.0722 * bl;
+}
+function corTextoSobre(hex) {
+  const l = luminanciaRelativa(hex);
+  const contrasteBranco = 1.05 / (l + 0.05);
+  const contrastePreto = (l + 0.05) / 0.05;
+  return contrasteBranco >= contrastePreto ? '#ffffff' : '#10151a';
+}
+
 const CHAVE_LOCAL = 'flash_tema_cor';
 // Cache das 2 variantes (clara/escura) já resolvidas, em JSON — o script
 // inline no <head> de cada página lê só essa chave (sem precisar duplicar
@@ -45,7 +62,10 @@ function salvarCacheCores() {
       return;
     }
     const tema = temaPorId(temaAtualId);
-    localStorage.setItem(CHAVE_CORES, JSON.stringify({ light: tema.light, dark: tema.dark }));
+    localStorage.setItem(CHAVE_CORES, JSON.stringify({
+      light: { ...tema.light, contrast: corTextoSobre(tema.light.accent) },
+      dark: { ...tema.dark, contrast: corTextoSobre(tema.dark.accent) },
+    }));
   } catch { /* localStorage indisponível — segue só na sessão atual */ }
 }
 
@@ -56,6 +76,7 @@ function aplicarPeloEsquema() {
     raiz.removeProperty('--accent-grad-1');
     raiz.removeProperty('--accent-grad-2');
     raiz.removeProperty('--accent-soft');
+    raiz.removeProperty('--accent-contrast');
     return;
   }
   const cor = mediaEscuro?.matches ? temaPorId(temaAtualId).dark : temaPorId(temaAtualId).light;
@@ -63,6 +84,7 @@ function aplicarPeloEsquema() {
   raiz.setProperty('--accent-grad-1', cor.grad1);
   raiz.setProperty('--accent-grad-2', cor.grad2);
   raiz.setProperty('--accent-soft', cor.soft);
+  raiz.setProperty('--accent-contrast', corTextoSobre(cor.accent));
 }
 
 // Chamar uma vez, o quanto antes, em toda página — aplica a cor salva

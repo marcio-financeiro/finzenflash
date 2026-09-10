@@ -222,8 +222,8 @@
   cursor: pointer;
 }
 .btn-desktop:hover { border-color: var(--accent); color: var(--accent); }
-.btn-desktop.primario { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn-desktop.primario:hover { color: #fff; opacity: 0.9; }
+.btn-desktop.primario { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast, #fff); }
+.btn-desktop.primario:hover { color: var(--accent-contrast, #fff); opacity: 0.9; }
 .btn-desktop.perigo { border-color: var(--danger); color: var(--danger); }
 
 .input-desktop {
