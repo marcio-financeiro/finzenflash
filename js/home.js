@@ -973,16 +973,19 @@ async function abrirSheetListaPendentes() {
       container.innerHTML = '<div class="conta-vazia">Nenhuma pendência.</div>';
       return;
     }
-    container.innerHTML = itens.map((l) => `
-      <div class="lancamento-card" data-id="${l.id}">
+    container.innerHTML = itens.map((l) => {
+      const vencida = l.date < hojeISO();
+      return `
+      <div class="lancamento-card ${vencida ? 'vencida' : ''}" data-id="${l.id}">
         <div class="lancamento-icone ${l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${l.type === 'receita' ? iconReceita() : iconDespesa()}</div>
         <div class="lancamento-info">
           <div class="lancamento-desc">${escapeHtml(l.description)}</div>
-          <div class="lancamento-conta">${escapeHtml(l.nomeOrigem)} · vence ${fmtDataCurta.format(new Date(l.date + 'T00:00:00'))}</div>
+          <div class="lancamento-conta">${escapeHtml(l.nomeOrigem)} · ${vencida ? '<span class="badge-vencida">vencida</span> ' : ''}vence ${fmtDataCurta.format(new Date(l.date + 'T00:00:00'))}</div>
         </div>
         <div class="lancamento-valor valor-sensivel ${l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${fmt.format(Math.abs(l.amount))}</div>
       </div>
-    `).join('');
+    `;
+    }).join('');
     container.querySelectorAll('.lancamento-card').forEach((el) => {
       const lancamento = itens.find((l) => l.id === el.dataset.id);
       if (lancamento) el.addEventListener('click', () => {

@@ -22,6 +22,11 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function hojeISO() {
+  const hoje = new Date();
+  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
 function limitesMes(ref) {
   const ano = ref.getFullYear();
   const mes = ref.getMonth();
@@ -86,9 +91,10 @@ function renderTabela(lancamentos) {
   corpo.innerHTML = lancamentos.map((l) => {
     const receita = l.type === 'receita';
     const categoria = l.categories?.nome ? `${l.categories.icon ? escapeHtml(l.categories.icon) + ' ' : ''}${escapeHtml(l.categories.nome)}` : '—';
+    const vencida = l.status === 'pendente' && l.date < hojeISO();
     return `
-      <tr>
-        <td>${fmtData.format(new Date(l.date + 'T00:00:00'))}</td>
+      <tr ${vencida ? 'style="background:var(--danger-soft)"' : ''}>
+        <td>${vencida ? '<span style="color:var(--danger);font-weight:800">vencida</span> · ' : ''}${fmtData.format(new Date(l.date + 'T00:00:00'))}</td>
         <td>${escapeHtml(l.description)}</td>
         <td>${categoria}</td>
         <td>${escapeHtml(l.accounts?.nome ?? '')}</td>

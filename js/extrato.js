@@ -31,6 +31,11 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function hojeISO() {
+  const hoje = new Date();
+  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
 function rotuloDia(dataISO) {
   const data = new Date(dataISO + 'T00:00:00');
   return fmtDia.format(data).toUpperCase();
@@ -113,12 +118,14 @@ function renderLista(lancamentos) {
     const categoria = l.categories?.nome
       ? `${l.categories.icon ? escapeHtml(l.categories.icon) + ' ' : ''}${escapeHtml(l.categories.nome)}`
       : null;
+    const vencida = l.status === 'pendente' && l.date < hojeISO();
+    const statusTag = vencida ? '<span class="badge-vencida">vencida</span> · ' : '';
     html += `
-      <button type="button" class="lancamento-card" data-id="${l.id}">
+      <button type="button" class="lancamento-card ${vencida ? 'vencida' : ''}" data-id="${l.id}">
         <div class="lancamento-icone ${receita ? 'is-receita' : 'is-despesa'}">${receita ? iconReceita() : iconDespesa()}</div>
         <div class="lancamento-info">
           <div class="lancamento-desc">${escapeHtml(l.description)}</div>
-          <div class="lancamento-conta">${escapeHtml(l.accounts?.nome ?? '')}${categoria ? ` · ${categoria}` : ''}</div>
+          <div class="lancamento-conta">${statusTag}${escapeHtml(l.accounts?.nome ?? '')}${categoria ? ` · ${categoria}` : ''}</div>
         </div>
         <div class="lancamento-valor valor-sensivel ${receita ? 'is-receita' : 'is-despesa'}">${sinal}${formatarMoeda(Math.abs(l.amount), l.accounts?.currency)}</div>
       </button>

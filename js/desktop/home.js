@@ -596,18 +596,21 @@ async function abrirModalPendentes() {
       container.innerHTML = '<div class="lista-vazia">Nenhuma pendência.</div>';
       return;
     }
-    container.innerHTML = itens.map((l) => `
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+    container.innerHTML = itens.map((l) => {
+      const vencida = l.date < hojeISO();
+      return `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);${vencida ? 'background:var(--danger-soft);border-radius:var(--radius-sm)' : ''}">
         <div>
           <div>${escapeHtml(l.description)}</div>
-          <div style="font-size:12px;color:var(--muted)">${escapeHtml(l.nomeOrigem)} · vence ${fmtDataCurta.format(new Date(l.date + 'T00:00:00'))}</div>
+          <div style="font-size:12px;color:var(--muted)">${escapeHtml(l.nomeOrigem)} · ${vencida ? '<span style="color:var(--danger);font-weight:800">vencida</span> ' : ''}vence ${fmtDataCurta.format(new Date(l.date + 'T00:00:00'))}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px">
           <div class="num ${l.type === 'receita' ? 'positivo' : 'negativo'} valor-sensivel">${fmt.format(Math.abs(l.amount))}</div>
           <button type="button" class="btn-desktop" data-id="${l.id}" style="height:30px;padding:0 10px;font-size:11px;white-space:nowrap">Marcar como ${l.type === 'receita' ? 'recebida' : 'paga'}</button>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
     container.querySelectorAll('button[data-id]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const lancamento = itens.find((l) => l.id === btn.dataset.id);
