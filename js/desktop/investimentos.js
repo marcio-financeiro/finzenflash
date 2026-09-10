@@ -138,15 +138,19 @@ async function atualizarCotacoes(userId, silencioso = false) {
     }
 
     const agora = new Date().toISOString();
+    const atualizacoes = [];
     for (const a of ativos) {
       if (a.tipo === 'renda_fixa') continue;
       const nova = cots[a.ticker.toUpperCase()];
       if (!nova) continue;
       const atual = Number(a.cotacao_atual || 0);
       if (atual > 0 && Math.abs(nova - atual) / atual < 0.0001) continue;
-      await supabase.from('investments').update({ cotacao_atual: nova, atualizado_em: agora }).eq('id', a.id).eq('user_id', userId);
+      atualizacoes.push({ id: a.id, user_id: userId, cotacao_atual: nova, atualizado_em: agora });
       a.cotacao_atual = nova;
     }
+    // Um upsert só (por id) em vez de um UPDATE sequencial por ativo —
+    // evita N round-trips quando a carteira tem muitas posições.
+    if (atualizacoes.length) await supabase.from('investments').upsert(atualizacoes, { onConflict: 'id' });
 
     ultimaAtualizacaoCotacoes = Date.now();
     renderStatusCotacao();
