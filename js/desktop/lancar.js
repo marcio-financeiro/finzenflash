@@ -28,9 +28,13 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function moedaSelecionada() {
+  return contas.find((c) => c.id === contaSelecionada)?.currency || 'BRL';
+}
+
 function formatarValorDigitado(valorCentavos) {
-  const reais = valorCentavos / 100;
-  return reais.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const valor = valorCentavos / 100;
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: moedaSelecionada() });
 }
 
 function valorEmReais() {
@@ -81,6 +85,11 @@ function renderContas() {
       renderContas();
     });
   });
+
+  // A conta selecionada define a moeda (ex: Nomad USD) — atualiza o símbolo
+  // do valor já digitado sempre que a conta muda, sem esperar novo dígito.
+  const centavosAtuais = document.getElementById('valor')?.dataset.centavos;
+  if (centavosAtuais !== undefined) atualizarDisplayValor(centavosAtuais);
 }
 
 function renderCategorias() {
@@ -135,7 +144,7 @@ async function carregarContaPrincipal(userId) {
 
 async function carregarContasECategorias(userId) {
   const [{ data: dadosContas, error: erroContas }, { data: dadosCategorias, error: erroCategorias }, contaPrincipalId] = await Promise.all([
-    supabase.from('accounts').select('id, nome').eq('user_id', userId).eq('active', true).eq('account_kind', 'bank').order('sort_order'),
+    supabase.from('accounts').select('id, nome, currency').eq('user_id', userId).eq('active', true).eq('account_kind', 'bank').order('sort_order'),
     supabase.from('categories').select('id, nome, tipo').eq('user_id', userId).eq('ativo', true).in('tipo', ['despesa', 'receita']).order('nome'),
     carregarContaPrincipal(userId),
   ]);
