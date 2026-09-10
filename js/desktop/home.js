@@ -1,5 +1,5 @@
 import { supabase, requireAuth, configurarBotaoSair } from '../supabaseClient.js';
-import { aplicarTemaSalvo } from '../temaService.js';
+import { aplicarTemaSalvo, carregarTemaDoBanco } from '../temaService.js';
 import { invoiceRef, addMonthsRef } from '../cardService.js';
 import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
@@ -1100,6 +1100,7 @@ async function iniciar() {
   const user = await requireAuth();
   if (!user) return;
   usuarioAtual = user;
+  carregarTemaDoBanco(supabase, user.id);
 
   montarNavRail('home');
   configurarBotaoSair();

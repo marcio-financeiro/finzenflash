@@ -1,5 +1,5 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
-import { aplicarTemaSalvo } from './temaService.js?v=3';
+import { aplicarTemaSalvo, carregarTemaDoBanco } from './temaService.js?v=3';
 import { invoiceRef, addMonthsRef } from './cardService.js';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
@@ -1608,6 +1608,7 @@ async function init() {
   renderMes();
 
   usuarioAtual = user;
+  carregarTemaDoBanco(supabase, user.id);
 
   document.getElementById('btn-mes-anterior').addEventListener('click', () => mudarMes(-1));
   document.getElementById('btn-mes-proximo').addEventListener('click', () => mudarMes(1));
