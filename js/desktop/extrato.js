@@ -46,9 +46,11 @@ async function carregarFiltros(userId) {
 
   const selectConta = document.getElementById('filtro-conta');
   selectConta.innerHTML = '<option value="">Todas contas</option>' + (dadosContas ?? []).map((c) => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+  if (contaFiltro) selectConta.value = contaFiltro;
 
   const selectCategoria = document.getElementById('filtro-categoria');
   selectCategoria.innerHTML = '<option value="">Todas categorias</option>' + (dadosCategorias ?? []).map((c) => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+  if (categoriaFiltro) selectCategoria.value = categoriaFiltro;
 }
 
 async function carregarLancamentos(userId) {
@@ -254,6 +256,17 @@ async function iniciar() {
 
   configurarModal('modal-lancamento');
   document.getElementById('btn-fechar-modal-lancamento').addEventListener('click', () => fecharModal('modal-lancamento'));
+
+  const params = new URLSearchParams(window.location.search);
+  const contaUrl = params.get('conta');
+  if (contaUrl) contaFiltro = contaUrl;
+  const categoriaUrl = params.get('categoria');
+  if (categoriaUrl) categoriaFiltro = categoriaUrl;
+  const mesUrl = params.get('mes');
+  if (mesUrl && /^\d{4}-\d{2}$/.test(mesUrl)) {
+    const [ano, mes] = mesUrl.split('-').map(Number);
+    mesRef = new Date(ano, mes - 1, 1);
+  }
 
   renderMes();
   document.getElementById('btn-mes-anterior').addEventListener('click', () => {
