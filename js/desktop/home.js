@@ -340,13 +340,15 @@ async function carregarPendentes(userId, tipo, inicio, fim) {
   return { tipo, count: (data ?? []).length, total };
 }
 
-async function carregarPendentesLista(userId, tipo) {
+async function carregarPendentesLista(userId, tipo, inicio, fim) {
   const { data, error } = await supabase
     .from('transactions')
     .select('id, type, amount, description, date, account_id, accounts(nome)')
     .eq('user_id', userId)
     .eq('type', tipo)
     .eq('status', 'pendente')
+    .gte('date', inicio)
+    .lte('date', fim)
     .order('date', { ascending: true });
   if (error) throw error;
   return (data ?? []).map((t) => ({ ...t, nomeOrigem: t.accounts?.nome ?? '' }));
@@ -615,7 +617,8 @@ async function abrirModalPendentes() {
   abrirModal('modal-pendentes');
 
   try {
-    const itens = await carregarPendentesLista(usuarioAtual.id, pendentesTipo);
+    const { inicio, fim } = limitesMes(mesRef);
+    const itens = await carregarPendentesLista(usuarioAtual.id, pendentesTipo, inicio, fim);
     if (itens.length === 0) {
       container.innerHTML = '<div class="lista-vazia">Nenhuma pendência.</div>';
       return;
