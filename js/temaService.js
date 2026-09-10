@@ -15,6 +15,13 @@ export const TEMAS = [
   { id: 'vinho', nome: 'Vinho', light: { accent: '#9F1239', grad1: '#9F1239', grad2: '#E11D48', soft: '#fbdce3' }, dark: { accent: '#FB7185', grad1: '#9F1239', grad2: '#FDA4AF', soft: '#33121a' } },
   { id: 'cafe', nome: 'Café', light: { accent: '#78350F', grad1: '#78350F', grad2: '#A16207', soft: '#ece0cf' }, dark: { accent: '#D4A373', grad1: '#78350F', grad2: '#E3B778', soft: '#2c2013' } },
   { id: 'petroleo', nome: 'Azul Petróleo', light: { accent: '#1E3A5F', grad1: '#1E3A5F', grad2: '#2C5282', soft: '#dbe6f0' }, dark: { accent: '#7DA3D0', grad1: '#1E3A5F', grad2: '#4A7AB5', soft: '#16202e' } },
+  { id: 'tiffany', nome: 'Tiffany', light: { accent: '#16A66B', grad1: '#16A66B', grad2: '#21F1A8', soft: '#d7fbe9' }, dark: { accent: '#21F1A8', grad1: '#16A66B', grad2: '#6FFFC4', soft: '#0f2e22' } },
+  { id: 'lima', nome: 'Lime Sprout', light: { accent: '#6B9E2A', grad1: '#6B9E2A', grad2: '#E4FD97', soft: '#f2fbd9' }, dark: { accent: '#C4E86B', grad1: '#7CB518', grad2: '#E4FD97', soft: '#232b1c' } },
+  { id: 'cyprus', nome: 'Cyprus', light: { accent: '#004741', grad1: '#004741', grad2: '#0B6B63', soft: '#dcece9' }, dark: { accent: '#2FA89C', grad1: '#004741', grad2: '#5FCBBF', soft: '#0e2624' } },
+  { id: 'truepink', nome: 'True Pink', light: { accent: '#E01238', grad1: '#E01238', grad2: '#FD1843', soft: '#ffe1e6' }, dark: { accent: '#FD1843', grad1: '#C10E31', grad2: '#FF5C7A', soft: '#331018' } },
+  { id: 'turmeric', nome: 'Turmeric', light: { accent: '#C9930A', grad1: '#C9930A', grad2: '#FFBE0B', soft: '#fdf0cf' }, dark: { accent: '#FFBE0B', grad1: '#C9930A', grad2: '#FFD65C', soft: '#2a2312' } },
+  { id: 'vulcanico', nome: 'Vulcânico', light: { accent: '#E23A02', grad1: '#E23A02', grad2: '#FF4103', soft: '#ffe1d3' }, dark: { accent: '#FF4103', grad1: '#C93300', grad2: '#FF7A47', soft: '#001621' } },
+  { id: 'skintone', nome: 'Skin Tone', light: { accent: '#9C2C43', grad1: '#741A2F', grad2: '#C4536B', soft: '#fbe3e2' }, dark: { accent: '#FFC6A8', grad1: '#C4536B', grad2: '#FFDCC4', soft: '#2c1319' } },
 ];
 
 const CHAVE_LOCAL = 'flash_tema_cor';
