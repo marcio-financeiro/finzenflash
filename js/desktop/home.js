@@ -1,6 +1,6 @@
 import { supabase, requireAuth, configurarBotaoSair } from '../supabaseClient.js';
 import { aplicarTemaSalvo } from '../temaService.js';
-import { invoiceRef } from '../cardService.js';
+import { invoiceRef, addMonthsRef } from '../cardService.js';
 import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { inicializarBoard } from './board.js';
@@ -105,16 +105,50 @@ async function carregarCartoesResumo(userId) {
 
   const cartoes = data ?? [];
   const linhas = await Promise.all(cartoes.map(async (cartao) => {
-    const ref = invoiceRef(hojeISO(), cartao.fechamento_dia, cartao.vencimento_dia);
-    const { data: compras, error: erroCompras } = await supabase
+    // invoiceRef(hoje, ...) devolve a fatura que ainda está ACUMULANDO
+    // compras (a próxima a fechar) — não a fatura que acabou de fechar e
+    // está aguardando pagamento, que é a "conta deste mês" que o usuário
+    // quer ver aqui. Checa a fatura anterior primeiro: se ainda tiver item
+    // 'aberta' (fechou mas não foi paga), é ela que importa agora.
+    const refAtual = invoiceRef(hojeISO(), cartao.fechamento_dia, cartao.vencimento_dia);
+    const refAnterior = addMonthsRef(refAtual, -1);
+
+    const { data: itensAnterior, error: erroAnterior } = await supabase
       .from('card_transactions')
-      .select('valor_parcela')
+      .select('valor_parcela, status')
       .eq('card_id', cartao.id)
-      .eq('fatura_referencia', ref)
-      .eq('status', 'aberta');
-    if (erroCompras) throw erroCompras;
-    const proximaFatura = (compras ?? []).reduce((soma, c) => soma + Number(c.valor_parcela), 0);
-    return { cartao, fechamento: proximoFechamento(cartao.fechamento_dia), proximaFatura };
+      .eq('fatura_referencia', refAnterior);
+    if (erroAnterior) throw erroAnterior;
+
+    const abertosAnterior = (itensAnterior ?? []).filter((c) => c.status === 'aberta');
+
+    let proximaFatura = 0;
+    let statusFatura = 'aberta';
+
+    if (abertosAnterior.length > 0) {
+      proximaFatura = abertosAnterior.reduce((soma, c) => soma + Number(c.valor_parcela), 0);
+      statusFatura = 'fechada';
+    } else {
+      const { data: itensAtual, error: erroAtual } = await supabase
+        .from('card_transactions')
+        .select('valor_parcela')
+        .eq('card_id', cartao.id)
+        .eq('fatura_referencia', refAtual)
+        .eq('status', 'aberta');
+      if (erroAtual) throw erroAtual;
+      const totalAtual = (itensAtual ?? []).reduce((soma, c) => soma + Number(c.valor_parcela), 0);
+      const pagosAnterior = (itensAnterior ?? []).filter((c) => c.status === 'paga');
+
+      if (totalAtual > 0) {
+        proximaFatura = totalAtual;
+        statusFatura = 'aberta';
+      } else if (pagosAnterior.length > 0) {
+        proximaFatura = pagosAnterior.reduce((soma, c) => soma + Number(c.valor_parcela), 0);
+        statusFatura = 'paga';
+      }
+    }
+
+    return { cartao, fechamento: proximoFechamento(cartao.fechamento_dia), proximaFatura, statusFatura };
   }));
 
   return linhas;
@@ -375,9 +409,15 @@ function renderCartoes(linhas) {
     el.innerHTML = '<div class="lista-vazia">Nenhum cartão cadastrado.</div>';
     return;
   }
-  el.innerHTML = linhas.map(({ cartao, proximaFatura }) => `
-    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-      <span>${escapeHtml(cartao.nome)}</span>
+  const rotuloStatus = { aberta: 'Aberta', fechada: 'Fechada', paga: 'Paga' };
+  const corStatus = { aberta: 'var(--muted)', fechada: 'var(--warning)', paga: 'var(--success)' };
+
+  el.innerHTML = linhas.map(({ cartao, proximaFatura, statusFatura }) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span>
+        ${escapeHtml(cartao.nome)}
+        <span style="margin-left:6px;font-size:11px;font-weight:800;color:${corStatus[statusFatura]}">● ${rotuloStatus[statusFatura]}</span>
+      </span>
       <span class="num valor-sensivel">${fmt.format(proximaFatura)}</span>
     </div>
   `).join('');
