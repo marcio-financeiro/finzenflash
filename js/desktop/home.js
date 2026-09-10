@@ -6,6 +6,7 @@ import { abrirComandos } from './comandos.js';
 import { inicializarBoard } from './board.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
 import { formatarMoeda, carregarCotacaoDolar, paraBRL } from '../currencyService.js';
+import { loadChart } from '../loadChart.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtData = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -24,6 +25,7 @@ let pendentesTipo = 'despesa';
 let idCategoriaFatura = null;
 let contasCache = [];
 let dolarAtual;
+let chartSaldoMes = null;
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -819,7 +821,14 @@ async function carregarTimeline(userId, contaIds, saldoAtualReal) {
   const atual = saldoNoFimDoDia(pontoAtual);
   const previsto = saldoNoFimDoDia(fim);
 
-  return { inicial, atual, previsto };
+  // Série dia a dia do mês inteiro (do 1º ao último dia) pro gráfico de
+  // linha — reaproveita a mesma saldoNoFimDoDia já usada pros 3 números.
+  const serie = [];
+  for (let dia = inicio; dia <= fim; dia = addDiasISO(dia, 1)) {
+    serie.push({ data: dia, saldo: saldoNoFimDoDia(dia) });
+  }
+
+  return { inicial, atual, previsto, serie, hoje };
 }
 
 function renderTimeline({ inicial, atual, previsto }) {
@@ -837,11 +846,68 @@ function renderTimeline({ inicial, atual, previsto }) {
   elPrevisto.classList.toggle('negativo', previsto < 0);
 }
 
+async function renderGraficoSaldoMes(serie, hoje) {
+  const canvas = document.getElementById('chart-saldo-mes');
+  if (!canvas) return;
+
+  const Chart = await loadChart();
+  const labels = serie.map((p) => String(Number(p.data.slice(8, 10))));
+  const dados = serie.map((p) => p.saldo);
+  const corLinha = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#0E7C86';
+
+  if (chartSaldoMes) { chartSaldoMes.destroy(); chartSaldoMes = null; }
+  chartSaldoMes = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: dados,
+        borderColor: corLinha,
+        backgroundColor: `${corLinha}22`,
+        borderWidth: 2,
+        pointRadius: (ctx) => (serie[ctx.dataIndex]?.data === hoje ? 4 : 0),
+        pointBackgroundColor: corLinha,
+        fill: true,
+        tension: 0.25,
+        // Trecho depois de hoje é projeção, não fato — mesma distinção
+        // visual (linha pontilhada) que o timeline do mobile já usa.
+        segment: {
+          borderDash: (ctx) => (serie[ctx.p1DataIndex]?.data > hoje ? [5, 4] : undefined),
+        },
+      }],
+    },
+    options: {
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => `Dia ${labels[items[0].dataIndex]}`,
+            label: (item) => fmt.format(item.parsed.y),
+          },
+        },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 8, font: { size: 10 } } },
+        y: {
+          grid: { color: 'rgba(128,128,128,0.12)' },
+          ticks: {
+            font: { size: 10 },
+            callback: (v) => (Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(1).replace('.0', '')}k` : v),
+          },
+        },
+      },
+    },
+  });
+}
+
 async function recarregarTimeline() {
   try {
     const saldoAtualReal = contasCache.reduce((soma, c) => soma + paraBRL(c.saldo_atual, c.currency, dolarAtual), 0);
     const timeline = await carregarTimeline(usuarioAtual.id, contasCache.map((c) => c.id), saldoAtualReal);
     renderTimeline(timeline);
+    await renderGraficoSaldoMes(timeline.serie, timeline.hoje);
   } catch (err) {
     console.error(err);
   }
