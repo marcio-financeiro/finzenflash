@@ -3,10 +3,48 @@
 // — assim não rouba o scroll interno de listas longas dentro da sheet nem
 // deixa a página por trás rolar junto (por isso o preventDefault, que só
 // entra em ação quando o arraste pra baixo já foi confirmado).
+const SELETOR_FOCAVEL = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function ativarArrastarParaFechar(overlayEl) {
   if (!overlayEl) return;
   const sheet = overlayEl.querySelector('.sheet');
   if (!sheet) return;
+
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-modal', 'true');
+  if (!sheet.hasAttribute('tabindex')) sheet.setAttribute('tabindex', '-1');
+
+  // Foco: como cada página abre/fecha sua sheet só trocando `hidden`
+  // (sem passar por uma função central, ao contrário do modal desktop),
+  // observa o atributo pra mover/restaurar o foco e prender o Tab dentro
+  // da sheet automaticamente, sem precisar tocar em cada página.
+  let focoAnterior = null;
+  const focaveis = () => Array.from(sheet.querySelectorAll(SELETOR_FOCAVEL)).filter((el) => el.offsetParent !== null);
+
+  new MutationObserver(() => {
+    if (overlayEl.hidden) {
+      if (focoAnterior && document.body.contains(focoAnterior)) focoAnterior.focus();
+      focoAnterior = null;
+    } else {
+      focoAnterior = document.activeElement;
+      (focaveis()[0] || sheet).focus();
+    }
+  }).observe(overlayEl, { attributes: true, attributeFilter: ['hidden'] });
+
+  document.addEventListener('keydown', (e) => {
+    if (overlayEl.hidden || e.key !== 'Tab') return;
+    const itens = focaveis();
+    if (!itens.length) return;
+    const primeiro = itens[0];
+    const ultimo = itens[itens.length - 1];
+    if (e.shiftKey && document.activeElement === primeiro) {
+      e.preventDefault();
+      ultimo.focus();
+    } else if (!e.shiftKey && document.activeElement === ultimo) {
+      e.preventDefault();
+      primeiro.focus();
+    }
+  });
 
   let podeArrastar = false;
   let arrastando = false;
