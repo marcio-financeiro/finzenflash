@@ -1,6 +1,6 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { aplicarTemaSalvo } from './temaService.js?v=3';
-import { invoiceRef } from './cardService.js';
+import { invoiceRef, addMonthsRef } from './cardService.js';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
@@ -1026,17 +1026,54 @@ async function carregarCartoesResumo(userId) {
 
   const cartoes = data ?? [];
   const linhas = await Promise.all(cartoes.map(async (cartao) => {
-    const ref = invoiceRef(hojeISO(), cartao.fechamento_dia, cartao.vencimento_dia);
-    const { data: compras, error: erroCompras } = await supabase
-      .from('card_transactions')
-      .select('valor_parcela')
-      .eq('card_id', cartao.id)
-      .eq('fatura_referencia', ref)
-      .eq('status', 'aberta');
-    if (erroCompras) throw erroCompras;
+    // invoiceRef(hoje, ...) devolve a fatura que ainda está ACUMULANDO
+    // compras (a próxima a fechar) — não a fatura que acabou de fechar e
+    // está aguardando pagamento, que é a "conta deste mês" pro usuário.
+    // Checa a fatura anterior primeiro: se ainda tiver item 'aberta'
+    // (fechou mas não foi paga), é ela que importa agora.
+    const refAtual = invoiceRef(hojeISO(), cartao.fechamento_dia, cartao.vencimento_dia);
+    const refAnterior = addMonthsRef(refAtual, -1);
 
-    const proximaFatura = (compras ?? []).reduce((soma, c) => soma + Number(c.valor_parcela), 0);
-    return { cartao, fechamento: proximoFechamento(cartao.fechamento_dia), proximaFatura };
+    const { data: itensAnterior, error: erroAnterior } = await supabase
+      .from('card_transactions')
+      .select('valor_parcela, status')
+      .eq('card_id', cartao.id)
+      .eq('fatura_referencia', refAnterior);
+    if (erroAnterior) throw erroAnterior;
+
+    const abertosAnterior = (itensAnterior ?? []).filter((c) => c.status === 'aberta');
+
+    let proximaFatura = 0;
+    let statusFatura = 'aberta';
+    let faturaExibida = refAtual;
+
+    if (abertosAnterior.length > 0) {
+      proximaFatura = abertosAnterior.reduce((soma, c) => soma + Number(c.valor_parcela), 0);
+      statusFatura = 'fechada';
+      faturaExibida = refAnterior;
+    } else {
+      const { data: itensAtual, error: erroAtual } = await supabase
+        .from('card_transactions')
+        .select('valor_parcela')
+        .eq('card_id', cartao.id)
+        .eq('fatura_referencia', refAtual)
+        .eq('status', 'aberta');
+      if (erroAtual) throw erroAtual;
+      const totalAtual = (itensAtual ?? []).reduce((soma, c) => soma + Number(c.valor_parcela), 0);
+      const pagosAnterior = (itensAnterior ?? []).filter((c) => c.status === 'paga');
+
+      if (totalAtual > 0) {
+        proximaFatura = totalAtual;
+        statusFatura = 'aberta';
+        faturaExibida = refAtual;
+      } else if (pagosAnterior.length > 0) {
+        proximaFatura = pagosAnterior.reduce((soma, c) => soma + Number(c.valor_parcela), 0);
+        statusFatura = 'paga';
+        faturaExibida = refAnterior;
+      }
+    }
+
+    return { cartao, fechamento: proximoFechamento(cartao.fechamento_dia), proximaFatura, statusFatura, faturaExibida };
   }));
 
   const total = linhas.reduce((soma, l) => soma + l.proximaFatura, 0);
@@ -1047,13 +1084,15 @@ function renderConteudoCartoes({ linhas, total }) {
   if (linhas.length === 0) {
     return '<div class="conta-vazia">Nenhum cartão cadastrado ainda — <a href="/pages/cadastros.html">cadastre aqui</a>.</div>';
   }
-  const itensHtml = linhas.map(({ cartao, fechamento, proximaFatura }) => `
-    <button type="button" class="cartoes-linha" data-cartao="${cartao.id}">
+  const rotuloStatus = { aberta: 'Aberta', fechada: 'Fechada', paga: 'Paga' };
+  const corStatus = { aberta: 'var(--muted)', fechada: 'var(--warning)', paga: 'var(--success)' };
+  const itensHtml = linhas.map(({ cartao, fechamento, proximaFatura, statusFatura, faturaExibida }) => `
+    <button type="button" class="cartoes-linha" data-cartao="${cartao.id}" data-fatura="${faturaExibida}">
       <div class="cartoes-avatar">${escapeHtml(cartao.nome.charAt(0).toUpperCase())}</div>
       <div class="cartoes-info">
-        <div class="cartoes-nome">${escapeHtml(cartao.nome)}</div>
+        <div class="cartoes-nome">${escapeHtml(cartao.nome)} <span style="margin-left:4px;font-size:11px;font-weight:800;color:${corStatus[statusFatura]}">● ${rotuloStatus[statusFatura]}</span></div>
         <div class="cartoes-detalhe"><span>Fechamento</span><span>${rotuloFechamento(fechamento)}</span></div>
-        <div class="cartoes-detalhe"><span>Próxima fatura</span><span class="valor-sensivel">${fmt.format(proximaFatura)}</span></div>
+        <div class="cartoes-detalhe"><span>Fatura</span><span class="valor-sensivel">${fmt.format(proximaFatura)}</span></div>
       </div>
     </button>
   `).join('');
@@ -1378,7 +1417,7 @@ function wireResumoEventos() {
   });
   container.querySelectorAll('.cartoes-linha').forEach((btn) => {
     btn.addEventListener('click', () => {
-      window.location.href = `/pages/cartao.html?cartao=${btn.dataset.cartao}`;
+      window.location.href = `/pages/cartao.html?cartao=${btn.dataset.cartao}&fatura=${btn.dataset.fatura}`;
     });
   });
   container.querySelector('.btn-config-ranking')?.addEventListener('click', abrirSheetCategoriasRanking);

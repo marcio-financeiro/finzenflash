@@ -74,10 +74,14 @@ async function carregarCartoes(userId) {
     .order('sort_order');
   if (error) throw error;
   cartoes = data ?? [];
-  const cartaoUrl = new URLSearchParams(window.location.search).get('cartao');
+  const params = new URLSearchParams(window.location.search);
+  const cartaoUrl = params.get('cartao');
+  const faturaUrl = params.get('fatura');
   cartaoSelecionado = (cartaoUrl && cartoes.some((c) => c.id === cartaoUrl)) ? cartaoUrl : (cartoes[0]?.id ?? null);
   const cartao = cartaoAtual();
-  faturaRef = cartao ? invoiceRef(hojeISO(), cartao.fechamento_dia, cartao.vencimento_dia) : null;
+  faturaRef = (faturaUrl && /^\d{4}-\d{2}$/.test(faturaUrl))
+    ? faturaUrl
+    : (cartao ? invoiceRef(hojeISO(), cartao.fechamento_dia, cartao.vencimento_dia) : null);
   renderCartoes();
   renderFatura();
 }

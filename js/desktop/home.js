@@ -124,10 +124,12 @@ async function carregarCartoesResumo(userId) {
 
     let proximaFatura = 0;
     let statusFatura = 'aberta';
+    let faturaExibida = refAtual;
 
     if (abertosAnterior.length > 0) {
       proximaFatura = abertosAnterior.reduce((soma, c) => soma + Number(c.valor_parcela), 0);
       statusFatura = 'fechada';
+      faturaExibida = refAnterior;
     } else {
       const { data: itensAtual, error: erroAtual } = await supabase
         .from('card_transactions')
@@ -142,13 +144,15 @@ async function carregarCartoesResumo(userId) {
       if (totalAtual > 0) {
         proximaFatura = totalAtual;
         statusFatura = 'aberta';
+        faturaExibida = refAtual;
       } else if (pagosAnterior.length > 0) {
         proximaFatura = pagosAnterior.reduce((soma, c) => soma + Number(c.valor_parcela), 0);
         statusFatura = 'paga';
+        faturaExibida = refAnterior;
       }
     }
 
-    return { cartao, fechamento: proximoFechamento(cartao.fechamento_dia), proximaFatura, statusFatura };
+    return { cartao, fechamento: proximoFechamento(cartao.fechamento_dia), proximaFatura, statusFatura, faturaExibida };
   }));
 
   return linhas;
@@ -412,8 +416,8 @@ function renderCartoes(linhas) {
   const rotuloStatus = { aberta: 'Aberta', fechada: 'Fechada', paga: 'Paga' };
   const corStatus = { aberta: 'var(--muted)', fechada: 'var(--warning)', paga: 'var(--success)' };
 
-  el.innerHTML = linhas.map(({ cartao, proximaFatura, statusFatura }) => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+  el.innerHTML = linhas.map(({ cartao, proximaFatura, statusFatura, faturaExibida }) => `
+    <div class="clicavel" data-id="${cartao.id}" data-fatura="${faturaExibida}" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer">
       <span>
         ${escapeHtml(cartao.nome)}
         <span style="margin-left:6px;font-size:11px;font-weight:800;color:${corStatus[statusFatura]}">● ${rotuloStatus[statusFatura]}</span>
@@ -421,6 +425,13 @@ function renderCartoes(linhas) {
       <span class="num valor-sensivel">${fmt.format(proximaFatura)}</span>
     </div>
   `).join('');
+
+  el.querySelectorAll('[data-id]').forEach((linha) => {
+    linha.addEventListener('click', () => {
+      const params = new URLSearchParams({ cartao: linha.dataset.id, fatura: linha.dataset.fatura });
+      window.location.href = `cartao.html?${params.toString()}`;
+    });
+  });
 }
 
 function renderLancamentos(itens) {
