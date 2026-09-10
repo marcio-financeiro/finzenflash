@@ -211,6 +211,7 @@ async function iniciar() {
     await carregarCartoes(user.id);
   } catch (err) {
     console.error(err);
+    document.getElementById('lista-parcelamentos').innerHTML = '<div class="lista-vazia">Não foi possível carregar os dados. Recarregue a página.</div>';
   }
   await recarregar();
 }

@@ -1062,6 +1062,7 @@ async function recarregarTimeline() {
     await renderGraficoSaldoMes(timeline.serie, timeline.hoje);
   } catch (err) {
     console.error(err);
+    document.getElementById('erro-saldo-mes').textContent = 'Não foi possível carregar os dados. Recarregue a página.';
   }
 }
 

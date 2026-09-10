@@ -62,6 +62,7 @@ async function iniciar() {
     renderGrade();
   } catch (err) {
     console.error(err);
+    document.getElementById('erro-aparencia').textContent = 'Não foi possível carregar os dados. Recarregue a página.';
   }
 }
 
