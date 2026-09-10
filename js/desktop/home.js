@@ -124,7 +124,7 @@ async function carregarLancamentos(userId) {
   const [{ data: transacoes, error: erroTransacoes }, { data: compras, error: erroCompras }] = await Promise.all([
     supabase
       .from('transactions')
-      .select('id, type, amount, description, date, status, account_id, is_recurring, recurrence_group_id, accounts(nome)')
+      .select('id, type, amount, description, date, status, account_id, is_recurring, recurrence_group_id, accounts(nome), categories(nome, icon)')
       .eq('user_id', userId)
       .or(`date.lte.${hojeISO()},parent_transaction_id.is.null`)
       .order('date', { ascending: false })
@@ -132,7 +132,7 @@ async function carregarLancamentos(userId) {
       .limit(10),
     supabase
       .from('card_transactions')
-      .select('id, descricao, valor_total, data_compra, credit_cards(nome)')
+      .select('id, descricao, valor_total, data_compra, credit_cards(nome), categories(nome, icon)')
       .eq('user_id', userId)
       .eq('parcela_atual', 1)
       .lte('data_compra', hojeISO())
@@ -141,6 +141,8 @@ async function carregarLancamentos(userId) {
   ]);
   if (erroTransacoes) throw erroTransacoes;
   if (erroCompras) throw erroCompras;
+
+  const categoriaLabel = (c) => (c?.nome ? `${c.icon ? escapeHtml(c.icon) + ' ' : ''}${escapeHtml(c.nome)}` : null);
 
   const doConta = (transacoes ?? []).map((t) => ({
     id: t.id,
@@ -156,6 +158,7 @@ async function carregarLancamentos(userId) {
     description: t.description,
     date: t.date,
     nomeOrigem: t.accounts?.nome ?? '',
+    categoria: categoriaLabel(t.categories),
   }));
   const doCartao = (compras ?? []).map((c) => ({
     fonte: 'cartao',
@@ -165,6 +168,7 @@ async function carregarLancamentos(userId) {
     description: c.descricao,
     date: c.data_compra,
     nomeOrigem: c.credit_cards?.nome ?? '',
+    categoria: categoriaLabel(c.categories),
   }));
 
   return [...doConta, ...doCartao]
@@ -390,7 +394,7 @@ function renderLancamentos(itens) {
         ${itens.map((i, idx) => `
           <tr ${i.fonte === 'transacao' ? `class="clicavel" data-idx="${idx}"` : ''}>
             <td>${fmtData.format(new Date(i.date + 'T00:00:00'))}</td>
-            <td>${escapeHtml(i.description || i.origem)} <span style="color:var(--muted)">· ${escapeHtml(i.nomeOrigem)}</span></td>
+            <td>${escapeHtml(i.description || i.origem)} <span style="color:var(--muted)">· ${escapeHtml(i.nomeOrigem)}${i.categoria ? ` · ${i.categoria}` : ''}</span></td>
             <td>${escapeHtml(i.origem)}</td>
             <td class="num ${i.positivo ? 'positivo' : 'negativo'} valor-sensivel">${i.positivo ? '+' : '-'} ${fmt.format(Math.abs(i.amount))}</td>
           </tr>
