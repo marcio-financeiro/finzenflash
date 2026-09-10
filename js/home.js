@@ -53,12 +53,9 @@ function escapeHtml(str) {
 }
 
 function rotuloDia(dataISO) {
-  const hoje = new Date();
   const data = new Date(dataISO + 'T00:00:00');
-  const hojeStr = hoje.toISOString().slice(0, 10);
-  const ontem = new Date(hoje);
-  ontem.setDate(ontem.getDate() - 1);
-  const ontemStr = ontem.toISOString().slice(0, 10);
+  const hojeStr = hojeISO();
+  const ontemStr = addDiasISO(hojeStr, -1);
   if (dataISO === hojeStr) return 'HOJE';
   if (dataISO === ontemStr) return 'ONTEM';
   return fmtDia.format(data).toUpperCase();
