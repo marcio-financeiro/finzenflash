@@ -9,6 +9,12 @@ let categorias = [];
 let parcelas = 1;
 let compraOriginal = null;
 
+const fmtFatura = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
+function rotuloFatura(ref) {
+  const [y, m] = ref.split('-').map(Number);
+  return fmtFatura.format(new Date(y, m - 1, 1)).replace(/^\w/, (c) => c.toUpperCase());
+}
+
 function formatarValorDigitado(valorCentavos) {
   return (valorCentavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
@@ -92,8 +98,32 @@ function renderCartoes() {
     btn.addEventListener('click', () => {
       cartaoSelecionado = btn.dataset.id;
       renderCartoes();
+      preencherFaturas();
     });
   });
+}
+
+// Lista a fatura fechada (aguardando pagamento), a atual (acumulando) e
+// mais 5 futuras — permite lançar a compra direto na fatura fechada ou
+// adiantar pra uma fatura futura, sem depender só da data escolhida.
+function preencherFaturas(faturaPreferida) {
+  const select = document.getElementById('fatura-ref');
+  const cartao = cartoes.find((c) => c.id === cartaoSelecionado);
+  if (!cartao) {
+    select.innerHTML = '<option value="">Selecione um cartão</option>';
+    return;
+  }
+  const dataCompra = document.getElementById('data-compra').value || hojeISO();
+  const base = invoiceRef(dataCompra, cartao.fechamento_dia, cartao.vencimento_dia);
+  const refs = [];
+  for (let i = -1; i <= 5; i++) refs.push(addMonthsRef(base, i));
+
+  select.innerHTML = refs.map((ref, idx) => {
+    const i = idx - 1;
+    const rotulo = i === -1 ? ' (fechada)' : i === 0 ? ' (atual)' : i === 1 ? ' (próxima)' : '';
+    return `<option value="${ref}">${rotuloFatura(ref)}${rotulo}</option>`;
+  }).join('');
+  select.value = (faturaPreferida && refs.includes(faturaPreferida)) ? faturaPreferida : base;
 }
 
 function renderCategorias() {
@@ -141,6 +171,7 @@ async function carregarCartoesECategorias(userId) {
 
   renderCartoes();
   renderCategorias();
+  preencherFaturas(compraOriginal?.fatura_referencia ?? null);
 }
 
 function hojeISO() {
@@ -173,12 +204,14 @@ async function salvar(user) {
   btn.disabled = true;
   btn.textContent = 'Salvando...';
 
-  // Editar preserva a data da compra original (a fatura em que ela cai
-  // continua a mesma referência) e reusa o mesmo purchase_group_id —
-  // as parcelas antigas são apagadas e recriadas do zero.
-  const dataCompra = compraOriginal ? compraOriginal.data_compra : hojeISO();
+  // Data e fatura vêm do formulário — editar permite tanto ajustar a data
+  // quanto transferir a compra pra outra fatura (o campo Fatura pode ser
+  // trocado livremente, não fica preso ao que a data sugere). Reusa o
+  // mesmo purchase_group_id; as parcelas antigas são apagadas e recriadas.
+  const dataCompra = document.getElementById('data-compra').value || hojeISO();
   const grupo = compraOriginal ? compraOriginal.purchase_group_id : novoGrupoCompra();
-  const referenciaBase = invoiceRef(dataCompra, cartao.fechamento_dia, cartao.vencimento_dia);
+  const referenciaBase = document.getElementById('fatura-ref').value
+    || invoiceRef(dataCompra, cartao.fechamento_dia, cartao.vencimento_dia);
   const valorParcela = Math.round((valorTotal / parcelas) * 100) / 100;
 
   if (compraOriginal) {
@@ -232,12 +265,15 @@ async function init() {
 
   configurarTecladoValor();
   document.getElementById('btn-salvar').addEventListener('click', () => salvar(user));
+  document.getElementById('data-compra').addEventListener('change', () => {
+    preencherFaturas();
+  });
 
   const grupoUrl = new URLSearchParams(window.location.search).get('grupo');
   if (grupoUrl) {
     const { data, error } = await supabase
       .from('card_transactions')
-      .select('purchase_group_id, card_id, category_id, descricao, valor_total, parcelas, data_compra')
+      .select('purchase_group_id, card_id, category_id, descricao, valor_total, parcelas, data_compra, fatura_referencia')
       .eq('purchase_group_id', grupoUrl)
       .eq('user_id', user.id)
       .limit(1)
@@ -253,6 +289,8 @@ async function init() {
       atualizarDisplaysValor(String(Math.round(Number(data.valor_total) * 100)));
     }
   }
+
+  document.getElementById('data-compra').value = compraOriginal?.data_compra || hojeISO();
 
   configurarParcelas();
 
