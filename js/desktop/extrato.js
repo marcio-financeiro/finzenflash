@@ -211,6 +211,8 @@ function confirmarExclusao(lancamento) {
 }
 
 async function excluirLancamento(lancamento, scope) {
+  document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = true; });
+
   const grupoId = lancamento.recurrence_group_id || lancamento.id;
   let query = supabase.from('transactions').select('id, type, amount, status, account_id').eq('user_id', usuarioAtual.id);
   if (scope === 'future') query = query.eq('recurrence_group_id', grupoId).gte('date', lancamento.date);
@@ -218,11 +220,17 @@ async function excluirLancamento(lancamento, scope) {
   else query = query.eq('id', lancamento.id);
 
   const { data: alvos, error: erroAlvos } = await query;
-  if (erroAlvos || !alvos || !alvos.length) return;
+  if (erroAlvos || !alvos || !alvos.length) {
+    document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = false; });
+    return;
+  }
 
   const ids = alvos.map((a) => a.id);
   const { error: erroDelete } = await supabase.from('transactions').delete().eq('user_id', usuarioAtual.id).in('id', ids);
-  if (erroDelete) return;
+  if (erroDelete) {
+    document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = false; });
+    return;
+  }
 
   for (const item of alvos) {
     if (item.status === 'pago') {
