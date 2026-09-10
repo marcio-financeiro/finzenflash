@@ -62,6 +62,19 @@ button:disabled {
   font-weight: 700;
 }
 
+/* Reduz toda animação/transição do app (tooltip da rail, drag do board,
+   slide da sheet, spinners etc.) de uma vez só pra quem pede menos
+   movimento no sistema — mais confiável que caçar cada @keyframes
+   individualmente, e cobre animações futuras automaticamente. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Foco visível de teclado (Tab) — !important pra vencer qualquer
    `outline: none` específico (inputs, .input-desktop, .comandos-input
    etc.), sem afetar o clique de mouse (que o navegador não considera
