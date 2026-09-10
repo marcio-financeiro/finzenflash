@@ -1,4 +1,5 @@
 import { abrirComandos, configurarComandos } from './comandos.js';
+import { configurarBotaoPrivacidade } from '../privacidade.js';
 
 const ICONE_INICIO = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1v-9"/></svg>';
 const ICONE_CARTAO = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg>';
@@ -37,6 +38,7 @@ export function montarNavRail(paginaAtiva) {
         </button>
       </div>
       <div class="rail-rodape">
+        <button type="button" class="rail-item btn-privacidade" id="btn-privacidade-nav" aria-label="Ocultar valores"></button>
         <a class="rail-item" href="/pages/home.html" id="link-versao-mobile" aria-label="Versão mobile">
           ${ICONE_MOBILE}
           <span class="rail-tooltip">Versão mobile</span>
@@ -50,6 +52,11 @@ export function montarNavRail(paginaAtiva) {
   `;
 
   configurarComandos();
+  configurarBotaoPrivacidade('btn-privacidade-nav');
+  // configurarBotaoPrivacidade() substitui o innerHTML do botão pelo ícone —
+  // o tooltip precisa ser adicionado depois, não no template original.
+  document.getElementById('btn-privacidade-nav')
+    ?.insertAdjacentHTML('beforeend', '<span class="rail-tooltip">Ocultar/mostrar valores</span>');
   document.getElementById('btn-abrir-comandos').addEventListener('click', abrirComandos);
   document.getElementById('link-versao-mobile').addEventListener('click', () => {
     try { localStorage.setItem('flash_versao_preferida', 'mobile'); } catch { /* localStorage indisponível */ }
