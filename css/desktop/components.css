@@ -15,11 +15,25 @@
 .num.positivo { color: var(--success); }
 .num.negativo { color: var(--danger); }
 
-/* Board de widgets — grid de 12 colunas, cada widget declara quantas ocupa */
+/* Board de widgets — grid de 12 colunas, cada widget declara quantas ocupa.
+   grid-auto-rows pequeno + grid-row-end calculado por JS (board.js, via
+   ResizeObserver) simula masonry: cada widget ocupa só a altura real do seu
+   conteúdo, em vez da altura do vizinho mais alto da "linha" — sem isso,
+   um widget curto ao lado de um alto (ex: Contas ao lado de Mapa de calor)
+   deixa um buraco em branco embaixo do curto até a régua da linha inteira. */
 .board {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
+  grid-auto-rows: 10px;
+  grid-auto-flow: row dense;
   gap: 16px;
+  /* Sem isso o grid estica cada widget pra altura exata do seu grid-row-end
+     (default align-self:stretch) — como esse span é recalculado a partir da
+     própria altura do widget (ver board.js), width teria um valor de
+     conteúdo velho (ex: ainda em "Carregando…") "congelado" pra sempre: o
+     conteúdo real cresce por dentro mas a caixa não acompanha, e vaza pra
+     fora do card. align-items:start deixa o widget se dimensionar pelo
+     próprio conteúdo; o grid-row-end só reserva o espaço vertical dele. */
   align-items: start;
 }
 

@@ -7,6 +7,19 @@ import { supabase } from '../supabaseClient.js';
 
 const TAMANHOS = [4, 6, 8, 12];
 
+// Precisa bater com grid-auto-rows/gap do .board em css/desktop/components.css
+// — cada widget ganha um grid-row-end calculado pela altura real do seu
+// conteúdo, então widgets vizinhos de alturas diferentes não deixam mais
+// buraco em branco embaixo do mais curto (efeito masonry).
+const ROW_UNIT = 10;
+const ROW_GAP = 16;
+
+function ajustarAltura(widget) {
+  const altura = widget.getBoundingClientRect().height;
+  const linhas = Math.ceil((altura + ROW_GAP) / (ROW_UNIT + ROW_GAP));
+  widget.style.gridRowEnd = `span ${linhas}`;
+}
+
 function chaveLayout(pagina) {
   return `flash_desktop_board_${pagina}`;
 }
@@ -82,8 +95,18 @@ export async function inicializarBoard(containerId, pagina, userId) {
 
   let arrastando = null;
 
+  // Widgets carregam o conteúdo de forma assíncrona ("Carregando…" → dado
+  // real) e podem mudar de altura em qualquer momento — reordenar, redimen-
+  // sionar ou só o dado chegar depois. O ResizeObserver recalcula o
+  // grid-row-end sempre que a altura de um widget muda, então não precisa
+  // chamar isso manualmente em cada função de render.
+  const observerAltura = new ResizeObserver((entries) => {
+    entries.forEach((entry) => ajustarAltura(entry.target));
+  });
+
   container.querySelectorAll('.widget').forEach((widget) => {
     widget.setAttribute('draggable', 'true');
+    observerAltura.observe(widget);
 
     widget.addEventListener('dragstart', () => {
       arrastando = widget;
