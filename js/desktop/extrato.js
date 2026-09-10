@@ -91,10 +91,11 @@ function renderTabela(lancamentos) {
   corpo.innerHTML = lancamentos.map((l) => {
     const receita = l.type === 'receita';
     const categoria = l.categories?.nome ? `${l.categories.icon ? escapeHtml(l.categories.icon) + ' ' : ''}${escapeHtml(l.categories.nome)}` : '—';
-    const vencida = l.status === 'pendente' && l.date < hojeISO();
+    const vencida = l.status === 'pendente' && l.date <= hojeISO();
+    const rotuloVencida = l.date === hojeISO() ? 'vence hoje' : 'vencida';
     return `
       <tr ${vencida ? 'style="background:var(--danger-soft)"' : ''}>
-        <td>${vencida ? '<span style="color:var(--danger);font-weight:800">vencida</span> · ' : ''}${fmtData.format(new Date(l.date + 'T00:00:00'))}</td>
+        <td>${vencida ? `<span style="color:var(--danger);font-weight:800">${rotuloVencida}</span> · ` : ''}${fmtData.format(new Date(l.date + 'T00:00:00'))}</td>
         <td>${escapeHtml(l.description)}</td>
         <td>${categoria}</td>
         <td>${escapeHtml(l.accounts?.nome ?? '')}</td>

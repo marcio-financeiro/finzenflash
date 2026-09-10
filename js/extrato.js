@@ -118,8 +118,10 @@ function renderLista(lancamentos) {
     const categoria = l.categories?.nome
       ? `${l.categories.icon ? escapeHtml(l.categories.icon) + ' ' : ''}${escapeHtml(l.categories.nome)}`
       : null;
-    const vencida = l.status === 'pendente' && l.date < hojeISO();
-    const statusTag = vencida ? '<span class="badge-vencida">vencida</span> · ' : '';
+    const vencida = l.status === 'pendente' && l.date <= hojeISO();
+    const statusTag = vencida
+      ? `<span class="badge-vencida">${l.date === hojeISO() ? 'vence hoje' : 'vencida'}</span> · `
+      : '';
     html += `
       <button type="button" class="lancamento-card ${vencida ? 'vencida' : ''}" data-id="${l.id}">
         <div class="lancamento-icone ${receita ? 'is-receita' : 'is-despesa'}">${receita ? iconReceita() : iconDespesa()}</div>

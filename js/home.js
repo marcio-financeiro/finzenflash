@@ -974,13 +974,14 @@ async function abrirSheetListaPendentes() {
       return;
     }
     container.innerHTML = itens.map((l) => {
-      const vencida = l.date < hojeISO();
+      const vencida = l.date <= hojeISO();
+      const rotuloVencida = l.date === hojeISO() ? 'vence hoje' : 'vencida';
       return `
       <div class="lancamento-card ${vencida ? 'vencida' : ''}" data-id="${l.id}">
         <div class="lancamento-icone ${l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${l.type === 'receita' ? iconReceita() : iconDespesa()}</div>
         <div class="lancamento-info">
           <div class="lancamento-desc">${escapeHtml(l.description)}</div>
-          <div class="lancamento-conta">${escapeHtml(l.nomeOrigem)} · ${vencida ? '<span class="badge-vencida">vencida</span> ' : ''}vence ${fmtDataCurta.format(new Date(l.date + 'T00:00:00'))}</div>
+          <div class="lancamento-conta">${escapeHtml(l.nomeOrigem)} · ${vencida ? `<span class="badge-vencida">${rotuloVencida}</span> ` : ''}vence ${fmtDataCurta.format(new Date(l.date + 'T00:00:00'))}</div>
         </div>
         <div class="lancamento-valor valor-sensivel ${l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${fmt.format(Math.abs(l.amount))}</div>
       </div>
