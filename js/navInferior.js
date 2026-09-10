@@ -12,6 +12,7 @@ const ICONE_PROJECAO = '<svg width="19" height="19" viewBox="0 0 24 24" fill="no
 const ICONE_SAUDE = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>';
 const ICONE_APARENCIA = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="13" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="11" cy="15" r="1" fill="currentColor" stroke="none"/><path d="M12 3a9 9 0 0 0 0 18c1.1 0 1.6-.7 1.6-1.5 0-.4-.2-.7-.4-1a1.4 1.4 0 0 1 1-2.4h1.4A3.4 3.4 0 0 0 19 12.6 9 9 0 0 0 12 3Z"/></svg>';
 const ICONE_PARCELAMENTOS = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="10.5" width="18" height="5" rx="1.5"/><rect x="3" y="17" width="18" height="5" rx="1.5"/></svg>';
+const ICONE_TRANSFERIR = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h13l-4-4M17 17H4l4 4"/></svg>';
 const ICONE_SAIR = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>';
 const ICONE_DESKTOP = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';
 
@@ -47,6 +48,7 @@ export function montarNavInferior(paginaAtiva) {
         <div class="sheet-handle"></div>
         <div class="sheet-titulo">Mais</div>
         <a class="mais-item ${ativo('cadastros')}" href="/pages/cadastros.html">${ICONE_CADASTROS}Cadastros</a>
+        <a class="mais-item ${ativo('transferir')}" href="/pages/transferir.html">${ICONE_TRANSFERIR}Transferir entre contas</a>
         <a class="mais-item ${ativo('investimentos')}" href="/pages/investimentos.html">${ICONE_INVESTIR}Investimentos</a>
         <a class="mais-item ${ativo('offshore')}" href="/pages/offshore.html">${ICONE_OFFSHORE}Offshore</a>
         <a class="mais-item ${ativo('relatorios')}" href="/pages/relatorios.html">${ICONE_RELATORIOS}Relatórios</a>
