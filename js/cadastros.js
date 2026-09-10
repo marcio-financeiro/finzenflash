@@ -724,6 +724,8 @@ async function init() {
     ]);
   } catch (err) {
     console.error(err);
+    // Não crítico — a preferência de "principal" é só um destaque visual,
+    // seguimos sem ela em vez de bloquear a tela.
   }
 
   gruposColapsados = carregarGruposColapsados();
@@ -765,6 +767,11 @@ async function init() {
     await recarregarTudo();
   } catch (err) {
     console.error(err);
+    const erro = '<div class="conta-vazia">Não foi possível carregar os dados. Recarregue a página.</div>';
+    ['lista-contas', 'lista-cartoes', 'lista-categorias', 'lista-recorrentes'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = erro;
+    });
   }
 }
 
