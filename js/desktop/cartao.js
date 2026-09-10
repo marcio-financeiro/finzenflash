@@ -50,8 +50,9 @@ function renderCartoes() {
     btn.addEventListener('click', () => {
       if (btn.dataset.id === cartaoSelecionado) return;
       cartaoSelecionado = btn.dataset.id;
-      const cartao = cartaoAtual();
-      faturaRef = invoiceRef(hojeISO(), cartao.fechamento_dia, cartao.vencimento_dia);
+      // Mantém o mês (fatura_referencia) que já estava sendo visto —
+      // trocar de cartão só troca de quem são as compras exibidas,
+      // não deveria voltar pro mês "atual" do novo cartão.
       renderCartoes();
       renderFatura();
       recarregar();
