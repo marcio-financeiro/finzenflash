@@ -707,8 +707,8 @@ async function carregarEconomia(userId, inicio, fim) {
   return { receitas, despesas };
 }
 
-async function carregarMetas(userId, ref) {
-  const [{ data: orcamentos, error: erroOrc }, { data: despesas, error: erroDesp }] = await Promise.all([
+async function carregarMetas(userId, ref, idCategoriaFatura) {
+  const [{ data: orcamentos, error: erroOrc }, { data: despesas, error: erroDesp }, { data: compras, error: erroCompras }] = await Promise.all([
     supabase
       .from('budgets')
       .select('category_id, valor_planejado, categories(nome)')
@@ -722,13 +722,27 @@ async function carregarMetas(userId, ref) {
       .eq('status', 'pago')
       .gte('date', `${ref}-01`)
       .lte('date', fimMesRef(ref)),
+    // Compra no cartão também é gasto da categoria — sem isso, uma meta de
+    // "Mercado" com compras no cartão parece folgada mesmo estourada.
+    supabase
+      .from('card_transactions')
+      .select('category_id, valor_parcela')
+      .eq('user_id', userId)
+      .eq('fatura_referencia', ref),
   ]);
   if (erroOrc) throw erroOrc;
   if (erroDesp) throw erroDesp;
+  if (erroCompras) throw erroCompras;
 
   const gastoPorCategoria = new Map();
+  // A categoria "Fatura de Cartão" (pagamento da fatura na conta) não entra
+  // aqui — o gasto real por categoria já vem das compras individuais abaixo.
   for (const t of despesas ?? []) {
+    if (t.category_id === idCategoriaFatura) continue;
     gastoPorCategoria.set(t.category_id, (gastoPorCategoria.get(t.category_id) ?? 0) + Number(t.amount));
+  }
+  for (const c of compras ?? []) {
+    gastoPorCategoria.set(c.category_id, (gastoPorCategoria.get(c.category_id) ?? 0) + Number(c.valor_parcela));
   }
 
   const categorias = (orcamentos ?? [])
@@ -740,7 +754,7 @@ async function carregarMetas(userId, ref) {
     .sort((a, b) => (b.gasto / (b.planejado || 1)) - (a.gasto / (a.planejado || 1)));
 
   const totalPlanejado = categorias.reduce((soma, c) => soma + c.planejado, 0);
-  const totalGasto = (despesas ?? []).reduce((soma, t) => soma + Number(t.amount), 0);
+  const totalGasto = Array.from(gastoPorCategoria.values()).reduce((soma, v) => soma + v, 0);
   return { categorias, totalPlanejado, totalGasto };
 }
 
@@ -1521,7 +1535,7 @@ async function recarregarResumoMensal() {
     cacheResumo.ranking = ranking;
     cacheResumo.economia = { ...economia, anterior: economiaAnterior };
     cacheResumo.mapacalor = mapacalor;
-    cacheResumo.metas = await carregarMetas(usuarioAtual.id, ref);
+    cacheResumo.metas = await carregarMetas(usuarioAtual.id, ref, idCategoriaFatura);
     renderResumoCards();
   } catch (err) {
     console.error(err);
