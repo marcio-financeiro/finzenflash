@@ -23,6 +23,8 @@ let mesRef = new Date();
 mesRef.setDate(1);
 let pendentesTipo = 'despesa';
 let idCategoriaFatura = null;
+let categoriasDespesaCache = [];
+let categoriasOcultasRanking = new Set();
 let contasCache = [];
 let dolarAtual;
 let chartSaldoMes = null;
@@ -92,6 +94,32 @@ async function carregarCategoriasDespesa(userId) {
     .order('nome');
   if (error) throw error;
   return data ?? [];
+}
+
+async function carregarCategoriasOcultasRanking(userId) {
+  const { data } = await supabase
+    .from('user_settings')
+    .select('setting_value')
+    .eq('user_id', userId)
+    .eq('setting_key', 'flash_ranking_categorias_ocultas')
+    .maybeSingle();
+
+  let ids = [];
+  try {
+    ids = data?.setting_value ? JSON.parse(data.setting_value) : [];
+  } catch {
+    ids = [];
+  }
+  return new Set(Array.isArray(ids) ? ids : []);
+}
+
+async function salvarCategoriasOcultasRanking(userId, categoriasOcultas) {
+  await supabase
+    .from('user_settings')
+    .upsert(
+      { user_id: userId, setting_key: 'flash_ranking_categorias_ocultas', setting_value: JSON.stringify([...categoriasOcultas]) },
+      { onConflict: 'user_id,setting_key' },
+    );
 }
 
 async function carregarCartoesResumo(userId) {
@@ -215,7 +243,7 @@ async function carregarLancamentos(userId) {
 }
 
 // ── Ranking de categorias (mesma lógica de js/home.js) ──
-async function carregarRanking(userId, inicio, fim, inicioAnt, fimAnt, refMesAtual, refMesAntStr) {
+async function carregarRanking(userId, inicio, fim, inicioAnt, fimAnt, refMesAtual, refMesAntStr, categoriasOcultas) {
   const [
     { data, error },
     { data: dataAnt, error: erroAnt },
@@ -233,7 +261,7 @@ async function carregarRanking(userId, inicio, fim, inicioAnt, fimAnt, refMesAtu
   if (erroComprasAnt) throw erroComprasAnt;
 
   function ignorar(categoriaId) {
-    return categoriaId === idCategoriaFatura;
+    return categoriaId === idCategoriaFatura || categoriasOcultas.has(categoriaId);
   }
 
   const porCategoriaAnt = new Map();
@@ -243,6 +271,7 @@ async function carregarRanking(userId, inicio, fim, inicioAnt, fimAnt, refMesAtu
     porCategoriaAnt.set(chave, (porCategoriaAnt.get(chave) ?? 0) + Number(t.amount));
   }
   for (const c of comprasAnt ?? []) {
+    if (categoriasOcultas.has(c.category_id)) continue;
     const chave = c.category_id ?? 'sem-categoria';
     porCategoriaAnt.set(chave, (porCategoriaAnt.get(chave) ?? 0) + Number(c.valor_parcela));
   }
@@ -257,6 +286,7 @@ async function carregarRanking(userId, inicio, fim, inicioAnt, fimAnt, refMesAtu
     porCategoria.set(chave, atual);
   }
   for (const c of compras ?? []) {
+    if (categoriasOcultas.has(c.category_id)) continue;
     const chave = c.category_id ?? 'sem-categoria';
     const nome = c.categories?.nome ?? 'Sem categoria';
     const atual = porCategoria.get(chave) ?? { nome, valor: 0, categoriaId: c.category_id ?? null, chave };
@@ -270,8 +300,12 @@ async function carregarRanking(userId, inicio, fim, inicioAnt, fimAnt, refMesAtu
   let itens = linhas;
   if (linhas.length > 5) {
     const top4 = linhas.slice(0, 4);
-    const valorOutros = linhas.slice(4).reduce((soma, l) => soma + l.valor, 0);
-    itens = [...top4, { nome: 'Outros', valor: valorOutros, categoriaId: null, chave: null }].sort((a, b) => b.valor - a.valor);
+    if (categoriasOcultas.has(OUTROS_ID)) {
+      itens = top4;
+    } else {
+      const valorOutros = linhas.slice(4).reduce((soma, l) => soma + l.valor, 0);
+      itens = [...top4, { nome: 'Outros', valor: valorOutros, categoriaId: null, chave: null }].sort((a, b) => b.valor - a.valor);
+    }
   }
 
   return {
@@ -496,6 +530,38 @@ function renderRanking({ itens }) {
       window.location.href = `/pages/desktop/extrato.html?categoria=${linha.dataset.categoriaId}&mes=${ref}`;
     });
   });
+}
+
+function abrirModalCategoriasRanking() {
+  const lista = document.getElementById('lista-categorias-ranking');
+  // "Fatura de Cartão" já é sempre excluída do ranking (ver carregarRanking)
+  // — as compras do cartão entram pelas categorias reais, então listar essa
+  // categoria aqui só confundiria (marcar/desmarcar não faria diferença).
+  // "Outros" não é uma categoria real (é o agrupado da 5ª categoria em
+  // diante), mas entra na lista como opção pra dar pra escondê-lo também.
+  const categorias = [
+    ...categoriasDespesaCache.filter((c) => c.nome !== 'Fatura de Cartão'),
+    { id: OUTROS_ID, nome: 'Outros (demais categorias agrupadas)' },
+  ];
+  if (categorias.length === 0) {
+    lista.innerHTML = '<div class="lista-vazia">Nenhuma categoria de despesa cadastrada.</div>';
+  } else {
+    lista.innerHTML = categorias.map((c) => `
+      <label class="toggle-linha">
+        <span>${escapeHtml(c.nome)}</span>
+        <input type="checkbox" data-id="${c.id}" ${categoriasOcultasRanking.has(c.id) ? '' : 'checked'}>
+      </label>
+    `).join('');
+    lista.querySelectorAll('input[type="checkbox"]').forEach((chk) => {
+      chk.addEventListener('change', async () => {
+        if (chk.checked) categoriasOcultasRanking.delete(chk.dataset.id);
+        else categoriasOcultasRanking.add(chk.dataset.id);
+        await salvarCategoriasOcultasRanking(usuarioAtual.id, categoriasOcultasRanking);
+        await carregarDadosDoMes();
+      });
+    });
+  }
+  abrirModal('modal-categorias-ranking');
 }
 
 function renderEconomia({ receitas, despesas }, anterior) {
@@ -1000,7 +1066,7 @@ async function carregarDadosDoMes() {
   const refMesAnt = refMesString(mesAnterior);
 
   const [ranking, economia, economiaAnt, metas, mapacalor, pendentes] = await Promise.all([
-    carregarRanking(usuarioAtual.id, inicio, fim, inicioAnt, fimAnt, refMesAtual, refMesAnt),
+    carregarRanking(usuarioAtual.id, inicio, fim, inicioAnt, fimAnt, refMesAtual, refMesAnt, categoriasOcultasRanking),
     carregarEconomia(usuarioAtual.id, inicio, fim),
     carregarEconomia(usuarioAtual.id, inicioAnt, fimAnt),
     carregarMetas(usuarioAtual.id, refMesAtual),
@@ -1033,6 +1099,9 @@ async function iniciar() {
   document.getElementById('btn-topbar-busca').addEventListener('click', abrirComandos);
   configurarModal('modal-pendentes');
   document.getElementById('btn-fechar-modal-pendentes').addEventListener('click', () => fecharModal('modal-pendentes'));
+  configurarModal('modal-categorias-ranking');
+  document.getElementById('btn-fechar-modal-categorias-ranking').addEventListener('click', () => fecharModal('modal-categorias-ranking'));
+  document.getElementById('btn-config-ranking').addEventListener('click', abrirModalCategoriasRanking);
   configurarModal('modal-lancamento');
   document.getElementById('btn-fechar-modal-lancamento').addEventListener('click', () => fecharModal('modal-lancamento'));
 
@@ -1044,14 +1113,17 @@ async function iniciar() {
   // da outra pra montar sua própria query) — rodar em paralelo em vez de
   // esperar as categorias antes de sequer começar a buscar contas/cartões/
   // lançamentos cortava um estágio inteiro de rede do carregamento inicial.
-  const [categoriasDespesa, contas, cartoes, lancamentos, dolar] = await Promise.all([
+  const [categoriasDespesa, categoriasOcultas, contas, cartoes, lancamentos, dolar] = await Promise.all([
     carregarCategoriasDespesa(user.id).catch(() => []),
+    carregarCategoriasOcultasRanking(user.id).catch(() => new Set()),
     carregarContas(user.id),
     carregarCartoesResumo(user.id),
     carregarLancamentos(user.id),
     carregarCotacaoDolar(supabase, user.id),
   ]);
   idCategoriaFatura = categoriasDespesa.find((c) => c.nome === 'Fatura de Cartão')?.id ?? null;
+  categoriasDespesaCache = categoriasDespesa;
+  categoriasOcultasRanking = categoriasOcultas;
   contasCache = contas;
   dolarAtual = dolar;
 

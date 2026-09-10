@@ -32,6 +32,9 @@
     .home-mes-nav { display: flex; align-items: center; gap: 8px; font-weight: 800; }
     .home-mes-nav button { width: 30px; height: 30px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
 
+    .toggle-linha { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 700; margin: 6px 0; }
+    .toggle-linha input[type="checkbox"] { width: 16px; height: 16px; }
+
     .ranking-linha { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
     .ranking-linha.clicavel { cursor: pointer; background: none; border: none; width: 100%; text-align: left; font-family: inherit; }
     .ranking-nome { width: 110px; flex-shrink: 0; font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -155,7 +158,10 @@
             </div>
 
             <div class="widget" data-widget-id="ranking">
-              <div class="widget-cabecalho"><span class="widget-titulo">Ranking categorias (despesas)</span></div>
+              <div class="widget-cabecalho">
+                <span class="widget-titulo">Ranking categorias (despesas)</span>
+                <button type="button" class="btn-desktop" id="btn-config-ranking" style="height:26px;padding:0 10px;font-size:11px" title="Escolher categorias do ranking">Categorias</button>
+              </div>
               <div id="widget-ranking"><div class="lista-vazia">Carregando…</div></div>
             </div>
           </div>
@@ -204,6 +210,14 @@
       <button type="button" class="modal-fechar" id="btn-fechar-modal-pendentes" aria-label="Fechar">✕</button>
       <div class="modal-titulo" id="titulo-lista-pendentes">Pendências</div>
       <div id="lista-pendentes-itens" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-categorias-ranking" hidden>
+    <div class="modal-caixa">
+      <button type="button" class="modal-fechar" id="btn-fechar-modal-categorias-ranking" aria-label="Fechar">✕</button>
+      <div class="modal-titulo">Categorias do ranking</div>
+      <div id="lista-categorias-ranking" style="margin-top:12px;display:flex;flex-direction:column;gap:2px"></div>
     </div>
   </div>
 
