@@ -89,6 +89,13 @@
     .mapa-calor-legenda-ponto { width: 10px; height: 10px; border-radius: 3px; }
     .mapa-calor-mes-atual { font-weight: 800; text-transform: capitalize; }
     .mapa-calor-pico { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+    .saldo-mes-valores { display: flex; align-items: center; justify-content: space-around; gap: 16px; text-align: center; }
+    .saldo-mes-item .valor { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .saldo-mes-item .valor.negativo { color: var(--danger); }
+    .saldo-mes-item.destaque .valor { font-size: 26px; color: var(--accent); }
+    .saldo-mes-item.destaque .valor.negativo { color: var(--danger); }
+    .saldo-mes-item .rotulo { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; margin-top: 4px; }
   </style>
 </head>
 <body class="desktop-body">
@@ -115,6 +122,28 @@
         </div>
 
         <div class="board" id="board">
+          <div class="widget" data-widget-id="saldo-mes" style="--widget-cols:12">
+            <div class="widget-cabecalho">
+              <span class="widget-titulo">Saldo do mês</span>
+              <button type="button" class="widget-alca" aria-label="Reordenar">⠿</button>
+            </div>
+            <div class="saldo-mes-valores">
+              <div class="saldo-mes-item">
+                <div class="valor valor-sensivel" id="valor-inicial">R$ 0,00</div>
+                <div class="rotulo">Inicial</div>
+              </div>
+              <div class="saldo-mes-item destaque">
+                <div class="valor valor-sensivel" id="valor-atual">R$ 0,00</div>
+                <div class="rotulo">Saldo atual</div>
+              </div>
+              <div class="saldo-mes-item">
+                <div class="valor valor-sensivel" id="valor-previsto">R$ 0,00</div>
+                <div class="rotulo">Previsto</div>
+              </div>
+            </div>
+            <div class="widget-redimensionar" aria-hidden="true"></div>
+          </div>
+
           <div class="widget" data-widget-id="contas" style="--widget-cols:4">
             <div class="widget-cabecalho">
               <span class="widget-titulo">Contas</span>

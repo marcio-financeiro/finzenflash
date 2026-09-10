@@ -5,7 +5,7 @@ import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { inicializarBoard } from './board.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
-import { formatarMoeda } from '../currencyService.js';
+import { formatarMoeda, carregarCotacaoDolar, paraBRL } from '../currencyService.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtData = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -22,6 +22,8 @@ let mesRef = new Date();
 mesRef.setDate(1);
 let pendentesTipo = 'despesa';
 let idCategoriaFatura = null;
+let contasCache = [];
+let dolarAtual;
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -32,6 +34,12 @@ function escapeHtml(str) {
 function hojeISO() {
   const hoje = new Date();
   return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+function addDiasISO(dataISO, dias) {
+  const [y, m, d] = dataISO.split('-').map(Number);
+  const data = new Date(y, m - 1, d + dias);
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
 }
 
 function refMesString(data) {
@@ -625,13 +633,17 @@ async function abrirModalPendentes() {
 }
 
 async function recarregarSaldosELista() {
+  // carregarDadosDoMes() recalcula a timeline (Saldo Inicial/Atual/Previsto)
+  // a partir de contasCache — precisa rodar depois do saldo atualizado ser
+  // atribuído a contasCache, não em paralelo com o carregarContas() abaixo.
   const [contas, lancamentos] = await Promise.all([
     carregarContas(usuarioAtual.id),
     carregarLancamentos(usuarioAtual.id),
-    carregarDadosDoMes(),
   ]);
+  contasCache = contas;
   renderContas(contas);
   renderLancamentos(lancamentos);
+  await carregarDadosDoMes();
 }
 
 async function darBaixa(lancamento, btn, modalId = 'modal-pendentes') {
@@ -758,6 +770,83 @@ function renderMesLabel() {
   document.getElementById('mes-atual').textContent = fmtMesAno.format(mesRef).replace(/^\w/, (c) => c.toUpperCase());
 }
 
+// Busca as transações do intervalo que cobre o mês selecionado e hoje, e a
+// partir do saldo real de hoje projeta o saldo em qualquer outra data do
+// mês somando/subtraindo o fluxo (receitas - despesas) entre as duas datas.
+// Mesma lógica do mobile (js/home.js) — mantém os dois em sincronia.
+async function carregarTimeline(userId, contaIds, saldoAtualReal) {
+  const hoje = hojeISO();
+  const { inicio, fim } = limitesMes(mesRef);
+  const desde = inicio < hoje ? inicio : hoje;
+  const ate = fim > hoje ? fim : hoje;
+
+  let transacoes = [];
+  if (contaIds.length > 0) {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('type, amount, date, status')
+      .eq('user_id', userId)
+      .in('account_id', contaIds)
+      .gte('date', desde)
+      .lte('date', ate);
+    if (error) throw error;
+    transacoes = data ?? [];
+  }
+
+  function fluxoRealizado(de, ateData) {
+    if (de > ateData) return 0;
+    return transacoes
+      .filter((t) => t.status === 'pago' && t.date >= de && t.date <= ateData)
+      .reduce((soma, t) => soma + (t.type === 'receita' ? Number(t.amount) : -Number(t.amount)), 0);
+  }
+
+  function fluxoPendente(de, ateData) {
+    if (de > ateData) return 0;
+    return transacoes
+      .filter((t) => t.status === 'pendente' && t.date >= de && t.date <= ateData)
+      .reduce((soma, t) => soma + (t.type === 'receita' ? Number(t.amount) : -Number(t.amount)), 0);
+  }
+
+  function saldoNoFimDoDia(dataISO) {
+    if (dataISO >= hoje) return saldoAtualReal + fluxoPendente(addDiasISO(hoje, 1), dataISO);
+    const limiteSuperior = fim > hoje ? fim : hoje;
+    return saldoAtualReal - fluxoRealizado(addDiasISO(dataISO, 1), limiteSuperior);
+  }
+
+  const diaAntesInicio = addDiasISO(inicio, -1);
+  const inicial = saldoNoFimDoDia(diaAntesInicio);
+  const pontoAtual = hoje < inicio ? diaAntesInicio : hoje > fim ? fim : hoje;
+  const atual = saldoNoFimDoDia(pontoAtual);
+  const previsto = saldoNoFimDoDia(fim);
+
+  return { inicial, atual, previsto };
+}
+
+function renderTimeline({ inicial, atual, previsto }) {
+  const elInicial = document.getElementById('valor-inicial');
+  const elAtual = document.getElementById('valor-atual');
+  const elPrevisto = document.getElementById('valor-previsto');
+  if (!elInicial || !elAtual || !elPrevisto) return;
+
+  elInicial.textContent = fmt.format(inicial);
+  elAtual.textContent = fmt.format(atual);
+  elPrevisto.textContent = fmt.format(previsto);
+
+  elInicial.classList.toggle('negativo', inicial < 0);
+  elAtual.classList.toggle('negativo', atual < 0);
+  elPrevisto.classList.toggle('negativo', previsto < 0);
+}
+
+async function recarregarTimeline() {
+  try {
+    const saldoAtualReal = contasCache.reduce((soma, c) => soma + paraBRL(c.saldo_atual, c.currency, dolarAtual), 0);
+    const timeline = await carregarTimeline(usuarioAtual.id, contasCache.map((c) => c.id), saldoAtualReal);
+    renderTimeline(timeline);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 async function carregarDadosDoMes() {
   const { inicio, fim } = limitesMes(mesRef);
   const mesAnterior = new Date(mesRef.getFullYear(), mesRef.getMonth() - 1, 1);
@@ -772,6 +861,7 @@ async function carregarDadosDoMes() {
     carregarMetas(usuarioAtual.id, refMesAtual),
     carregarMapaCalor(usuarioAtual.id, inicio, fim),
     carregarPendentes(usuarioAtual.id, pendentesTipo, inicio, fim),
+    recarregarTimeline(),
   ]);
 
   renderRanking(ranking);
@@ -809,13 +899,16 @@ async function iniciar() {
   // da outra pra montar sua própria query) — rodar em paralelo em vez de
   // esperar as categorias antes de sequer começar a buscar contas/cartões/
   // lançamentos cortava um estágio inteiro de rede do carregamento inicial.
-  const [categoriasDespesa, contas, cartoes, lancamentos] = await Promise.all([
+  const [categoriasDespesa, contas, cartoes, lancamentos, dolar] = await Promise.all([
     carregarCategoriasDespesa(user.id).catch(() => []),
     carregarContas(user.id),
     carregarCartoesResumo(user.id),
     carregarLancamentos(user.id),
+    carregarCotacaoDolar(supabase, user.id),
   ]);
   idCategoriaFatura = categoriasDespesa.find((c) => c.nome === 'Fatura de Cartão')?.id ?? null;
+  contasCache = contas;
+  dolarAtual = dolar;
 
   renderContas(contas);
   renderCartoes(cartoes);
