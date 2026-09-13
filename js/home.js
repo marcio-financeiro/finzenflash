@@ -908,8 +908,14 @@ async function carregarMapaCalor(userId, inicio, fim, idCategoriaFatura) {
   const primeiroDiaSemana = new Date(ano, mes - 1, 1).getDay();
   const maior = Math.max(0, ...porDia.values());
   const maiorPendente = Math.max(0, ...porDiaPendente.values());
+  // Pico considera pago + pendente do dia — se olhasse só o pago, um dia
+  // com bastante pendência (ex: fatura ainda aberta) podia bater mais que
+  // o "pico" mostrado, o que não bate com o total que o Extrato lista
+  // pra aquele dia.
+  const todosOsDias = new Set([...porDia.keys(), ...porDiaPendente.keys()]);
   let pico = null;
-  for (const [dia, valor] of porDia) {
+  for (const dia of todosOsDias) {
+    const valor = (porDia.get(dia) ?? 0) + (porDiaPendente.get(dia) ?? 0);
     if (!pico || valor > pico.valor) pico = { dia, valor };
   }
 
@@ -1294,18 +1300,15 @@ function renderConteudoMapaCalor({ ano, mes, totalDias, primeiroDiaSemana, porDi
   for (let dia = 1; dia <= totalDias; dia++) {
     const valor = porDia.get(dia) ?? 0;
     const valorPendente = porDiaPendente?.get(dia) ?? 0;
+    // A cor indica se o dia tem gasto já pago (vermelho) ou só pendente
+    // (âmbar), mas o número mostrado soma os dois — senão um dia com as
+    // duas coisas ao mesmo tempo mostrava só uma parte do total real.
     let cor;
-    let textoValor;
-    if (valor > 0) {
-      cor = corIntensidade(valor / maior);
-      textoValor = formatCompacto(valor);
-    } else if (valorPendente > 0) {
-      cor = corIntensidadePendente(valorPendente / maiorPendente);
-      textoValor = formatCompacto(valorPendente);
-    } else {
-      cor = 'var(--surface-2)';
-      textoValor = '';
-    }
+    if (valor > 0) cor = corIntensidade(valor / maior);
+    else if (valorPendente > 0) cor = corIntensidadePendente(valorPendente / maiorPendente);
+    else cor = 'var(--surface-2)';
+    const total = valor + valorPendente;
+    const textoValor = total > 0 ? formatCompacto(total) : '';
     const dataISO = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
     dias.push(`
       <div class="mapa-calor-dia" data-dia="${dataISO}" style="background:${cor}">
