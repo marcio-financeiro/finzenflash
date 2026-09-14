@@ -9,6 +9,7 @@ let contas = [];
 let categorias = [];
 let lancamentoOriginal = null;
 let descricoesRecentes = [];
+let jaPagoTocadoManualmente = false;
 
 function hojeISO() {
   const hoje = new Date();
@@ -77,7 +78,17 @@ function selecionarTipo(novoTipo) {
   document.getElementById('valor').classList.toggle('cor-receita', tipo === 'receita');
   document.getElementById('sheet-valor-display').classList.toggle('cor-despesa', tipo === 'despesa');
   document.getElementById('sheet-valor-display').classList.toggle('cor-receita', tipo === 'receita');
+  document.getElementById('rotulo-ja-pago').textContent = tipo === 'despesa' ? 'Já paguei' : 'Já recebi';
   renderCategorias();
+}
+
+// Padrão: marcado quando a data é hoje/passado, desmarcado quando é futura —
+// mas só enquanto o usuário não mexeu no toggle manualmente (uma conta com
+// vencimento hoje pode ainda não ter sido paga de fato).
+function atualizarPadraoJaPago() {
+  if (jaPagoTocadoManualmente) return;
+  const dataEscolhida = document.getElementById('data').value || hojeISO();
+  document.getElementById('chk-ja-pago').checked = dataEscolhida <= hojeISO();
 }
 
 function escapeHtml(str) {
@@ -296,8 +307,10 @@ async function salvar(user) {
     date: dataEscolhida,
     // Data futura = conta que ainda não venceu: fica pendente até ser paga.
     // Sem isso o banco usa o default 'confirmado', que não é nem 'pago'
-    // nem 'pendente' — some do Mapa de calor, Metas e Pendências.
-    status: dataEscolhida > hojeISO() ? 'pendente' : 'pago',
+    // nem 'pendente' — some do Mapa de calor, Metas e Pendências. O toggle
+    // "já paguei/recebi" deixa o usuário desmarcar mesmo com data <= hoje
+    // (ex: conta vencendo hoje que ainda não foi debitada).
+    status: document.getElementById('chk-ja-pago').checked ? 'pago' : 'pendente',
   };
 
   // O cron diário do FinZen (api/recurring-cron.js) gera as ocorrências
@@ -341,6 +354,10 @@ async function init() {
     document.getElementById('opcoes-recorrencia').hidden = !e.target.checked;
   });
   document.getElementById('descricao').addEventListener('blur', aplicarSugestaoDescricao);
+  document.getElementById('data').addEventListener('change', atualizarPadraoJaPago);
+  document.getElementById('chk-ja-pago').addEventListener('change', () => {
+    jaPagoTocadoManualmente = true;
+  });
 
   getDescricoesRecentes(supabase, user.id).then((lista) => {
     descricoesRecentes = lista;
@@ -350,8 +367,11 @@ async function init() {
   const idUrl = new URLSearchParams(window.location.search).get('id');
   if (idUrl) {
     // Editar uma ocorrência específica não deveria virar um novo "modelo"
-    // de recorrência — some com a opção nesse caso.
+    // de recorrência — some com a opção nesse caso. O status (pago/pendente)
+    // de um lançamento existente se muda por "dar baixa"/"desfazer baixa",
+    // não por aqui — some o toggle também.
     document.getElementById('secao-recorrencia').hidden = true;
+    document.getElementById('secao-ja-pago').hidden = true;
     const { data, error } = await supabase
       .from('transactions')
       .select('id, account_id, category_id, type, amount, description, date, status, is_recurring, recurrence_group_id')
@@ -375,6 +395,7 @@ async function init() {
   }
 
   selecionarTipo(lancamentoOriginal?.type ?? 'despesa');
+  atualizarPadraoJaPago();
 
   try {
     await carregarContasECategorias(user.id);

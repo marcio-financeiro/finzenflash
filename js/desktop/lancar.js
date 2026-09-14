@@ -12,6 +12,7 @@ let contas = [];
 let categorias = [];
 let lancamentoOriginal = null;
 let descricoesRecentes = [];
+let jaPagoTocadoManualmente = false;
 
 function hojeISO() {
   const hoje = new Date();
@@ -69,7 +70,14 @@ function selecionarTipo(novoTipo) {
   document.getElementById('btn-receita').classList.toggle('ativo-receita', tipo === 'receita');
   document.getElementById('valor').classList.toggle('cor-despesa', tipo === 'despesa');
   document.getElementById('valor').classList.toggle('cor-receita', tipo === 'receita');
+  document.getElementById('rotulo-ja-pago').textContent = tipo === 'despesa' ? 'Já paguei' : 'Já recebi';
   renderCategorias();
+}
+
+function atualizarPadraoJaPago() {
+  if (jaPagoTocadoManualmente) return;
+  const dataEscolhida = document.getElementById('data').value || hojeISO();
+  document.getElementById('chk-ja-pago').checked = dataEscolhida <= hojeISO();
 }
 
 function renderContas() {
@@ -290,7 +298,7 @@ async function salvar(user) {
     amount: valor,
     description: descricao,
     date: dataEscolhida,
-    status: dataEscolhida > hojeISO() ? 'pendente' : 'pago',
+    status: document.getElementById('chk-ja-pago').checked ? 'pago' : 'pendente',
   };
 
   if (document.getElementById('chk-recorrente')?.checked) {
@@ -332,6 +340,10 @@ async function iniciar() {
     document.getElementById('opcoes-recorrencia').hidden = !e.target.checked;
   });
   document.getElementById('descricao').addEventListener('blur', aplicarSugestaoDescricao);
+  document.getElementById('data').addEventListener('change', atualizarPadraoJaPago);
+  document.getElementById('chk-ja-pago').addEventListener('change', () => {
+    jaPagoTocadoManualmente = true;
+  });
 
   getDescricoesRecentes(supabase, user.id).then((lista) => {
     descricoesRecentes = lista;
@@ -341,6 +353,7 @@ async function iniciar() {
   const idUrl = new URLSearchParams(window.location.search).get('id');
   if (idUrl) {
     document.getElementById('secao-recorrencia').hidden = true;
+    document.getElementById('secao-ja-pago').hidden = true;
     const { data, error } = await supabase
       .from('transactions')
       .select('id, account_id, category_id, type, amount, description, date, status, is_recurring, recurrence_group_id')
@@ -364,6 +377,7 @@ async function iniciar() {
   }
 
   selecionarTipo(lancamentoOriginal?.type ?? 'despesa');
+  atualizarPadraoJaPago();
 
   try {
     await carregarContasECategorias(user.id);

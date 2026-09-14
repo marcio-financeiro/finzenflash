@@ -52,7 +52,7 @@ export default async function handler(req, res) {
     messages.push({ role: 'user', content: prompt });
 
     const requestBody = {
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       max_tokens: 1024,
       stream: true,
       messages,

@@ -4,6 +4,7 @@ import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { attachValorMask } from './utils/valorMask.js';
+import { mostrarToast } from './utils/toast.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDataCurta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -202,7 +203,7 @@ function confirmarExclusaoCiclo(ciclo) {
     btn.disabled = true;
     btn.textContent = 'Excluindo...';
     const { error } = await supabase.from('offshore_cycles').delete().eq('id', ciclo.id).eq('user_id', usuarioAtual.id);
-    if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+    if (error) { mostrarToast('Não foi possível excluir. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Excluir'; return; }
     document.getElementById('sheet-acao-ciclo').hidden = true;
     await Promise.all([carregarCiclos(usuarioAtual.id), carregarHE(usuarioAtual.id)]);
     renderTudo();
@@ -314,7 +315,7 @@ function confirmarExclusaoHE(he) {
     btn.disabled = true;
     btn.textContent = 'Excluindo...';
     const { error } = await supabase.from('offshore_overtime').delete().eq('id', he.id).eq('user_id', usuarioAtual.id);
-    if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+    if (error) { mostrarToast('Não foi possível excluir. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Excluir'; return; }
     document.getElementById('sheet-acao-he').hidden = true;
     await carregarHE(usuarioAtual.id);
     renderTudo();
@@ -456,7 +457,7 @@ function confirmarExclusaoCurso(curso) {
     btn.disabled = true;
     btn.textContent = 'Excluindo...';
     const { error } = await supabase.from('certifications').delete().eq('id', curso.id).eq('user_id', usuarioAtual.id);
-    if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+    if (error) { mostrarToast('Não foi possível excluir. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Excluir'; return; }
     document.getElementById('sheet-acao-curso').hidden = true;
     await carregarCursos(usuarioAtual.id);
     renderTudo();

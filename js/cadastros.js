@@ -4,6 +4,7 @@ import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { attachValorMask } from './utils/valorMask.js';
 import { formatarMoeda } from './currencyService.js';
+import { mostrarToast } from './utils/toast.js';
 
 const CAMPOS_VALOR_POR_TIPO = {
   conta: ['f-saldo'],
@@ -422,6 +423,7 @@ async function excluirItem(tipo, item) {
   const tabela = { conta: 'accounts', cartao: 'credit_cards', categoria: 'categories', recorrente: 'transactions', orcamento: 'budgets' }[tipo];
   const { error } = await supabase.from(tabela).delete().eq('id', item.id).eq('user_id', usuarioAtual.id);
   if (error) {
+    mostrarToast('Não foi possível excluir. Tente novamente.', 'erro');
     btn.disabled = false;
     btn.textContent = 'Excluir';
     return;

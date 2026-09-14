@@ -6,6 +6,7 @@ import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
 import { attachValorMask } from '../utils/valorMask.js';
+import { mostrarToast } from '../utils/toast.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtPct = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2).replace('.', ',')}%`;
@@ -463,7 +464,7 @@ function confirmarExclusaoPosicao(ativo) {
     btn.disabled = true;
     btn.textContent = 'Removendo...';
     const { error } = await supabase.from('investments').update({ ativo: false }).eq('id', ativo.id).eq('user_id', usuarioAtual.id);
-    if (error) { btn.disabled = false; btn.textContent = 'Remover'; return; }
+    if (error) { mostrarToast('Não foi possível remover. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Remover'; return; }
     fecharModal('modal-acao-posicao');
     await carregarAtivos(usuarioAtual.id);
     await recarregarTudo();
@@ -599,7 +600,7 @@ function confirmarExclusaoProvento(dividendo) {
     btn.textContent = 'Excluindo...';
     await reverterEfeitoProvento(dividendo);
     const { error } = await supabase.from('dividends').delete().eq('id', dividendo.id).eq('user_id', usuarioAtual.id);
-    if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+    if (error) { mostrarToast('Não foi possível excluir. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Excluir'; return; }
     fecharModal('modal-acao-provento');
     await Promise.all([carregarDividendos(usuarioAtual.id), carregarTodasContas(usuarioAtual.id), carregarContas(usuarioAtual.id)]);
     renderProventosMiniKpis(calcularKpisProventos());

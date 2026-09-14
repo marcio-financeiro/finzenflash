@@ -5,6 +5,7 @@ import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
 import { attachValorMask } from '../utils/valorMask.js';
 import { formatarMoeda } from '../currencyService.js';
+import { mostrarToast } from '../utils/toast.js';
 
 const CAMPOS_VALOR_POR_TIPO = {
   conta: ['f-saldo'],
@@ -357,7 +358,7 @@ async function excluirItem(tipo, item) {
   btn.textContent = 'Excluindo...';
   const tabela = { conta: 'accounts', cartao: 'credit_cards', categoria: 'categories', recorrente: 'transactions', orcamento: 'budgets' }[tipo];
   const { error } = await supabase.from(tabela).delete().eq('id', item.id).eq('user_id', usuarioAtual.id);
-  if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+  if (error) { mostrarToast('Não foi possível excluir. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Excluir'; return; }
   fecharModal('modal-acoes');
   if (tipo === 'orcamento') { await recarregarOrcamentos(); return; }
   await recarregarTudo();

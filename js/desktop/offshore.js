@@ -4,6 +4,7 @@ import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
 import { attachValorMask } from '../utils/valorMask.js';
+import { mostrarToast } from '../utils/toast.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDataCurta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -192,7 +193,7 @@ function confirmarExclusaoCiclo(ciclo) {
     btn.disabled = true;
     btn.textContent = 'Excluindo...';
     const { error } = await supabase.from('offshore_cycles').delete().eq('id', ciclo.id).eq('user_id', usuarioAtual.id);
-    if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+    if (error) { mostrarToast('Não foi possível excluir. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Excluir'; return; }
     fecharModal('modal-acao-ciclo');
     await Promise.all([carregarCiclos(usuarioAtual.id), carregarHE(usuarioAtual.id)]);
     renderTudo();
@@ -301,7 +302,7 @@ function confirmarExclusaoHE(he) {
     btn.disabled = true;
     btn.textContent = 'Excluindo...';
     const { error } = await supabase.from('offshore_overtime').delete().eq('id', he.id).eq('user_id', usuarioAtual.id);
-    if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+    if (error) { mostrarToast('Não foi possível excluir. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Excluir'; return; }
     fecharModal('modal-acao-he');
     await carregarHE(usuarioAtual.id);
     renderTudo();
@@ -434,7 +435,7 @@ function confirmarExclusaoCurso(curso) {
     btn.disabled = true;
     btn.textContent = 'Excluindo...';
     const { error } = await supabase.from('certifications').delete().eq('id', curso.id).eq('user_id', usuarioAtual.id);
-    if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+    if (error) { mostrarToast('Não foi possível excluir. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Excluir'; return; }
     fecharModal('modal-acao-curso');
     await carregarCursos(usuarioAtual.id);
     renderTudo();

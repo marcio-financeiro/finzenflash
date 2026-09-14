@@ -224,6 +224,16 @@
         <div class="chips" id="lista-contas-destino"></div>
       </div>
 
+      <div id="secao-cambio" hidden>
+        <div class="campo-rotulo">COTAÇÃO (R$ POR US$)</div>
+        <input id="cambio-cotacao" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Ex: 5,20">
+      </div>
+
+      <div>
+        <div class="campo-rotulo">DATA</div>
+        <input id="data" type="date">
+      </div>
+
       <div>
         <div class="campo-rotulo">DESCRIÇÃO (OPCIONAL)</div>
         <input id="descricao" type="text" placeholder="Ex: reserva de emergência">
@@ -275,6 +285,6 @@
     </div>
   </div>
 
-  <script type="module" src="../js/transferir.js?v=6"></script>
+  <script type="module" src="../js/transferir.js?v=7"></script>
 </body>
 </html>

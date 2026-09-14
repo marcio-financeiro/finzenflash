@@ -1,6 +1,8 @@
 import { supabase, requireAuth } from './supabaseClient.js';
 import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
+import { getCotacoes } from './quoteCache.js';
+import { mostrarToast } from './utils/toast.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtData = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -10,15 +12,42 @@ let contaOrigem = null;
 let contaDestino = null;
 let usuarioAtual = null;
 
+function hojeISO() {
+  const hoje = new Date();
+  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str ?? '';
   return div.innerHTML;
 }
 
+function moedaOrigem() {
+  return contas.find((c) => c.id === contaOrigem)?.currency || 'BRL';
+}
+
 function formatarValorDigitado(valorCentavos) {
   const reais = valorCentavos / 100;
-  return reais.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return reais.toLocaleString('pt-BR', { style: 'currency', currency: moedaOrigem() });
+}
+
+function precisaCambio() {
+  const origem = contas.find((c) => c.id === contaOrigem);
+  const destino = contas.find((c) => c.id === contaDestino);
+  return Boolean(origem && destino && origem.currency !== destino.currency);
+}
+
+async function atualizarSecaoCambio() {
+  const secao = document.getElementById('secao-cambio');
+  const ativo = precisaCambio();
+  secao.hidden = !ativo;
+  if (ativo && !document.getElementById('cambio-cotacao').value) {
+    try {
+      const cots = await getCotacoes([], true, false);
+      if (cots['USD-BRL']) document.getElementById('cambio-cotacao').value = cots['USD-BRL'];
+    } catch (_) {}
+  }
 }
 
 function valorEmReais() {
@@ -75,6 +104,9 @@ function renderContasOrigem() {
       if (contaDestino === contaOrigem) contaDestino = null;
       renderContasOrigem();
       renderContasDestino();
+      atualizarSecaoCambio();
+      const centavosAtuais = document.getElementById('valor')?.dataset.centavos;
+      if (centavosAtuais !== undefined) atualizarDisplaysValor(centavosAtuais);
     });
   });
 }
@@ -85,10 +117,9 @@ function renderContasDestino() {
   container.innerHTML = contas.map((c) => {
     const mesmaConta = c.id === contaOrigem;
     const moedaDiferente = origem && c.currency !== origem.currency;
-    const desabilitada = mesmaConta || moedaDiferente;
     return `
-      <button type="button" class="chip-conta ${c.id === contaDestino ? 'selecionada' : ''}" data-id="${c.id}" ${desabilitada ? 'disabled' : ''}>
-        ${escapeHtml(c.nome)}
+      <button type="button" class="chip-conta ${c.id === contaDestino ? 'selecionada' : ''}" data-id="${c.id}" ${mesmaConta ? 'disabled' : ''}>
+        ${escapeHtml(c.nome)}${moedaDiferente ? ' 💱' : ''}
       </button>
     `;
   }).join('');
@@ -96,6 +127,7 @@ function renderContasDestino() {
     btn.addEventListener('click', () => {
       contaDestino = btn.dataset.id;
       renderContasDestino();
+      atualizarSecaoCambio();
     });
   });
 }
@@ -194,6 +226,7 @@ async function excluirTransferencia(transferencia) {
   const { error } = await supabase.rpc('delete_account_transfer', { p_transfer_id: transferencia.id });
 
   if (error) {
+    mostrarToast('Não foi possível excluir. Tente novamente.', 'erro');
     btn.disabled = false;
     btn.textContent = 'Excluir transferência';
     return;
@@ -221,21 +254,36 @@ async function salvar(user) {
     return;
   }
 
+  const cambio = precisaCambio();
+  const cotacao = Number(document.getElementById('cambio-cotacao').value);
+  if (cambio && (!cotacao || cotacao <= 0)) {
+    erroEl.textContent = 'Informe a cotação do câmbio.';
+    return;
+  }
+
   const btn = document.getElementById('btn-salvar');
   btn.disabled = true;
   btn.textContent = 'Transferindo...';
 
-  const hoje = new Date();
-  const dataISO = new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const dataISO = document.getElementById('data').value || hojeISO();
   const descricao = document.getElementById('descricao').value.trim();
 
-  const { error } = await supabase.rpc('create_account_transfer', {
-    p_from_account_id: contaOrigem,
-    p_to_account_id: contaDestino,
-    p_amount: valor,
-    p_date: dataISO,
-    p_description: descricao || null,
-  });
+  const { error } = cambio
+    ? await supabase.rpc('create_currency_exchange', {
+        p_from_account_id: contaOrigem,
+        p_to_account_id: contaDestino,
+        p_source_amount: valor,
+        p_exchange_rate: cotacao,
+        p_date: dataISO,
+        p_description: descricao || null,
+      })
+    : await supabase.rpc('create_account_transfer', {
+        p_from_account_id: contaOrigem,
+        p_to_account_id: contaDestino,
+        p_amount: valor,
+        p_date: dataISO,
+        p_description: descricao || null,
+      });
 
   if (error) {
     erroEl.textContent = error.message || 'Não foi possível transferir. Tente novamente.';
@@ -254,6 +302,7 @@ async function init() {
   usuarioAtual = user;
 
   configurarTecladoValor();
+  document.getElementById('data').value = hojeISO();
   document.getElementById('btn-salvar').addEventListener('click', () => salvar(user));
 
   document.getElementById('btn-historico').addEventListener('click', abrirSheetHistorico);
@@ -267,6 +316,7 @@ async function init() {
 
   try {
     await carregarContas(user.id);
+    await atualizarSecaoCambio();
   } catch (err) {
     console.error(err);
     document.getElementById('erro-transferir').textContent = 'Não foi possível carregar as contas.';
