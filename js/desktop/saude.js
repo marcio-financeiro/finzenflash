@@ -45,6 +45,7 @@ async function coletarDados(userId) {
     { data: cardTxAbertas },
     { data: budgets },
     dolarAtual,
+    { data: catFatura },
   ] = await Promise.all([
     supabase.from('accounts').select('saldo_atual, currency').eq('user_id', userId).eq('active', true).eq('account_kind', 'bank'),
     supabase.from('transactions').select('type,amount,date,category_id').eq('user_id', userId)
@@ -56,6 +57,7 @@ async function coletarDados(userId) {
     supabase.from('card_transactions').select('card_id,valor_parcela').eq('user_id', userId).eq('status', 'aberta'),
     supabase.from('budgets').select('category_id,valor_planejado').eq('user_id', userId).eq('mes_referencia', mesAtual),
     carregarCotacaoDolar(supabase, userId),
+    supabase.from('categories').select('id').eq('user_id', userId).eq('nome', 'Fatura de Cartão').maybeSingle(),
   ]);
 
   return {
@@ -67,14 +69,18 @@ async function coletarDados(userId) {
     cartoes: cartoes ?? [],
     cardTxAbertas: cardTxAbertas ?? [],
     budgets: budgets ?? [],
+    idCategoriaFatura: catFatura?.id ?? null,
   };
 }
 
 function calcularMetricas(dados) {
-  const { contas, txMes, cardTxMes, txHist, cartoes, cardTxAbertas, budgets, hoje, dolarAtual } = dados;
+  const { contas, txMes, cardTxMes, txHist, cartoes, cardTxAbertas, budgets, hoje, dolarAtual, idCategoriaFatura } = dados;
 
   const receitasMes = txMes.filter((t) => t.type === 'receita').reduce((s, t) => s + Number(t.amount || 0), 0);
-  const despesasTx = txMes.filter((t) => t.type === 'despesa').reduce((s, t) => s + Number(t.amount || 0), 0);
+  // Pagar a fatura gera uma transação despesa na categoria "Fatura de
+  // Cartão" — exclui ela daqui pra não contar a mesma compra duas vezes
+  // (uma via card_transactions, outra via essa transação de pagamento).
+  const despesasTx = txMes.filter((t) => t.type === 'despesa' && t.category_id !== idCategoriaFatura).reduce((s, t) => s + Number(t.amount || 0), 0);
   const despesasCard = cardTxMes.reduce((s, c) => s + Number(c.valor_parcela || 0), 0);
   const despesasMes = despesasTx + despesasCard;
 
@@ -95,7 +101,7 @@ function calcularMetricas(dados) {
   const dividas = { nome: 'Dívidas', nota: Math.round(clamp(100 - pctUso, 0, 100)), desc: cartoes.length ? `Uso do cartão em ${pctUso.toFixed(0)}% do limite.` : 'Sem cartões cadastrados.' };
 
   const gastosPorCategoria = {};
-  txMes.filter((t) => t.type === 'despesa').forEach((t) => { if (t.category_id) gastosPorCategoria[t.category_id] = (gastosPorCategoria[t.category_id] || 0) + Number(t.amount || 0); });
+  txMes.filter((t) => t.type === 'despesa' && t.category_id !== idCategoriaFatura).forEach((t) => { if (t.category_id) gastosPorCategoria[t.category_id] = (gastosPorCategoria[t.category_id] || 0) + Number(t.amount || 0); });
   cardTxMes.forEach((c) => { if (c.category_id) gastosPorCategoria[c.category_id] = (gastosPorCategoria[c.category_id] || 0) + Number(c.valor_parcela || 0); });
   const dentroDoLimite = budgets.filter((b) => (gastosPorCategoria[b.category_id] || 0) <= Number(b.valor_planejado || 0)).length;
   const orcamento = budgets.length > 0
