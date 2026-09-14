@@ -276,7 +276,11 @@ function renderContas(contas) {
 
   let lista = contas;
   if (destacar) {
-    const idxMaior = contas.reduce((maior, c, i, arr) => (Math.abs(c.saldo_atual) > Math.abs(arr[maior].saldo_atual) ? i : maior), 0);
+    // Compara em BRL (não o número bruto) — senão uma conta em USD podia
+    // "ganhar" o destaque por ter um número maior sem realmente valer
+    // mais em reais, ou perder pra uma conta BRL menor em reais.
+    const idxMaior = contas.reduce((maior, c, i, arr) =>
+      (Math.abs(paraBRL(c.saldo_atual, c.currency, dolarAtual)) > Math.abs(paraBRL(arr[maior].saldo_atual, arr[maior].currency, dolarAtual)) ? i : maior), 0);
     lista = [contas[idxMaior], ...contas.filter((_, i) => i !== idxMaior)];
   }
 
