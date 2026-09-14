@@ -98,6 +98,16 @@ function limitesMes(ref) {
   return { inicio: toISO(inicio), fim: toISO(fim) };
 }
 
+// Data em que uma fatura de referência `ref` (YYYY-MM) vence — clampa pro
+// último dia do mês se o dia de vencimento do cartão não existir nele
+// (ex: vencimento dia 31 num mês de 30 dias).
+function dataVencimentoFatura(ref, diaVencimento) {
+  const [ano, mes] = ref.split('-').map(Number);
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  const dia = Math.min(diaVencimento, ultimoDia);
+  return `${ref}-${String(dia).padStart(2, '0')}`;
+}
+
 // Busca as transações do intervalo que cobre o mês selecionado e hoje, e a
 // partir do saldo real de hoje projeta o saldo em qualquer outra data do
 // mês somando/subtraindo o fluxo (receitas - despesas) entre as duas datas.
@@ -118,6 +128,37 @@ async function carregarTimeline(userId, contaIds, saldoAtualReal) {
       .lte('date', ate);
     if (error) throw error;
     transacoes = data ?? [];
+  }
+
+  // Fatura de cartão ainda aberta (compra já feita, ainda não paga) só vira
+  // uma linha em transactions quando o usuário efetivamente paga — sem
+  // projetar ela aqui, o Saldo Previsto ficava otimista demais, ignorando
+  // compras que já sabemos que vão sair da conta no vencimento.
+  const { data: cartoes } = await supabase
+    .from('credit_cards')
+    .select('id, vencimento_dia')
+    .eq('user_id', userId)
+    .eq('ativo', true);
+
+  if (cartoes?.length) {
+    const { data: comprasAbertas } = await supabase
+      .from('card_transactions')
+      .select('valor_parcela, fatura_referencia, card_id')
+      .eq('user_id', userId)
+      .eq('status', 'aberta');
+
+    const cartaoPorId = new Map(cartoes.map((c) => [c.id, c]));
+    const porFatura = new Map();
+    for (const c of comprasAbertas ?? []) {
+      if (!cartaoPorId.has(c.card_id)) continue;
+      const chave = `${c.card_id}|${c.fatura_referencia}`;
+      porFatura.set(chave, (porFatura.get(chave) ?? 0) + Number(c.valor_parcela));
+    }
+    for (const [chave, total] of porFatura) {
+      const [cardId, ref] = chave.split('|');
+      const dataVencimento = dataVencimentoFatura(ref, cartaoPorId.get(cardId).vencimento_dia);
+      transacoes.push({ type: 'despesa', amount: total, date: dataVencimento, status: 'pendente' });
+    }
   }
 
   // Passado (antes de hoje): só o que já foi de fato pago afetou o saldo
