@@ -429,33 +429,19 @@ async function confirmarPagamento() {
   btn.textContent = 'Pagando...';
 
   try {
-    const ids = itensAbertos.map((c) => c.id);
-    const { error: erroFatura } = await supabase
-      .from('card_transactions')
-      .update({ status: 'paga' })
-      .in('id', ids)
-      .eq('user_id', usuarioAtual.id);
-    if (erroFatura) throw erroFatura;
-
     const categoryId = await obterCategoriaFatura(usuarioAtual.id);
-    const { error: erroTx } = await supabase.from('transactions').insert({
-      user_id: usuarioAtual.id,
-      account_id: contaId,
-      category_id: categoryId,
-      type: 'despesa',
-      amount: Number(total.toFixed(2)),
-      description: `Fatura ${cartao?.nome ?? ''} ${rotuloFatura(faturaRef)}`,
-      date: hojeISO(),
-      status: 'pago',
-      notes: 'Pagamento de fatura de cartão de crédito',
-    });
-    if (erroTx) throw erroTx;
 
-    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
+    // RPC atômica (marca parcelas pagas + insere a transação + desconta o
+    // saldo numa transação só do banco) — antes eram 3 chamadas separadas,
+    // e uma falha no meio deixava parcela "paga" sem transação no extrato.
+    const { error: erroPagar } = await supabase.rpc('fz_pagar_fatura', {
+      p_card_id: cartaoSelecionado,
+      p_fatura_referencia: faturaRef,
       p_account_id: contaId,
-      p_delta: -total,
+      p_category_id: categoryId,
+      p_descricao: `Fatura ${cartao?.nome ?? ''} ${rotuloFatura(faturaRef)}`,
     });
-    if (erroSaldo) throw erroSaldo;
+    if (erroPagar) throw erroPagar;
 
     document.getElementById('sheet-pagar').hidden = true;
     await recarregar();
@@ -481,57 +467,76 @@ function abrirSheetReabrirFatura() {
   document.getElementById('sheet-compra').hidden = false;
 }
 
+// Fatura paga ANTES desta RPC existir tem a transação de pagamento com a
+// descrição antiga (sem a chave estável que fz_reabrir_fatura procura) —
+// esse fallback reabre pelo jeito manual de antes, só pra esses casos.
+async function reabrirFaturaManual() {
+  const cartao = cartaoAtual();
+  const descricaoPagamento = `Fatura ${cartao?.nome ?? ''} ${rotuloFatura(faturaRef)}`;
+
+  const { data: pagamentos, error: erroBusca } = await supabase
+    .from('transactions')
+    .select('id, amount, account_id')
+    .eq('user_id', usuarioAtual.id)
+    .eq('category_id', idCategoriaFatura)
+    .eq('description', descricaoPagamento)
+    .order('date', { ascending: false })
+    .limit(1);
+  if (erroBusca) throw erroBusca;
+
+  const pagamento = (pagamentos ?? [])[0];
+  if (!pagamento) return false;
+
+  const { error: erroFatura } = await supabase
+    .from('card_transactions')
+    .update({ status: 'aberta' })
+    .eq('card_id', cartaoSelecionado)
+    .eq('fatura_referencia', faturaRef)
+    .eq('status', 'paga')
+    .eq('user_id', usuarioAtual.id);
+  if (erroFatura) throw erroFatura;
+
+  const { error: erroDelete } = await supabase
+    .from('transactions')
+    .delete()
+    .eq('id', pagamento.id)
+    .eq('user_id', usuarioAtual.id);
+  if (erroDelete) throw erroDelete;
+
+  const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
+    p_account_id: pagamento.account_id,
+    p_delta: Number(pagamento.amount),
+  });
+  if (erroSaldo) throw erroSaldo;
+  return true;
+}
+
 async function reabrirFatura() {
   const btn = document.getElementById('btn-confirmar-reabrir-fatura');
   btn.disabled = true;
   btn.textContent = 'Reabrindo...';
 
   try {
-    const cartao = cartaoAtual();
-    const descricaoPagamento = `Fatura ${cartao?.nome ?? ''} ${rotuloFatura(faturaRef)}`;
-
-    const { data: pagamentos, error: erroBusca } = await supabase
-      .from('transactions')
-      .select('id, amount, account_id')
-      .eq('user_id', usuarioAtual.id)
-      .eq('category_id', idCategoriaFatura)
-      .eq('description', descricaoPagamento)
-      .order('date', { ascending: false })
-      .limit(1);
-    if (erroBusca) throw erroBusca;
-
-    const pagamento = (pagamentos ?? [])[0];
-    if (!pagamento) {
-      document.getElementById('sheet-compra-conteudo').innerHTML = `
-        <div class="sheet-titulo">Não foi possível localizar o pagamento</div>
-        <div class="sheet-aviso">Não encontramos a transação desse pagamento no extrato — a fatura não foi reaberta.</div>
-        <button type="button" class="sheet-acao-btn" id="btn-fechar-sheet-compra">Fechar</button>
-      `;
-      document.getElementById('btn-fechar-sheet-compra').addEventListener('click', fecharSheetCompra);
-      return;
-    }
-
-    const { error: erroFatura } = await supabase
-      .from('card_transactions')
-      .update({ status: 'aberta' })
-      .eq('card_id', cartaoSelecionado)
-      .eq('fatura_referencia', faturaRef)
-      .eq('status', 'paga')
-      .eq('user_id', usuarioAtual.id);
-    if (erroFatura) throw erroFatura;
-
-    const { error: erroDelete } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('id', pagamento.id)
-      .eq('user_id', usuarioAtual.id);
-    if (erroDelete) throw erroDelete;
-
-    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
-      p_account_id: pagamento.account_id,
-      p_delta: Number(pagamento.amount),
+    // RPC atômica (reabre parcelas + apaga a transação + devolve o saldo
+    // numa transação só do banco). Se a fatura foi paga antes dessa RPC
+    // existir, ela não acha a transação pela chave nova — cai no fallback.
+    const { error: erroRpc } = await supabase.rpc('fz_reabrir_fatura', {
+      p_card_id: cartaoSelecionado,
+      p_fatura_referencia: faturaRef,
     });
-    if (erroSaldo) throw erroSaldo;
+
+    if (erroRpc) {
+      const achou = await reabrirFaturaManual();
+      if (!achou) {
+        document.getElementById('sheet-compra-conteudo').innerHTML = `
+          <div class="sheet-titulo">Não foi possível localizar o pagamento</div>
+          <div class="sheet-aviso">Não encontramos a transação desse pagamento no extrato — a fatura não foi reaberta.</div>
+          <button type="button" class="sheet-acao-btn" id="btn-fechar-sheet-compra">Fechar</button>
+        `;
+        document.getElementById('btn-fechar-sheet-compra').addEventListener('click', fecharSheetCompra);
+        return;
+      }
+    }
 
     fecharSheetCompra();
     await recarregar();
