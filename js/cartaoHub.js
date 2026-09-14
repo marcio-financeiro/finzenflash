@@ -17,6 +17,7 @@ let comprasCache = [];
 let contasBancarias = [];
 let usuarioAtual = null;
 let chartTendencia = null;
+let idCategoriaFatura = null;
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -310,8 +311,10 @@ function renderResumo(totalFatura, limiteUsado) {
 
 function renderBotaoPagar() {
   const temAberto = comprasCache.some((c) => c.status === 'aberta');
+  const faturaPaga = !temAberto && comprasCache.length > 0;
   document.getElementById('btn-pagar-fatura').hidden = !temAberto;
-  document.getElementById('fatura-paga-aviso').hidden = temAberto || comprasCache.length === 0;
+  document.getElementById('fatura-paga-aviso').hidden = !faturaPaga;
+  document.getElementById('btn-reabrir-fatura').hidden = !faturaPaga;
 }
 
 async function carregarTendenciaFatura() {
@@ -465,6 +468,87 @@ async function confirmarPagamento() {
   }
 }
 
+function abrirSheetReabrirFatura() {
+  const conteudo = document.getElementById('sheet-compra-conteudo');
+  conteudo.innerHTML = `
+    <div class="sheet-titulo">Reabrir fatura?</div>
+    <div class="sheet-aviso">Isso desfaz o pagamento: as parcelas voltam a ficar em aberto, a transação de pagamento é removida do extrato e o valor volta para a conta usada no pagamento.</div>
+    <button type="button" class="sheet-acao-btn perigo" id="btn-confirmar-reabrir-fatura">Reabrir fatura</button>
+    <button type="button" class="sheet-acao-btn" id="btn-cancelar-sheet-compra">Cancelar</button>
+  `;
+  document.getElementById('btn-confirmar-reabrir-fatura').addEventListener('click', reabrirFatura);
+  document.getElementById('btn-cancelar-sheet-compra').addEventListener('click', fecharSheetCompra);
+  document.getElementById('sheet-compra').hidden = false;
+}
+
+async function reabrirFatura() {
+  const btn = document.getElementById('btn-confirmar-reabrir-fatura');
+  btn.disabled = true;
+  btn.textContent = 'Reabrindo...';
+
+  try {
+    const cartao = cartaoAtual();
+    const descricaoPagamento = `Fatura ${cartao?.nome ?? ''} ${rotuloFatura(faturaRef)}`;
+
+    const { data: pagamentos, error: erroBusca } = await supabase
+      .from('transactions')
+      .select('id, amount, account_id')
+      .eq('user_id', usuarioAtual.id)
+      .eq('category_id', idCategoriaFatura)
+      .eq('description', descricaoPagamento)
+      .order('date', { ascending: false })
+      .limit(1);
+    if (erroBusca) throw erroBusca;
+
+    const pagamento = (pagamentos ?? [])[0];
+    if (!pagamento) {
+      document.getElementById('sheet-compra-conteudo').innerHTML = `
+        <div class="sheet-titulo">Não foi possível localizar o pagamento</div>
+        <div class="sheet-aviso">Não encontramos a transação desse pagamento no extrato — a fatura não foi reaberta.</div>
+        <button type="button" class="sheet-acao-btn" id="btn-fechar-sheet-compra">Fechar</button>
+      `;
+      document.getElementById('btn-fechar-sheet-compra').addEventListener('click', fecharSheetCompra);
+      return;
+    }
+
+    const { error: erroFatura } = await supabase
+      .from('card_transactions')
+      .update({ status: 'aberta' })
+      .eq('card_id', cartaoSelecionado)
+      .eq('fatura_referencia', faturaRef)
+      .eq('status', 'paga')
+      .eq('user_id', usuarioAtual.id);
+    if (erroFatura) throw erroFatura;
+
+    const { error: erroDelete } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('id', pagamento.id)
+      .eq('user_id', usuarioAtual.id);
+    if (erroDelete) throw erroDelete;
+
+    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
+      p_account_id: pagamento.account_id,
+      p_delta: Number(pagamento.amount),
+    });
+    if (erroSaldo) throw erroSaldo;
+
+    fecharSheetCompra();
+    await recarregar();
+  } catch (err) {
+    console.error(err);
+    document.getElementById('sheet-compra-conteudo').innerHTML = `
+      <div class="sheet-titulo">Não foi possível reabrir a fatura</div>
+      <div class="sheet-aviso">Tente novamente em instantes.</div>
+      <button type="button" class="sheet-acao-btn" id="btn-fechar-sheet-compra">Fechar</button>
+    `;
+    document.getElementById('btn-fechar-sheet-compra').addEventListener('click', fecharSheetCompra);
+  } finally {
+    const btnConfirmar = document.getElementById('btn-confirmar-reabrir-fatura');
+    if (btnConfirmar) { btnConfirmar.disabled = false; btnConfirmar.textContent = 'Reabrir fatura'; }
+  }
+}
+
 async function init() {
   aplicarTemaSalvo();
   montarNavInferior('cartao');
@@ -491,6 +575,7 @@ async function init() {
 
   document.getElementById('btn-pagar-fatura').addEventListener('click', abrirSheetPagar);
   document.getElementById('btn-confirmar-pagamento').addEventListener('click', confirmarPagamento);
+  document.getElementById('btn-reabrir-fatura').addEventListener('click', abrirSheetReabrirFatura);
   const sheetPagar = document.getElementById('sheet-pagar');
   sheetPagar.addEventListener('click', (e) => { if (e.target === sheetPagar) sheetPagar.hidden = true; });
   ativarArrastarParaFechar(sheetPagar);
@@ -501,6 +586,13 @@ async function init() {
 
   try {
     contasBancarias = await carregarContasBancarias(user.id);
+  } catch (err) {
+    console.error(err);
+  }
+
+  try {
+    const { data: catFatura } = await supabase.from('categories').select('id').eq('user_id', user.id).eq('nome', 'Fatura de Cartão').maybeSingle();
+    idCategoriaFatura = catFatura?.id ?? null;
   } catch (err) {
     console.error(err);
   }

@@ -17,6 +17,7 @@ let comprasCache = [];
 let contasBancarias = [];
 let usuarioAtual = null;
 let chartTendencia = null;
+let idCategoriaFatura = null;
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -264,8 +265,10 @@ function renderResumo(totalFatura, limiteUsado) {
 
 function renderBotaoPagar() {
   const temAberto = comprasCache.some((c) => c.status === 'aberta');
+  const faturaPaga = !temAberto && comprasCache.length > 0;
   document.getElementById('btn-pagar-fatura').hidden = !temAberto;
-  document.getElementById('fatura-paga-aviso').hidden = temAberto || comprasCache.length === 0;
+  document.getElementById('fatura-paga-aviso').hidden = !faturaPaga;
+  document.getElementById('btn-reabrir-fatura').hidden = !faturaPaga;
 }
 
 async function carregarTendenciaFatura() {
@@ -420,6 +423,81 @@ async function confirmarPagamento() {
   }
 }
 
+function abrirModalReabrirFatura() {
+  const conteudo = document.getElementById('modal-compra-conteudo');
+  conteudo.innerHTML = `
+    <div class="modal-titulo">Reabrir fatura?</div>
+    <p style="color:var(--muted);font-size:13px">Isso desfaz o pagamento: as parcelas voltam a ficar em aberto, a transação de pagamento é removida do extrato e o valor volta para a conta usada no pagamento.</p>
+    <button type="button" class="btn-desktop perigo" id="btn-confirmar-reabrir-fatura" style="margin-top:10px">Reabrir fatura</button>
+  `;
+  document.getElementById('btn-confirmar-reabrir-fatura').addEventListener('click', reabrirFatura);
+  abrirModal('modal-compra');
+}
+
+async function reabrirFatura() {
+  const btn = document.getElementById('btn-confirmar-reabrir-fatura');
+  btn.disabled = true;
+  btn.textContent = 'Reabrindo...';
+
+  try {
+    const cartao = cartaoAtual();
+    const descricaoPagamento = `Fatura ${cartao?.nome ?? ''} ${rotuloFatura(faturaRef)}`;
+
+    const { data: pagamentos, error: erroBusca } = await supabase
+      .from('transactions')
+      .select('id, amount, account_id')
+      .eq('user_id', usuarioAtual.id)
+      .eq('category_id', idCategoriaFatura)
+      .eq('description', descricaoPagamento)
+      .order('date', { ascending: false })
+      .limit(1);
+    if (erroBusca) throw erroBusca;
+
+    const pagamento = (pagamentos ?? [])[0];
+    if (!pagamento) {
+      document.getElementById('modal-compra-conteudo').innerHTML = `
+        <div class="modal-titulo">Não foi possível localizar o pagamento</div>
+        <p style="color:var(--muted);font-size:13px">Não encontramos a transação desse pagamento no extrato — a fatura não foi reaberta.</p>
+      `;
+      return;
+    }
+
+    const { error: erroFatura } = await supabase
+      .from('card_transactions')
+      .update({ status: 'aberta' })
+      .eq('card_id', cartaoSelecionado)
+      .eq('fatura_referencia', faturaRef)
+      .eq('status', 'paga')
+      .eq('user_id', usuarioAtual.id);
+    if (erroFatura) throw erroFatura;
+
+    const { error: erroDelete } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('id', pagamento.id)
+      .eq('user_id', usuarioAtual.id);
+    if (erroDelete) throw erroDelete;
+
+    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
+      p_account_id: pagamento.account_id,
+      p_delta: Number(pagamento.amount),
+    });
+    if (erroSaldo) throw erroSaldo;
+
+    fecharModal('modal-compra');
+    await recarregar();
+  } catch (err) {
+    console.error(err);
+    document.getElementById('modal-compra-conteudo').innerHTML = `
+      <div class="modal-titulo">Não foi possível reabrir a fatura</div>
+      <p style="color:var(--muted);font-size:13px">Tente novamente em instantes.</p>
+    `;
+  } finally {
+    const btnConfirmar = document.getElementById('btn-confirmar-reabrir-fatura');
+    if (btnConfirmar) { btnConfirmar.disabled = false; btnConfirmar.textContent = 'Reabrir fatura'; }
+  }
+}
+
 async function iniciar() {
   aplicarTemaSalvo();
   const user = await requireAuth();
@@ -450,13 +528,16 @@ async function iniciar() {
 
   document.getElementById('btn-pagar-fatura').addEventListener('click', abrirModalPagar);
   document.getElementById('btn-confirmar-pagamento').addEventListener('click', confirmarPagamento);
+  document.getElementById('btn-reabrir-fatura').addEventListener('click', abrirModalReabrirFatura);
 
-  // contasBancarias só alimenta o select da modal de pagar fatura — não tem
-  // relação com carregarCartoes, então não precisa esperar uma pra começar
-  // a outra.
+  // contasBancarias e a categoria de fatura só alimentam ações auxiliares —
+  // não têm relação com carregarCartoes, então não precisam esperar uma pra
+  // começar a outra.
   const [, resultadoCartoes] = await Promise.all([
     carregarContasBancarias(user.id).then((r) => { contasBancarias = r; }).catch((err) => console.error(err)),
     carregarCartoes(user.id).then(() => ({ ok: true })).catch((err) => { console.error(err); return { ok: false, err }; }),
+    supabase.from('categories').select('id').eq('user_id', user.id).eq('nome', 'Fatura de Cartão').maybeSingle()
+      .then(({ data }) => { idCategoriaFatura = data?.id ?? null; }).catch((err) => console.error(err)),
   ]);
 
   if (!resultadoCartoes.ok) {
