@@ -45,13 +45,15 @@ export async function coletarContexto(userId) {
     { data: historico3m },
     { data: orcamentos },
     { data: comprasCartao },
+    { data: catFatura },
+    { data: comprasCartaoMes },
   ] = await Promise.all([
     supabase.from('accounts')
       .select('nome,saldo_atual,currency,account_kind')
       .eq('user_id', userId).eq('active', true),
 
     supabase.from('transactions')
-      .select('type,amount,status,date,accounts:account_id(currency),categories:category_id(nome,icon)')
+      .select('type,amount,status,date,category_id,accounts:account_id(currency),categories:category_id(nome,icon)')
       .eq('user_id', userId)
       .gte('date', primeiroDia).lte('date', ultimoDia),
 
@@ -91,6 +93,19 @@ export async function coletarContexto(userId) {
       .gte('fatura_referencia', anoMes)
       .order('fatura_referencia', { ascending: true })
       .limit(50),
+
+    supabase.from('categories')
+      .select('id')
+      .eq('user_id', userId).eq('nome', 'Fatura de Cartão').maybeSingle(),
+
+    // Compras no cartão da fatura deste mês (paga ou não) — pra somar no
+    // gastosPorCategoria junto com transactions, senão quem gasta
+    // majoritariamente no cartão aparece pra IA com quase nada em
+    // categorias reais (mercado, roupa etc).
+    supabase.from('card_transactions')
+      .select('valor_parcela,category_id,categories:category_id(nome,icon)')
+      .eq('user_id', userId)
+      .eq('fatura_referencia', anoMes),
   ]);
 
   (transacoesMes || []).forEach((t) => { t.amount = valorBRL(t); });
@@ -166,12 +181,22 @@ export async function coletarContexto(userId) {
       return Object.values(grupos).sort((a, b) => a.fatura.localeCompare(b.fatura)).slice(0, 3);
     })(),
     gastosPorCategoria: (() => {
+      const idCategoriaFatura = catFatura?.id ?? null;
       const grupos = {};
-      (transacoesMes || []).filter((t) => t.status === 'pago' && t.type === 'despesa').forEach((t) => {
+      // Pagar a fatura gera uma transação despesa na categoria "Fatura de
+      // Cartão" — exclui ela daqui pra não contar a mesma compra duas
+      // vezes (uma via card_transactions, outra via essa transação).
+      (transacoesMes || []).filter((t) => t.status === 'pago' && t.type === 'despesa' && t.category_id !== idCategoriaFatura).forEach((t) => {
         const cat = t.categories?.nome || 'Sem categoria';
         const icone = t.categories?.icon || '';
         if (!grupos[cat]) grupos[cat] = { categoria: cat, icone, total: 0 };
         grupos[cat].total += Number(t.amount || 0);
+      });
+      (comprasCartaoMes || []).forEach((c) => {
+        const cat = c.categories?.nome || 'Sem categoria';
+        const icone = c.categories?.icon || '';
+        if (!grupos[cat]) grupos[cat] = { categoria: cat, icone, total: 0 };
+        grupos[cat].total += Number(c.valor_parcela || 0);
       });
       return Object.values(grupos).sort((a, b) => b.total - a.total).slice(0, 8);
     })(),
@@ -194,12 +219,18 @@ export async function coletarContextoResumo(userId) {
     supabase.from('offshore_cycles').select('data_embarque,data_desembarque').eq('user_id', userId).order('data_embarque', { ascending: false }).limit(3),
   ];
 
-  const results = await Promise.allSettled(queries);
+  const [results, dolarAtual] = await Promise.all([
+    Promise.allSettled(queries),
+    getUsdBrlRate(userId).catch(() => DEFAULT_USD_BRL),
+  ]);
   const extrair = (r) => (r.status === 'fulfilled' ? (r.value?.data || []) : []);
   const [contas, txMes, faturas, pendentes, ciclos] = results.map(extrair);
 
-  const saldo = (contas || []).filter((c) => (c.currency || 'BRL') === 'BRL' && c.account_kind !== 'broker')
-    .reduce((s, c) => s + Number(c.saldo_atual || 0), 0);
+  // Contas em USD (ex: Nomad) entram convertidas — senão o saldo (e a
+  // previsão) fica subestimado pra quem tem dinheiro fora do BRL, ao
+  // contrário do resto do app, que sempre converte tudo.
+  const saldo = (contas || []).filter((c) => c.account_kind !== 'broker')
+    .reduce((s, c) => s + convertToBRL(c.saldo_atual, c.currency || 'BRL', dolarAtual), 0);
 
   const pagas = (txMes || []).filter((t) => t.status === 'pago');
   const receitas = pagas.filter((t) => t.type === 'receita').reduce((s, t) => s + Number(t.amount || 0), 0);
