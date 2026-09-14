@@ -34,6 +34,9 @@
     .parc-filtros label { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
     .parc-filtros input[type="checkbox"] { width: 16px; height: 16px; }
 
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 20px; }
+    .card-titulo { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
+
     .parcela-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 12px; overflow: hidden; }
     .parcela-header { padding: 16px; cursor: pointer; }
     .parcela-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
@@ -82,6 +85,11 @@
         <div class="parc-filtros">
           <select class="input-desktop" id="filtro-cartao" style="max-width:220px"></select>
           <label><input type="checkbox" id="chk-mostrar-quitadas"> Mostrar quitadas</label>
+        </div>
+
+        <div class="card" id="card-grafico" hidden>
+          <div class="card-titulo">Variação mês a mês</div>
+          <div class="grafico-wrap" style="height:220px"><canvas id="chart-parcelas-mes"></canvas></div>
         </div>
 
         <div id="lista-parcelamentos"><div class="lista-vazia">Carregando…</div></div>

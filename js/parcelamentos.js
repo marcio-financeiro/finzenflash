@@ -4,9 +4,11 @@ import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { addMonthsRef } from './cardService.js';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { escapeHtml } from './utils/escapeHtml.js';
+import { loadChart } from './loadChart.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtMesAno = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
+const fmtMesCurto = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit' });
 const fmtDataCurta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 let usuarioAtual = null;
@@ -14,11 +16,19 @@ let grupos = [];
 let cartaoFiltro = '';
 let mostrarQuitadas = false;
 let abertos = new Set();
+let chartParcelas = null;
 
 function rotuloMes(ref) {
   const [y, m] = ref.split('-').map(Number);
   const data = new Date(y, m - 1, 1);
   return fmtMesAno.format(data).replace(/^\w/, (c) => c.toUpperCase());
+}
+
+// Rótulo curto pro eixo do gráfico ("set/26") — o mês+ano por extenso fica
+// grande demais quando há muitas barras (parcelamento longo, ex: 24x).
+function rotuloMesCurto(ref) {
+  const [y, m] = ref.split('-').map(Number);
+  return fmtMesCurto.format(new Date(y, m - 1, 1)).replace('.', '');
 }
 
 function mesAtualRef() {
@@ -100,6 +110,13 @@ function gruposFiltrados() {
   });
 }
 
+// Pro gráfico usa só o filtro de cartão — ignora "mostrar quitadas" porque
+// o objetivo é ver a curva completa (passado já pago + futuro em aberto),
+// não só as compras ainda em andamento.
+function gruposParaGrafico() {
+  return grupos.filter((g) => !cartaoFiltro || g.cardId === cartaoFiltro);
+}
+
 function renderResumo(lista) {
   const emAndamento = lista.filter((g) => !g.quitada);
   const restante = emAndamento.reduce((soma, g) => soma + g.itens.filter((i) => i.status !== 'paga').reduce((s, i) => s + Number(i.valor_parcela), 0), 0);
@@ -171,11 +188,66 @@ function renderLista() {
   });
 }
 
+// Soma valor_parcela por fatura_referencia (1 barra por mês), separando o
+// que já foi pago do que ainda está em aberto — mostra de uma vez a curva
+// de comprometimento passada e futura.
+async function renderGraficoMensal() {
+  const card = document.getElementById('card-grafico');
+  const lista = gruposParaGrafico();
+
+  const porMes = new Map();
+  for (const g of lista) {
+    for (const i of g.itens) {
+      const bucket = porMes.get(i.fatura_referencia) ?? { paga: 0, aberta: 0 };
+      if (i.status === 'paga') bucket.paga += Number(i.valor_parcela);
+      else bucket.aberta += Number(i.valor_parcela);
+      porMes.set(i.fatura_referencia, bucket);
+    }
+  }
+
+  if (porMes.size === 0) {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+
+  const refs = [...porMes.keys()].sort();
+  const labels = refs.map(rotuloMesCurto);
+  const seriePaga = refs.map((r) => porMes.get(r).paga);
+  const serieAberta = refs.map((r) => porMes.get(r).aberta);
+
+  try {
+    const Chart = await loadChart();
+    if (chartParcelas) { chartParcelas.destroy(); chartParcelas = null; }
+    chartParcelas = new Chart(document.getElementById('chart-parcelas-mes'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Já paga', data: seriePaga, backgroundColor: '#8ea198', stack: 's' },
+          { label: 'Em aberto', data: serieAberta, backgroundColor: '#0E7C86', stack: 's' },
+        ],
+      },
+      options: {
+        maintainAspectRatio: false,
+        scales: {
+          x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
+          y: { stacked: true, ticks: { display: false }, grid: { display: false } },
+        },
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+      },
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 async function recarregar() {
   try {
     grupos = await carregarParcelamentos(usuarioAtual.id);
     renderResumo(gruposFiltrados());
     renderLista();
+    await renderGraficoMensal();
   } catch (err) {
     console.error(err);
     document.getElementById('lista-parcelamentos').innerHTML = '<div class="conta-vazia">Não foi possível carregar os parcelamentos.</div>';
@@ -196,6 +268,7 @@ async function init() {
     cartaoFiltro = e.target.value;
     renderResumo(gruposFiltrados());
     renderLista();
+    renderGraficoMensal();
   });
   document.getElementById('chk-mostrar-quitadas').addEventListener('change', (e) => {
     mostrarQuitadas = e.target.checked;

@@ -98,6 +98,10 @@
     .resumo-rotulo { font-size: 11px; font-weight: 700; color: var(--muted); }
     .resumo-valor { font-size: 17px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
 
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin: 0 20px 16px 20px; }
+    .card-titulo { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
+    .grafico-wrap { height: 200px; }
+
     .secao {
       flex: 1;
       padding: 0 20px 20px 20px;
@@ -195,6 +199,11 @@
         <div class="resumo-rotulo" id="resumo-mes-proximo-rotulo">COMPROMETIDO —</div>
         <div class="resumo-valor valor-sensivel" id="resumo-mes-proximo">R$ 0,00</div>
       </div>
+    </div>
+
+    <div class="card" id="card-grafico" hidden>
+      <div class="card-titulo">Variação mês a mês</div>
+      <div class="grafico-wrap"><canvas id="chart-parcelas-mes"></canvas></div>
     </div>
 
     <div class="secao">
