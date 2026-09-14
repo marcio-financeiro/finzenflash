@@ -102,10 +102,16 @@ async function carregarLancamentos(userId) {
   // visão filtrada por conta bancária, o que não faz sentido).
   if (contaFiltro) return doConta;
 
+  // Uma compra parcelada tem N linhas em card_transactions (uma por
+  // parcela), todas com a mesma data_compra — sem filtrar parcela_atual=1
+  // a compra aparecia N vezes no mesmo dia. Aqui é a visão "o que comprei
+  // neste mês": 1 linha por compra, com o valor total (mesma regra dos
+  // "últimos lançamentos" da Home).
   let queryCartao = supabase
     .from('card_transactions')
-    .select('id, purchase_group_id, valor_parcela, descricao, data_compra, category_id, credit_cards(nome), categories(nome, icon)')
-    .eq('user_id', userId);
+    .select('id, purchase_group_id, valor_total, parcelas, descricao, data_compra, category_id, credit_cards(nome), categories(nome, icon)')
+    .eq('user_id', userId)
+    .eq('parcela_atual', 1);
 
   if (diaFiltro) {
     queryCartao = queryCartao.eq('data_compra', diaFiltro);
@@ -122,7 +128,8 @@ async function carregarLancamentos(userId) {
     origem: 'cartao',
     purchaseGroupId: c.purchase_group_id,
     type: 'despesa',
-    amount: c.valor_parcela,
+    amount: c.valor_total,
+    parcelas: c.parcelas,
     description: c.descricao,
     date: c.data_compra,
     accounts: { nome: c.credit_cards?.nome ?? '', currency: 'BRL' },
@@ -170,7 +177,7 @@ function renderLista(lancamentos) {
     const vencida = !doCartao && l.status === 'pendente' && l.date <= hojeISO();
     const statusTag = vencida
       ? `<span class="badge-vencida">${l.date === hojeISO() ? 'vence hoje' : 'vencida'}</span> · `
-      : (doCartao ? '<span class="badge-vencida" style="background:var(--surface-2);color:var(--muted)">cartão</span> · ' : '');
+      : (doCartao ? `<span class="badge-vencida" style="background:var(--surface-2);color:var(--muted)">cartão${l.parcelas > 1 ? ` ${l.parcelas}x` : ''}</span> · ` : '');
     html += `
       <button type="button" class="lancamento-card ${vencida ? 'vencida' : ''}" data-id="${l.id}">
         <div class="lancamento-icone ${receita ? 'is-receita' : 'is-despesa'}">${receita ? iconReceita() : (doCartao ? iconCartao() : iconDespesa())}</div>
@@ -269,21 +276,13 @@ function abrirSheetLancamento(lancamento) {
 async function darBaixa(lancamento) {
   document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = true; });
 
-  const { data: atualizados, error: erroUpdate } = await supabase
-    .from('transactions')
-    .update({ status: 'pago' })
-    .eq('id', lancamento.id)
-    .eq('user_id', usuarioAtual.id)
-    .eq('status', 'pendente')
-    .select('id');
+  // RPC atômica (status + saldo numa transação só) — ver darBaixa em home.js.
+  const { error } = await supabase.rpc('fz_marcar_pago', { p_transaction_id: lancamento.id });
 
-  if (erroUpdate || !atualizados?.length) {
+  if (error) {
     document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = false; });
     return;
   }
-
-  const delta = lancamento.type === 'receita' ? Number(lancamento.amount) : -Number(lancamento.amount);
-  await supabase.rpc('increment_account_balance', { p_account_id: lancamento.account_id, p_delta: delta });
 
   fecharSheetLancamento();
   await recarregar(usuarioAtual.id);

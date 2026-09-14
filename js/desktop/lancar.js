@@ -338,28 +338,14 @@ async function salvar(user) {
     dadosNovo.recurrence_group_id = uuid();
   }
 
-  const { error: erroInsercao } = await supabase.from('transactions').insert(dadosNovo);
+  // RPC atômica (insert + saldo numa transação só) — ver salvar() em js/lancar.js.
+  const { error: erroInsercao } = await supabase.rpc('fz_lancar_transacao', { p: dadosNovo });
 
   if (erroInsercao) {
     erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
     btn.disabled = false;
     btn.textContent = textoBotaoPadrao;
     return;
-  }
-
-  if (dadosNovo.status === 'pago') {
-    const delta = tipo === 'receita' ? valor : -valor;
-    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
-      p_account_id: contaSelecionada,
-      p_delta: delta,
-    });
-
-    if (erroSaldo) {
-      erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
-      btn.disabled = false;
-      btn.textContent = textoBotaoPadrao;
-      return;
-    }
   }
 
   window.location.href = '/pages/desktop/home.html';

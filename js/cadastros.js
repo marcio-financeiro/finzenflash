@@ -1,6 +1,6 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { aplicarTemaSalvo } from './temaService.js?v=3';
-import { ativarArrastarParaFechar } from './sheetGestos.js';
+import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { attachValorMask } from './utils/valorMask.js';
 import { formatarMoeda } from './currencyService.js';
@@ -708,25 +708,20 @@ async function salvarForm(tipo, item) {
   await recarregarTudo();
 }
 
-async function init() {
-  aplicarTemaSalvo();
+// init() roda de novo em pageshow/visibilitychange (ver o fim do arquivo)
+// pra atualizar os dados — o menu, as sheets e os botões fixos só podem
+// ser configurados UMA vez, senão cada volta pra tela empilha mais um
+// listener (o "+" abria a sheet várias vezes, o mês do orçamento pulava
+// 2, 3, 4 meses por toque).
+let eventosConfigurados = false;
+let carregandoDados = false;
+
+function configurarEventosFixos() {
+  if (eventosConfigurados) return;
+  eventosConfigurados = true;
+
   montarNavInferior('cadastros');
   configurarBotaoSair();
-
-  const user = await requireAuth();
-  if (!user) return;
-  usuarioAtual = user;
-
-  try {
-    [cartaoPrincipalId, contaPrincipalId] = await Promise.all([
-      carregarPreferenciaPrincipal(user.id, CHAVE_CARTAO_PRINCIPAL),
-      carregarPreferenciaPrincipal(user.id, CHAVE_CONTA_PRINCIPAL),
-    ]);
-  } catch (err) {
-    console.error(err);
-    // Não crítico — a preferência de "principal" é só um destaque visual,
-    // seguimos sem ela em vez de bloquear a tela.
-  }
 
   gruposColapsados = carregarGruposColapsados();
   document.querySelectorAll('.grupo-cadastro').forEach((el) => {
@@ -762,6 +757,29 @@ async function init() {
   }
   document.getElementById('btn-orcamento-mes-anterior').addEventListener('click', () => mudarOrcamentoMes(-1));
   document.getElementById('btn-orcamento-mes-proximo').addEventListener('click', () => mudarOrcamentoMes(1));
+}
+
+async function init() {
+  aplicarTemaSalvo();
+  configurarEventosFixos();
+
+  const user = await requireAuth();
+  if (!user) return;
+  usuarioAtual = user;
+
+  if (carregandoDados) return;
+  carregandoDados = true;
+
+  try {
+    [cartaoPrincipalId, contaPrincipalId] = await Promise.all([
+      carregarPreferenciaPrincipal(user.id, CHAVE_CARTAO_PRINCIPAL),
+      carregarPreferenciaPrincipal(user.id, CHAVE_CONTA_PRINCIPAL),
+    ]);
+  } catch (err) {
+    console.error(err);
+    // Não crítico — a preferência de "principal" é só um destaque visual,
+    // seguimos sem ela em vez de bloquear a tela.
+  }
 
   try {
     await recarregarTudo();
@@ -772,6 +790,8 @@ async function init() {
       const el = document.getElementById(id);
       if (el) el.innerHTML = erro;
     });
+  } finally {
+    carregandoDados = false;
   }
 }
 

@@ -54,6 +54,10 @@ function lerValorMonetario(bruto) {
   return Number.isFinite(numero) ? numero : 0;
 }
 
+function formatarMoedaConta(valor, currency) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: currency || 'BRL' }).format(valor);
+}
+
 function tipoLabel(t) {
   return TIPOS_ATIVO.find((o) => o.valor === t)?.texto ?? t ?? '-';
 }
@@ -794,8 +798,17 @@ async function salvarLancamento() {
   const conta = contas.find((c) => c.id === contaId);
   if (!conta) { erroEl.textContent = 'Conta não encontrada.'; return; }
 
-  if (operacaoAtual === 'compra' && Number(conta.saldo_atual) < valorTotal) {
-    erroEl.textContent = `Saldo insuficiente na conta (${fmt.format(conta.saldo_atual || 0)}).`;
+  // O saldo da conta é debitado/creditado na moeda DA CONTA — comprar um
+  // ativo em USD pagando de uma conta BRL (ou vice-versa) precisa converter
+  // pela cotação atual, senão descontava "12,50" de dólar como se fossem
+  // R$ 12,50. (Mesma regra já usada em salvarDividendo.)
+  const contaMoeda = conta.currency || 'BRL';
+  let valorConta = valorTotal;
+  if (moeda !== contaMoeda) valorConta = moeda === 'USD' ? valorTotal * dolarAtual : valorTotal / dolarAtual;
+  valorConta = Math.round(valorConta * 100) / 100;
+
+  if (operacaoAtual === 'compra' && Number(conta.saldo_atual) < valorConta) {
+    erroEl.textContent = `Saldo insuficiente na conta (${formatarMoedaConta(conta.saldo_atual || 0, contaMoeda)}).`;
     return;
   }
 
@@ -850,7 +863,7 @@ async function salvarLancamento() {
 
     const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
       p_account_id: contaId,
-      p_delta: operacaoAtual === 'compra' ? -valorTotal : valorTotal,
+      p_delta: operacaoAtual === 'compra' ? -valorConta : valorConta,
     });
     if (erroSaldo) throw erroSaldo;
 
@@ -858,7 +871,7 @@ async function salvarLancamento() {
     await supabase.from('transactions').insert({
       user_id: usuarioAtual.id, account_id: contaId,
       type: operacaoAtual === 'compra' ? 'despesa' : 'receita',
-      amount: valorTotal,
+      amount: valorConta,
       description: `${categoriaLabel} ${ticker} (${quantidade}x ${fmt.format(preco)})`,
       date: data, status: 'pago',
       notes: obs || `${tipoLabel(tipo)} via ${conta.nome}`,

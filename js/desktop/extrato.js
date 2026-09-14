@@ -83,10 +83,14 @@ async function carregarLancamentos(userId) {
   // visão filtrada por conta bancária, o que não faz sentido).
   if (contaFiltro) return doConta;
 
+  // 1 linha por compra (parcela_atual=1) com o valor total — sem isso uma
+  // compra em 10x aparecia 10 vezes no mesmo dia (todas as parcelas têm a
+  // mesma data_compra). Mesma regra de js/extrato.js e da Home.
   let queryCartao = supabase
     .from('card_transactions')
-    .select('id, purchase_group_id, valor_parcela, descricao, data_compra, category_id, credit_cards(nome), categories(nome, icon)')
-    .eq('user_id', userId);
+    .select('id, purchase_group_id, valor_total, parcelas, descricao, data_compra, category_id, credit_cards(nome), categories(nome, icon)')
+    .eq('user_id', userId)
+    .eq('parcela_atual', 1);
 
   if (diaFiltro) {
     queryCartao = queryCartao.eq('data_compra', diaFiltro);
@@ -103,7 +107,8 @@ async function carregarLancamentos(userId) {
     origem: 'cartao',
     purchaseGroupId: c.purchase_group_id,
     type: 'despesa',
-    amount: c.valor_parcela,
+    amount: c.valor_total,
+    parcelas: c.parcelas,
     description: c.descricao,
     date: c.data_compra,
     accounts: { nome: c.credit_cards?.nome ?? '', currency: 'BRL' },
@@ -146,7 +151,7 @@ function renderTabela(lancamentos) {
         <td>${vencida ? `<span style="color:var(--danger);font-weight:800">${rotuloVencida}</span> · ` : ''}${fmtData.format(new Date(l.date + 'T00:00:00'))}</td>
         <td>${escapeHtml(l.description)}</td>
         <td>${categoria}</td>
-        <td>${escapeHtml(l.accounts?.nome ?? '')}${doCartao ? ' <span style="color:var(--muted);font-size:11px">(cartão)</span>' : ''}</td>
+        <td>${escapeHtml(l.accounts?.nome ?? '')}${doCartao ? ` <span style="color:var(--muted);font-size:11px">(cartão${l.parcelas > 1 ? ` ${l.parcelas}x` : ''})</span>` : ''}</td>
         <td class="num ${receita ? 'positivo' : 'negativo'} valor-sensivel">${receita ? '+' : '-'} ${formatarMoeda(Math.abs(l.amount), l.accounts?.currency)}</td>
         <td><button type="button" class="btn-desktop" data-id="${l.id}">Detalhes</button></td>
       </tr>
@@ -195,20 +200,12 @@ function abrirDetalhes(lancamento) {
 async function darBaixa(lancamento) {
   document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = true; });
 
-  const { data: atualizados, error: erroUpdate } = await supabase
-    .from('transactions')
-    .update({ status: 'pago' })
-    .eq('id', lancamento.id)
-    .eq('user_id', usuarioAtual.id)
-    .eq('status', 'pendente')
-    .select('id');
-  if (erroUpdate || !atualizados?.length) {
+  // RPC atômica (status + saldo numa transação só) — ver darBaixa em js/home.js.
+  const { error } = await supabase.rpc('fz_marcar_pago', { p_transaction_id: lancamento.id });
+  if (error) {
     document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = false; });
     return;
   }
-
-  const delta = lancamento.type === 'receita' ? Number(lancamento.amount) : -Number(lancamento.amount);
-  await supabase.rpc('increment_account_balance', { p_account_id: lancamento.account_id, p_delta: delta });
 
   fecharModal('modal-lancamento');
   await recarregar(usuarioAtual.id);

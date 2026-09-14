@@ -457,21 +457,15 @@ function abrirSheetLancamento(lancamento) {
 async function darBaixa(lancamento) {
   document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = true; });
 
-  const { data: atualizados, error: erroUpdate } = await supabase
-    .from('transactions')
-    .update({ status: 'pago' })
-    .eq('id', lancamento.id)
-    .eq('user_id', usuarioAtual.id)
-    .eq('status', 'pendente')
-    .select('id');
+  // RPC atômica (mesma do FinZen completo): muda o status pra pago e
+  // ajusta o saldo numa transação só — antes eram 2 chamadas separadas e
+  // uma falha na segunda deixava a conta "paga" sem descontar do saldo.
+  const { error } = await supabase.rpc('fz_marcar_pago', { p_transaction_id: lancamento.id });
 
-  if (erroUpdate || !atualizados?.length) {
+  if (error) {
     document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = false; });
     return;
   }
-
-  const delta = lancamento.type === 'receita' ? Number(lancamento.amount) : -Number(lancamento.amount);
-  await supabase.rpc('increment_account_balance', { p_account_id: lancamento.accountId, p_delta: delta });
 
   fecharSheetLancamento();
   await init();
@@ -1660,19 +1654,20 @@ async function recarregarTimeline(user) {
   }
 }
 
-async function init() {
-  aplicarTemaSalvo();
+// init() roda de novo em pageshow/visibilitychange (ver o fim do arquivo)
+// pra atualizar os dados — mas o menu inferior, as sheets e os botões
+// fixos só podem ser configurados UMA vez, senão cada volta pra tela
+// empilha mais um listener (o "mês anterior" passava a pular 2, 3, 4
+// meses) e mais uma cópia da sheet "Mais" no body.
+let eventosConfigurados = false;
+let carregandoDados = false;
+
+function configurarEventosFixos() {
+  if (eventosConfigurados) return;
+  eventosConfigurados = true;
+
   montarNavInferior('home');
   configurarBotaoSair();
-  configurarBotaoPrivacidade('btn-privacidade');
-
-  const user = await requireAuth();
-  if (!user) return;
-
-  renderMes();
-
-  usuarioAtual = user;
-  carregarTemaDoBanco(supabase, user.id);
 
   document.getElementById('btn-mes-anterior').addEventListener('click', () => mudarMes(-1));
   document.getElementById('btn-mes-proximo').addEventListener('click', () => mudarMes(1));
@@ -1701,6 +1696,25 @@ async function init() {
   const sheetListaPendentes = document.getElementById('sheet-lista-pendentes');
   sheetListaPendentes.addEventListener('click', (e) => { if (e.target === sheetListaPendentes) sheetListaPendentes.hidden = true; });
   ativarArrastarParaFechar(sheetListaPendentes);
+}
+
+async function init() {
+  aplicarTemaSalvo();
+  configurarEventosFixos();
+  configurarBotaoPrivacidade('btn-privacidade');
+
+  const user = await requireAuth();
+  if (!user) return;
+
+  // Uma recarga ainda em andamento (ex.: voltou pra aba duas vezes seguidas)
+  // não precisa de outra em paralelo disputando o mesmo DOM.
+  if (carregandoDados) return;
+  carregandoDados = true;
+
+  renderMes();
+
+  usuarioAtual = user;
+  carregarTemaDoBanco(supabase, user.id);
 
   try {
     const [contas, lancamentos, preferencias, categoriasDespesa, categoriasOcultas, dolar] = await Promise.all([
@@ -1729,6 +1743,8 @@ async function init() {
     console.error(err);
     document.getElementById('lista-lancamentos').innerHTML =
       '<div class="conta-vazia">Não foi possível carregar seus dados. Puxe pra atualizar.</div>';
+  } finally {
+    carregandoDados = false;
   }
 }
 

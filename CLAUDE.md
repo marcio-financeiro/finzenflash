@@ -35,6 +35,9 @@ Usa só estas tabelas do FinZen (já existentes, RLS `auth.uid() = user_id`):
 - `transactions` — **atenção:** o FinZen projeta lançamentos recorrentes com data futura (contas fixas já lançadas meses à frente). Sempre filtrar `date <= hoje` em listas de "últimos lançamentos", senão entradas futuras aparecem antes das reais.
 - `categories` (tipo `despesa`/`receita`, `ativo = true`)
 - Ajuste de saldo: RPC `increment_account_balance(p_account_id, p_delta)` — mesma RPC atômica do FinZen, nunca fazer SELECT→soma→UPDATE manual.
+- RPCs atômicas do FinZen que o Flash também usa (todas validam `auth.uid()`): `fz_lancar_transacao(p jsonb)` (insere + ajusta saldo se `status='pago'`), `fz_marcar_pago(p_transaction_id)`, `fz_desfazer_baixa(p_transaction_id)`, `create_account_transfer`, `delete_account_transfer`. Preferir sempre a RPC a fazer update + increment em duas chamadas.
+- `card_transactions`: uma linha por parcela, todas com a mesma `data_compra`. Em listas por data filtrar `parcela_atual = 1` e usar `valor_total`; em somas por mês usar `fatura_referencia` e `valor_parcela`.
+- Existe `fz_pagar_fatura`? **Não** — pagar/reabrir fatura ainda é feito em 3 passos no client (`cartaoHub.js`), sem atomicidade.
 
 ## Padrões de código
 

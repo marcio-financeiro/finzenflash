@@ -805,20 +805,12 @@ async function recarregarSaldosELista() {
 async function darBaixa(lancamento, btn, modalId = 'modal-pendentes') {
   if (btn) btn.disabled = true;
 
-  const { data: atualizados, error: erroUpdate } = await supabase
-    .from('transactions')
-    .update({ status: 'pago' })
-    .eq('id', lancamento.id)
-    .eq('user_id', usuarioAtual.id)
-    .eq('status', 'pendente')
-    .select('id');
-  if (erroUpdate || !atualizados?.length) {
+  // RPC atômica (status + saldo numa transação só) — ver darBaixa em js/home.js.
+  const { error } = await supabase.rpc('fz_marcar_pago', { p_transaction_id: lancamento.id });
+  if (error) {
     if (btn) btn.disabled = false;
     return;
   }
-
-  const delta = lancamento.type === 'receita' ? Number(lancamento.amount) : -Number(lancamento.amount);
-  await supabase.rpc('increment_account_balance', { p_account_id: lancamento.account_id, p_delta: delta });
 
   fecharModal(modalId);
   await recarregarSaldosELista();

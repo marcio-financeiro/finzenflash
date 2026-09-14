@@ -350,29 +350,18 @@ async function salvar(user) {
     dadosNovo.recurrence_group_id = uuid();
   }
 
-  const { error: erroInsercao } = await supabase.from('transactions').insert(dadosNovo);
+  // RPC atômica do FinZen: insere o lançamento e, se já estiver pago,
+  // ajusta o saldo da conta na mesma transação do banco. (Conta pendente,
+  // com data futura, só entra no saldo quando for paga de fato.) Antes eram
+  // insert + increment_account_balance separados — uma falha no segundo
+  // deixava o lançamento salvo sem mexer no saldo.
+  const { error: erroInsercao } = await supabase.rpc('fz_lancar_transacao', { p: dadosNovo });
 
   if (erroInsercao) {
     erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
     btn.disabled = false;
     btn.textContent = textoBotaoPadrao;
     return;
-  }
-
-  // Conta pendente (data futura) só entra no saldo quando for paga de fato.
-  if (dadosNovo.status === 'pago') {
-    const delta = tipo === 'receita' ? valor : -valor;
-    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
-      p_account_id: contaSelecionada,
-      p_delta: delta,
-    });
-
-    if (erroSaldo) {
-      erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
-      btn.disabled = false;
-      btn.textContent = textoBotaoPadrao;
-      return;
-    }
   }
 
   window.location.href = '/pages/home.html';

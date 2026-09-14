@@ -8,6 +8,11 @@ let cartoes = [];
 let categorias = [];
 let parcelas = 1;
 let compraOriginal = null;
+// Editar apaga e recria todas as parcelas do grupo como 'aberta' — se
+// alguma já foi paga, isso corromperia uma fatura já quitada. A tela
+// Cartão já bloqueia antes de chegar aqui; o Extrato e a Home linkam
+// direto, então a trava precisa existir aqui também.
+let compraBloqueada = false;
 
 const fmtFatura = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 function rotuloFatura(ref) {
@@ -185,6 +190,10 @@ async function salvar(user) {
   const erroEl = document.getElementById('erro-cartao');
   erroEl.textContent = '';
 
+  if (compraBloqueada) {
+    erroEl.textContent = 'Essa compra já tem parcela paga — não é possível editar.';
+    return;
+  }
   if (valorTotal <= 0) {
     erroEl.textContent = 'Informe um valor maior que zero.';
     return;
@@ -273,14 +282,26 @@ async function init() {
   });
 
   const grupoUrl = new URLSearchParams(window.location.search).get('grupo');
-  if (grupoUrl) {
-    const { data, error } = await supabase
-      .from('card_transactions')
-      .select('purchase_group_id, card_id, category_id, descricao, valor_total, parcelas, data_compra, fatura_referencia')
-      .eq('purchase_group_id', grupoUrl)
-      .eq('user_id', user.id)
-      .limit(1)
-      .single();
+  // Compras antigas (antes de purchase_group_id existir) chegam como
+  // "?grupo=null" — sem esse filtro o .eq() dava erro de uuid inválido e a
+  // tela abria como compra nova, sem avisar.
+  if (grupoUrl && /^[0-9a-f-]{36}$/i.test(grupoUrl)) {
+    const [{ data, error }, { data: pagas }] = await Promise.all([
+      supabase
+        .from('card_transactions')
+        .select('purchase_group_id, card_id, category_id, descricao, valor_total, parcelas, data_compra, fatura_referencia')
+        .eq('purchase_group_id', grupoUrl)
+        .eq('user_id', user.id)
+        .limit(1)
+        .single(),
+      supabase
+        .from('card_transactions')
+        .select('id')
+        .eq('purchase_group_id', grupoUrl)
+        .eq('user_id', user.id)
+        .eq('status', 'paga')
+        .limit(1),
+    ]);
 
     if (!error && data) {
       compraOriginal = data;
@@ -290,7 +311,15 @@ async function init() {
       categoriaSelecionada = data.category_id;
       parcelas = data.parcelas;
       atualizarDisplaysValor(String(Math.round(Number(data.valor_total) * 100)));
+
+      if (pagas?.length) {
+        compraBloqueada = true;
+        document.getElementById('btn-salvar').disabled = true;
+        document.getElementById('erro-cartao').textContent = 'Essa compra já tem parcela paga — só é possível visualizar.';
+      }
     }
+  } else if (grupoUrl) {
+    document.getElementById('erro-cartao').textContent = 'Compra antiga sem identificador — edite pela tela Cartão.';
   }
 
   document.getElementById('data-compra').value = compraOriginal?.data_compra || hojeISO();
