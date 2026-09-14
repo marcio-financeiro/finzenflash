@@ -8,6 +8,8 @@ import { configurarModal, abrirModal, fecharModal } from './modal.js';
 import { formatarMoeda, carregarCotacaoDolar, paraBRL } from '../currencyService.js';
 import { loadChart } from '../loadChart.js';
 import { mostrarToast } from '../utils/toast.js';
+import { escapeHtml } from '../utils/escapeHtml.js';
+import { hojeISO, limitesMes } from '../utils/datas.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtData = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -30,17 +32,6 @@ let contasCache = [];
 let dolarAtual;
 let chartSaldoMes = null;
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
-
 function addDiasISO(dataISO, dias) {
   const [y, m, d] = dataISO.split('-').map(Number);
   const data = new Date(y, m - 1, d + dias);
@@ -54,15 +45,6 @@ function refMesString(data) {
 function fimMesRef(ref) {
   const [ano, mes] = ref.split('-').map(Number);
   return `${ano}-${String(mes).padStart(2, '0')}-${new Date(ano, mes, 0).getDate()}`;
-}
-
-function limitesMes(ref) {
-  const ano = ref.getFullYear();
-  const mes = ref.getMonth();
-  const inicio = new Date(ano, mes, 1);
-  const fim = new Date(ano, mes + 1, 0);
-  const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return { inicio: toISO(inicio), fim: toISO(fim) };
 }
 
 function proximoFechamento(fechamentoDia) {

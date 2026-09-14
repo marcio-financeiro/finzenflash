@@ -7,6 +7,8 @@ import { montarNavInferior } from './navInferior.js?v=6';
 import { loadChart } from './loadChart.js';
 import { attachToqueSegurar } from './utils/toqueSegurar.js';
 import { mostrarToast } from './utils/toast.js';
+import { escapeHtml } from './utils/escapeHtml.js';
+import { hojeISO } from './utils/datas.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtMesCurto = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
@@ -20,17 +22,6 @@ let contasBancarias = [];
 let usuarioAtual = null;
 let chartTendencia = null;
 let idCategoriaFatura = null;
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
 
 function rotuloFatura(ref) {
   const [y, m] = ref.split('-').map(Number);
@@ -178,7 +169,6 @@ function renderCompras(compras) {
     if (compra) attachToqueSegurar(el, () => abrirSheetCompra(compra));
   });
 }
-
 
 async function abrirSheetCompra(compra) {
   const conteudo = document.getElementById('sheet-compra-conteudo');

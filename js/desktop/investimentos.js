@@ -7,6 +7,12 @@ import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
 import { attachValorMask } from '../utils/valorMask.js';
 import { mostrarToast } from '../utils/toast.js';
+import { escapeHtml } from '../utils/escapeHtml.js';
+import { hojeISO } from '../utils/datas.js';
+import { lerValorMonetario } from '../utils/valorMonetario.js';
+import { campoTexto as _campoTextoBase, campoSelect as _campoSelectBase } from '../utils/campos.js';
+const campoTexto = (id, label, valor, placeholder) => _campoTextoBase(id, label, valor, placeholder, true);
+const campoSelect = (id, label, opcoes, valorAtual) => _campoSelectBase(id, label, opcoes, valorAtual, true);
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtPct = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2).replace('.', ',')}%`;
@@ -38,23 +44,6 @@ let dolarAtual = DEFAULT_USD_BRL;
 let chartDonut = null;
 let chartEvolucao = null;
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
-
-function lerValorMonetario(bruto) {
-  const normalizado = String(bruto ?? '').trim().replace(/\./g, '').replace(',', '.');
-  const numero = Number(normalizado);
-  return Number.isFinite(numero) ? numero : 0;
-}
-
 function formatarMoedaConta(valor, currency) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: currency || 'BRL' }).format(valor);
 }
@@ -76,25 +65,6 @@ function classeKey(t) {
 function calcAplicado(a) { return Number(a.quantidade) * Number(a.preco_medio); }
 function calcAtual(a) { return Number(a.quantidade) * Number(a.cotacao_atual || a.preco_medio); }
 function calcBRL(a, v) { return (a.moeda || 'BRL') === 'USD' ? v * dolarAtual : v; }
-
-function campoTexto(id, label, valor, placeholder = '') {
-  return `
-    <div class="field">
-      <label for="${id}">${label}</label>
-      <input type="text" class="input-desktop" id="${id}" value="${escapeHtml(valor ?? '')}" placeholder="${placeholder}">
-    </div>
-  `;
-}
-
-function campoSelect(id, label, opcoes, valorAtual) {
-  const options = opcoes.map((o) => `<option value="${escapeHtml(o.valor)}" ${o.valor === valorAtual ? 'selected' : ''}>${escapeHtml(o.texto)}</option>`).join('');
-  return `
-    <div class="field">
-      <label for="${id}">${label}</label>
-      <select class="input-desktop" id="${id}">${options}</select>
-    </div>
-  `;
-}
 
 async function carregarDolar(userId) {
   const { data } = await supabase

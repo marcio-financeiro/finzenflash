@@ -1,6 +1,8 @@
 import { supabase, requireAuth } from './supabaseClient.js';
 import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { getDescricoesRecentes, popularDatalist, encontrarSugestao } from './autocompleteService.js';
+import { escapeHtml } from './utils/escapeHtml.js';
+import { hojeISO } from './utils/datas.js';
 
 let tipo = 'despesa';
 let contaSelecionada = null;
@@ -10,11 +12,6 @@ let categorias = [];
 let lancamentoOriginal = null;
 let descricoesRecentes = [];
 let jaPagoTocadoManualmente = false;
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
 
 function uuid() {
   return crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
@@ -89,12 +86,6 @@ function atualizarPadraoJaPago() {
   if (jaPagoTocadoManualmente) return;
   const dataEscolhida = document.getElementById('data').value || hojeISO();
   document.getElementById('chk-ja-pago').checked = dataEscolhida <= hojeISO();
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
 }
 
 function renderContas() {

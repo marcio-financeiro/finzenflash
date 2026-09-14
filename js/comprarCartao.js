@@ -1,6 +1,8 @@
 import { supabase, requireAuth } from './supabaseClient.js';
 import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { invoiceRef, addMonthsRef, novoGrupoCompra } from './cardService.js';
+import { escapeHtml } from './utils/escapeHtml.js';
+import { hojeISO } from './utils/datas.js';
 
 let cartaoSelecionado = null;
 let categoriaSelecionada = null;
@@ -84,12 +86,6 @@ function configurarParcelas() {
     document.getElementById('parcelas-num').textContent = `${parcelas}x`;
     atualizarValorParcela();
   });
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
 }
 
 function renderCartoes() {
@@ -177,11 +173,6 @@ async function carregarCartoesECategorias(userId) {
   renderCartoes();
   renderCategorias();
   preencherFaturas(compraOriginal?.fatura_referencia ?? null);
-}
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
 
 async function salvar(user) {

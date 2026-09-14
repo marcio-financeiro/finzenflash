@@ -8,6 +8,9 @@ import { iniciarLunaInsights } from './lunaInsights.js';
 import { carregarCotacaoDolar, paraBRL, formatarMoeda } from './currencyService.js';
 import { attachToqueSegurar } from './utils/toqueSegurar.js';
 import { mostrarToast } from './utils/toast.js';
+import { escapeHtml } from './utils/escapeHtml.js';
+import { hojeISO, limitesMes } from './utils/datas.js';
+import { lerValorMonetario } from './utils/valorMonetario.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 let dolarAtual;
@@ -48,12 +51,6 @@ function iconCartao() {
   return '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg>';
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
 function rotuloDia(dataISO) {
   const data = new Date(dataISO + 'T00:00:00');
   const hojeStr = hojeISO();
@@ -76,11 +73,6 @@ async function carregarContas(userId) {
   return data ?? [];
 }
 
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
-
 function addDiasISO(dataISO, dias) {
   const [y, m, d] = dataISO.split('-').map(Number);
   const data = new Date(y, m - 1, d + dias);
@@ -89,15 +81,6 @@ function addDiasISO(dataISO, dias) {
 
 function refMesString(data) {
   return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function limitesMes(ref) {
-  const ano = ref.getFullYear();
-  const mes = ref.getMonth();
-  const inicio = new Date(ano, mes, 1);
-  const fim = new Date(ano, mes + 1, 0);
-  const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return { inicio: toISO(inicio), fim: toISO(fim) };
 }
 
 // Data em que uma fatura de referência `ref` (YYYY-MM) vence — clampa pro
@@ -383,7 +366,6 @@ function ativarSwipeMes(el) {
     }
   });
 }
-
 
 function abrirSheetLancamento(lancamento) {
   const conteudo = document.getElementById('sheet-lancamento-conteudo');
@@ -793,12 +775,6 @@ async function carregarOrcamentosDoMes(userId, ref) {
     .eq('mes_referencia', ref);
   if (error) throw error;
   return data ?? [];
-}
-
-function lerValorMonetario(bruto) {
-  const normalizado = String(bruto ?? '').trim().replace(/\./g, '').replace(',', '.');
-  const numero = Number(normalizado);
-  return Number.isFinite(numero) ? numero : 0;
 }
 
 async function abrirSheetEditarMetas() {

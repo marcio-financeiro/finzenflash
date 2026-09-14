@@ -2,15 +2,11 @@ import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js'
 import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { carregarCotacaoDolar, paraBRL } from './currencyService.js';
+import { hojeISO } from './utils/datas.js';
 
 const fmtData = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
 let usuarioAtual = null;
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
 
 function inicioMes(ym) { return ym + '-01'; }
 

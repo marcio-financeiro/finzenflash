@@ -4,6 +4,8 @@ import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { loadChart } from './loadChart.js';
 import { carregarCotacaoDolar, paraBRL } from './currencyService.js';
+import { escapeHtml } from './utils/escapeHtml.js';
+import { hojeISO } from './utils/datas.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDataCurta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
@@ -11,17 +13,6 @@ const fmtDataCurta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '
 let usuarioAtual = null;
 let horizonteDias = 30;
 let chartProjecao = null;
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
 
 function dataAdicionar(iso, dias) {
   const d = new Date(iso + 'T00:00:00');

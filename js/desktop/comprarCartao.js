@@ -3,6 +3,8 @@ import { aplicarTemaSalvo } from '../temaService.js';
 import { invoiceRef, addMonthsRef, novoGrupoCompra } from '../cardService.js';
 import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
+import { escapeHtml } from '../utils/escapeHtml.js';
+import { hojeISO } from '../utils/datas.js';
 
 let cartaoSelecionado = null;
 let categoriaSelecionada = null;
@@ -20,17 +22,6 @@ const fmtFatura = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numer
 function rotuloFatura(ref) {
   const [y, m] = ref.split('-').map(Number);
   return fmtFatura.format(new Date(y, m - 1, 1)).replace(/^\w/, (c) => c.toUpperCase());
-}
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
 }
 
 function formatarValorDigitado(valorCentavos) {

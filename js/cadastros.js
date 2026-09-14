@@ -5,6 +5,9 @@ import { montarNavInferior } from './navInferior.js?v=6';
 import { attachValorMask } from './utils/valorMask.js';
 import { formatarMoeda } from './currencyService.js';
 import { mostrarToast } from './utils/toast.js';
+import { escapeHtml } from './utils/escapeHtml.js';
+import { lerValorMonetarioPorId as lerValorMonetario } from './utils/valorMonetario.js';
+import { campoTexto, campoSelect } from './utils/campos.js';
 
 const CAMPOS_VALOR_POR_TIPO = {
   conta: ['f-saldo'],
@@ -53,12 +56,6 @@ async function salvarPreferenciaPrincipal(userId, chave, valorId) {
 }
 
 const LABELS_FREQUENCIA = { mensal: 'Mensal', semanal: 'Semanal', anual: 'Anual' };
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
 
 function inicial(nome) {
   return escapeHtml((nome || '?').trim().charAt(0).toUpperCase());
@@ -433,29 +430,6 @@ async function excluirItem(tipo, item) {
   await recarregarTudo();
 }
 
-function campoTexto(id, label, valor, placeholder = '') {
-  return `
-    <div class="field">
-      <label for="${id}">${label}</label>
-      <input type="text" id="${id}" value="${escapeHtml(valor ?? '')}" placeholder="${placeholder}">
-    </div>
-  `;
-}
-
-function campoSelect(id, label, opcoes, valorAtual) {
-  const options = opcoes.map((o) => {
-    const valor = typeof o === 'string' ? o : o.valor;
-    const texto = typeof o === 'string' ? o : o.texto;
-    return `<option value="${escapeHtml(valor)}" ${valor === valorAtual ? 'selected' : ''}>${escapeHtml(texto)}</option>`;
-  }).join('');
-  return `
-    <div class="field">
-      <label for="${id}">${label}</label>
-      <select id="${id}">${options}</select>
-    </div>
-  `;
-}
-
 function abrirSheetForm(tipo, item) {
   const conteudo = document.getElementById('sheet-form-conteudo');
   if (tipo === 'conta') conteudo.innerHTML = formConta(item);
@@ -559,13 +533,6 @@ function formOrcamento(o) {
     <button type="button" class="btn-primary" id="btn-salvar-form">Salvar</button>
     <button type="button" class="sheet-acao-btn" id="btn-cancelar-form">Cancelar</button>
   `;
-}
-
-function lerValorMonetario(id) {
-  const bruto = document.getElementById(id).value.trim();
-  const normalizado = bruto.replace(/\./g, '').replace(',', '.');
-  const numero = Number(normalizado);
-  return Number.isFinite(numero) ? numero : 0;
 }
 
 async function salvarOrcamento(item) {
