@@ -3,13 +3,11 @@
 
 import { SUPABASE_URL } from '../js/config.js';
 import { checarLimiteIA } from './_aiRateLimit.js';
+import { aplicarCors } from './_cors.js';
 
 export default async function handler(req, res) {
 
-  // ── CORS ──────────────────────────────────────────────────────────────────
-  res.setHeader('Access-Control-Allow-Origin', 'https://finzenflash.vercel.app');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  aplicarCors(req, res, 'POST, OPTIONS');
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -54,7 +52,7 @@ export default async function handler(req, res) {
     messages.push({ role: 'user', content: prompt });
 
     const requestBody = {
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       max_tokens: 1024,
       stream: true,
       messages,

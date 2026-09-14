@@ -5,6 +5,12 @@ import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
 import { attachValorMask } from '../utils/valorMask.js';
 import { formatarMoeda } from '../currencyService.js';
+import { mostrarToast } from '../utils/toast.js';
+import { escapeHtml } from '../utils/escapeHtml.js';
+import { lerValorMonetarioPorId as lerValorMonetario } from '../utils/valorMonetario.js';
+import { campoTexto as _campoTextoBase, campoSelect as _campoSelectBase } from '../utils/campos.js';
+const campoTexto = (id, label, valor, placeholder) => _campoTextoBase(id, label, valor, placeholder, true);
+const campoSelect = (id, label, opcoes, valorAtual) => _campoSelectBase(id, label, opcoes, valorAtual, true);
 
 const CAMPOS_VALOR_POR_TIPO = {
   conta: ['f-saldo'],
@@ -31,12 +37,6 @@ let orcamentoMes = '';
 let orcamentoMesHerdadoDe = null;
 let cartaoPrincipalId = null;
 let contaPrincipalId = null;
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
 
 async function carregarPreferenciaPrincipal(userId, chave) {
   const { data } = await supabase
@@ -357,33 +357,10 @@ async function excluirItem(tipo, item) {
   btn.textContent = 'Excluindo...';
   const tabela = { conta: 'accounts', cartao: 'credit_cards', categoria: 'categories', recorrente: 'transactions', orcamento: 'budgets' }[tipo];
   const { error } = await supabase.from(tabela).delete().eq('id', item.id).eq('user_id', usuarioAtual.id);
-  if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+  if (error) { mostrarToast('Não foi possível excluir. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Excluir'; return; }
   fecharModal('modal-acoes');
   if (tipo === 'orcamento') { await recarregarOrcamentos(); return; }
   await recarregarTudo();
-}
-
-function campoTexto(id, label, valor, placeholder = '') {
-  return `
-    <div class="field">
-      <label for="${id}">${label}</label>
-      <input type="text" class="input-desktop" id="${id}" value="${escapeHtml(valor ?? '')}" placeholder="${placeholder}">
-    </div>
-  `;
-}
-
-function campoSelect(id, label, opcoes, valorAtual) {
-  const options = opcoes.map((o) => {
-    const valor = typeof o === 'string' ? o : o.valor;
-    const texto = typeof o === 'string' ? o : o.texto;
-    return `<option value="${escapeHtml(valor)}" ${valor === valorAtual ? 'selected' : ''}>${escapeHtml(texto)}</option>`;
-  }).join('');
-  return `
-    <div class="field">
-      <label for="${id}">${label}</label>
-      <select class="input-desktop" id="${id}">${options}</select>
-    </div>
-  `;
 }
 
 function abrirModalForm(tipo, item) {
@@ -494,13 +471,6 @@ function formOrcamento(o) {
       <button type="button" class="btn-desktop primario" id="btn-salvar-form">Salvar</button>
     </div>
   `;
-}
-
-function lerValorMonetario(id) {
-  const bruto = document.getElementById(id).value.trim();
-  const normalizado = bruto.replace(/\./g, '').replace(',', '.');
-  const numero = Number(normalizado);
-  return Number.isFinite(numero) ? numero : 0;
 }
 
 async function salvarOrcamento(item) {

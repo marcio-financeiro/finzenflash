@@ -18,11 +18,16 @@ export async function checarLimiteIA(userId, endpoint) {
   };
 
   try {
-    // Data no fuso de Brasília — em UTC a janela diária "zera" às 21h BRT
-    // (meia-noite UTC), soltando 2 cotas extras por dia perto da virada.
+    // Data no fuso de Brasília — o comentário original dizia que isso
+    // corrigia a virada, mas comparar com "T00:00:00Z" ainda usa meia-noite
+    // em UTC, não em Brasília: a janela seguia abrindo 3h cedo (21h do dia
+    // anterior, horário de Brasília). Brasil não tem mais horário de verão
+    // desde 2019, então America/Sao_Paulo é sempre UTC-3 — meia-noite lá é
+    // 03:00 em UTC.
     const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    const inicioDoDiaUTC = `${hoje}T03:00:00Z`;
     const r = await fetch(
-      `${SUPABASE_URL}/rest/v1/ai_usage?user_id=eq.${userId}&created_at=gte.${hoje}T00:00:00Z&select=id`,
+      `${SUPABASE_URL}/rest/v1/ai_usage?user_id=eq.${userId}&created_at=gte.${inicioDoDiaUTC}&select=id`,
       { headers: { ...headers, Prefer: 'count=exact', Range: '0-0' } }
     );
     if (!r.ok) return { permitido: true }; // tabela ausente → não bloqueia

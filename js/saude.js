@@ -2,15 +2,11 @@ import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js'
 import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { carregarCotacaoDolar, paraBRL } from './currencyService.js';
+import { hojeISO } from './utils/datas.js';
 
 const fmtData = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
 let usuarioAtual = null;
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
 
 function inicioMes(ym) { return ym + '-01'; }
 
@@ -35,12 +31,15 @@ async function coletarDados(userId) {
   const inicio = inicioMes(mesAtual);
   const fim = hojeISO();
   const mes3Atras = mesAdicionar(mesAtual, -3);
+  const mesAnterior = mesAdicionar(mesAtual, -1);
 
   const [
     { data: contas },
     { data: txMes },
     { data: cardTxMes },
     { data: txHist },
+    { data: cardTxHist },
+    { data: cardComprasMes },
     { data: cartoes },
     { data: cardTxAbertas },
     { data: budgets },
@@ -51,8 +50,21 @@ async function coletarDados(userId) {
     supabase.from('transactions').select('type,amount,date,category_id').eq('user_id', userId)
       .eq('status', 'pago').gte('date', inicio).lte('date', fim),
     supabase.from('card_transactions').select('valor_parcela,category_id').eq('user_id', userId).eq('fatura_referencia', mesAtual),
-    supabase.from('transactions').select('type,amount,date').eq('user_id', userId)
-      .eq('status', 'pago').eq('type', 'despesa').gte('date', inicioMes(mes3Atras)).lte('date', fimMes(mesAdicionar(mesAtual, -1))),
+    // Histórico de 3 meses em competência (mesma base do mês atual): exclui
+    // a categoria "Fatura de Cartão" (senão pagar a fatura conta a compra
+    // de novo) — a exclusão real acontece em calcularMetricas, aqui só
+    // precisa vir o category_id junto.
+    supabase.from('transactions').select('type,amount,date,category_id').eq('user_id', userId)
+      .eq('status', 'pago').eq('type', 'despesa').gte('date', inicioMes(mes3Atras)).lte('date', fimMes(mesAnterior)),
+    // Compras no cartão dos mesmos 3 meses, pela fatura (não pela data de
+    // pagamento) — sem isso a Reserva subestimava o gasto médio e inflava
+    // artificialmente quantos meses o saldo cobre.
+    supabase.from('card_transactions').select('valor_parcela,fatura_referencia').eq('user_id', userId)
+      .gte('fatura_referencia', mes3Atras).lte('fatura_referencia', mesAnterior),
+    // Regularidade: dias do mês atual com alguma compra no cartão (pela
+    // data real da compra, não da fatura) — 1 linha por compra.
+    supabase.from('card_transactions').select('data_compra').eq('user_id', userId).eq('parcela_atual', 1)
+      .gte('data_compra', inicio).lte('data_compra', fim),
     supabase.from('credit_cards').select('id,limite').eq('user_id', userId).eq('ativo', true),
     supabase.from('card_transactions').select('card_id,valor_parcela').eq('user_id', userId).eq('status', 'aberta'),
     supabase.from('budgets').select('category_id,valor_planejado').eq('user_id', userId).eq('mes_referencia', mesAtual),
@@ -66,6 +78,8 @@ async function coletarDados(userId) {
     txMes: txMes ?? [],
     cardTxMes: cardTxMes ?? [],
     txHist: txHist ?? [],
+    cardTxHist: cardTxHist ?? [],
+    cardComprasMes: cardComprasMes ?? [],
     cartoes: cartoes ?? [],
     cardTxAbertas: cardTxAbertas ?? [],
     budgets: budgets ?? [],
@@ -75,7 +89,7 @@ async function coletarDados(userId) {
 
 // ── Cálculo das 6 sub-métricas ────────────────────────────────────────────
 function calcularMetricas(dados) {
-  const { contas, txMes, cardTxMes, txHist, cartoes, cardTxAbertas, budgets, hoje, dolarAtual, idCategoriaFatura } = dados;
+  const { contas, txMes, cardTxMes, txHist, cardTxHist, cardComprasMes, cartoes, cardTxAbertas, budgets, hoje, dolarAtual, idCategoriaFatura } = dados;
 
   const receitasMes = txMes.filter((t) => t.type === 'receita').reduce((s, t) => s + Number(t.amount || 0), 0);
   // Pagar a fatura gera uma transação despesa na categoria "Fatura de
@@ -89,10 +103,13 @@ function calcularMetricas(dados) {
   const taxaPoupanca = receitasMes > 0 ? ((receitasMes - despesasMes) / receitasMes) * 100 : 0;
   const poupanca = { nome: 'Poupança', nota: Math.round(clamp((taxaPoupanca / 20) * 100, 0, 100)), desc: `Taxa de poupança em ${taxaPoupanca.toFixed(1)}% (referência: 20%).` };
 
-  // 2) Reserva — saldo em conta ÷ média de despesa mensal (últimos 3 meses)
+  // 2) Reserva — saldo em conta ÷ média de despesa mensal em competência
+  // (últimos 3 meses fechados, conta + cartão pela fatura — mesma base do
+  // resto do app, não caixa puro).
   const saldoContas = contas.reduce((s, c) => s + paraBRL(c.saldo_atual || 0, c.currency, dolarAtual), 0);
   const porMes = {};
-  txHist.forEach((t) => { const m = t.date.slice(0, 7); porMes[m] = (porMes[m] || 0) + Number(t.amount || 0); });
+  txHist.filter((t) => t.category_id !== idCategoriaFatura).forEach((t) => { const m = t.date.slice(0, 7); porMes[m] = (porMes[m] || 0) + Number(t.amount || 0); });
+  cardTxHist.forEach((c) => { porMes[c.fatura_referencia] = (porMes[c.fatura_referencia] || 0) + Number(c.valor_parcela || 0); });
   const mesesComDado = Object.keys(porMes).length;
   const mediaDespesa = mesesComDado > 0 ? Object.values(porMes).reduce((s, v) => s + v, 0) / mesesComDado : despesasMes;
   const mesesCobertura = mediaDespesa > 0 ? saldoContas / mediaDespesa : (saldoContas > 0 ? 3 : 0);
@@ -113,8 +130,10 @@ function calcularMetricas(dados) {
     ? { nome: 'Orçamento', nota: Math.round((dentroDoLimite / budgets.length) * 100), desc: `${dentroDoLimite}/${budgets.length} orçamentos dentro do limite.` }
     : { nome: 'Orçamento', nota: 100, desc: 'Nenhum orçamento cadastrado este mês.' };
 
-  // 5) Regularidade — % dos dias do mês (até hoje) com lançamento
-  const diasComLancamento = new Set([...txMes.map((t) => t.date)]).size;
+  // 5) Regularidade — % dos dias do mês (até hoje) com lançamento em conta
+  // OU compra no cartão (antes só contava conta, subestimando quem usa
+  // muito o cartão).
+  const diasComLancamento = new Set([...txMes.map((t) => t.date), ...cardComprasMes.map((c) => c.data_compra)]).size;
   const diasPassados = hoje.getDate();
   const regularidade = { nome: 'Regularidade', nota: Math.round(clamp((diasComLancamento / diasPassados) * 100, 0, 100)), desc: `Lançamentos em ${Math.round((diasComLancamento / diasPassados) * 100)}% dos dias do mês.` };
 

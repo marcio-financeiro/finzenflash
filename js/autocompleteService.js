@@ -1,3 +1,4 @@
+import { escapeHtml } from './utils/escapeHtml.js';
 // autocompleteService.js — sugestões de descrição baseadas em lançamentos
 // anteriores do usuário (transações normais + compras de cartão), pra
 // autocompletar o campo Descrição e pré-preencher categoria/conta.
@@ -41,12 +42,6 @@ export async function getDescricoesRecentes(supabase, userId) {
   });
 
   return Array.from(map.values());
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
 }
 
 /** Popula um <datalist> com as descrições (sem duplicar valores). */

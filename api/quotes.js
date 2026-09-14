@@ -4,13 +4,11 @@
 // Endpoint público (sem auth) — rate limit por IP evita fan-out abusivo.
 
 import { checarLimiteIP } from './_ipRateLimit.js';
+import { aplicarCors } from './_cors.js';
 
 export default async function handler(req, res) {
 
-  // ── CORS ──────────────────────────────────────────────────────────────────
-  res.setHeader('Access-Control-Allow-Origin', 'https://finzenflash.vercel.app');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  aplicarCors(req, res, 'GET, OPTIONS');
   res.setHeader('Cache-Control', 'public, max-age=300'); // cache 5 min no browser
 
   if (req.method === 'OPTIONS') {

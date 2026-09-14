@@ -1,3 +1,4 @@
+import { escapeHtml } from '../utils/escapeHtml.js';
 // Paleta de comando (⌘K) — navegação rápida da versão desktop, no lugar de
 // um menu aninhado com grupos. Lista cresce conforme novas páginas desktop
 // forem criadas nas próximas fases.
@@ -24,12 +25,6 @@ const PAGINAS = [
 
 let selecionado = 0;
 let filtradas = PAGINAS;
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
 
 function marcarSelecionado() {
   document.querySelectorAll('#comandos-lista .comandos-item').forEach((btn, i) => {

@@ -5,6 +5,9 @@ import { loadChart } from '../loadChart.js';
 import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
+import { mostrarToast } from '../utils/toast.js';
+import { escapeHtml } from '../utils/escapeHtml.js';
+import { hojeISO } from '../utils/datas.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtMesCurto = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
@@ -18,17 +21,6 @@ let contasBancarias = [];
 let usuarioAtual = null;
 let chartTendencia = null;
 let idCategoriaFatura = null;
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
 
 function rotuloFatura(ref) {
   const [y, m] = ref.split('-').map(Number);
@@ -243,6 +235,7 @@ async function excluirCompra(compra) {
   if (error) {
     btn.disabled = false;
     btn.textContent = 'Excluir compra';
+    mostrarToast('Não foi possível excluir a compra. Tente novamente.');
     return;
   }
 
@@ -384,33 +377,17 @@ async function confirmarPagamento() {
   btn.textContent = 'Pagando...';
 
   try {
-    const ids = itensAbertos.map((c) => c.id);
-    const { error: erroFatura } = await supabase
-      .from('card_transactions')
-      .update({ status: 'paga' })
-      .in('id', ids)
-      .eq('user_id', usuarioAtual.id);
-    if (erroFatura) throw erroFatura;
-
     const categoryId = await obterCategoriaFatura(usuarioAtual.id);
-    const { error: erroTx } = await supabase.from('transactions').insert({
-      user_id: usuarioAtual.id,
-      account_id: contaId,
-      category_id: categoryId,
-      type: 'despesa',
-      amount: Number(total.toFixed(2)),
-      description: `Fatura ${cartao?.nome ?? ''} ${rotuloFatura(faturaRef)}`,
-      date: hojeISO(),
-      status: 'pago',
-      notes: 'Pagamento de fatura de cartão de crédito',
-    });
-    if (erroTx) throw erroTx;
 
-    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
+    // RPC atômica — ver confirmarPagamento em js/cartaoHub.js.
+    const { error: erroPagar } = await supabase.rpc('fz_pagar_fatura', {
+      p_card_id: cartaoSelecionado,
+      p_fatura_referencia: faturaRef,
       p_account_id: contaId,
-      p_delta: -total,
+      p_category_id: categoryId,
+      p_descricao: `Fatura ${cartao?.nome ?? ''} ${rotuloFatura(faturaRef)}`,
     });
-    if (erroSaldo) throw erroSaldo;
+    if (erroPagar) throw erroPagar;
 
     fecharModal('modal-pagar');
     await recarregar();
@@ -434,55 +411,72 @@ function abrirModalReabrirFatura() {
   abrirModal('modal-compra');
 }
 
+// Fallback pra fatura paga antes de fz_reabrir_fatura existir (transação
+// de pagamento com a descrição antiga, sem a chave estável que a RPC
+// procura) — ver reabrirFaturaManual em js/cartaoHub.js.
+async function reabrirFaturaManual() {
+  const cartao = cartaoAtual();
+  const descricaoPagamento = `Fatura ${cartao?.nome ?? ''} ${rotuloFatura(faturaRef)}`;
+
+  const { data: pagamentos, error: erroBusca } = await supabase
+    .from('transactions')
+    .select('id, amount, account_id')
+    .eq('user_id', usuarioAtual.id)
+    .eq('category_id', idCategoriaFatura)
+    .eq('description', descricaoPagamento)
+    .order('date', { ascending: false })
+    .limit(1);
+  if (erroBusca) throw erroBusca;
+
+  const pagamento = (pagamentos ?? [])[0];
+  if (!pagamento) return false;
+
+  const { error: erroFatura } = await supabase
+    .from('card_transactions')
+    .update({ status: 'aberta' })
+    .eq('card_id', cartaoSelecionado)
+    .eq('fatura_referencia', faturaRef)
+    .eq('status', 'paga')
+    .eq('user_id', usuarioAtual.id);
+  if (erroFatura) throw erroFatura;
+
+  const { error: erroDelete } = await supabase
+    .from('transactions')
+    .delete()
+    .eq('id', pagamento.id)
+    .eq('user_id', usuarioAtual.id);
+  if (erroDelete) throw erroDelete;
+
+  const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
+    p_account_id: pagamento.account_id,
+    p_delta: Number(pagamento.amount),
+  });
+  if (erroSaldo) throw erroSaldo;
+  return true;
+}
+
 async function reabrirFatura() {
   const btn = document.getElementById('btn-confirmar-reabrir-fatura');
   btn.disabled = true;
   btn.textContent = 'Reabrindo...';
 
   try {
-    const cartao = cartaoAtual();
-    const descricaoPagamento = `Fatura ${cartao?.nome ?? ''} ${rotuloFatura(faturaRef)}`;
-
-    const { data: pagamentos, error: erroBusca } = await supabase
-      .from('transactions')
-      .select('id, amount, account_id')
-      .eq('user_id', usuarioAtual.id)
-      .eq('category_id', idCategoriaFatura)
-      .eq('description', descricaoPagamento)
-      .order('date', { ascending: false })
-      .limit(1);
-    if (erroBusca) throw erroBusca;
-
-    const pagamento = (pagamentos ?? [])[0];
-    if (!pagamento) {
-      document.getElementById('modal-compra-conteudo').innerHTML = `
-        <div class="modal-titulo">Não foi possível localizar o pagamento</div>
-        <p style="color:var(--muted);font-size:13px">Não encontramos a transação desse pagamento no extrato — a fatura não foi reaberta.</p>
-      `;
-      return;
-    }
-
-    const { error: erroFatura } = await supabase
-      .from('card_transactions')
-      .update({ status: 'aberta' })
-      .eq('card_id', cartaoSelecionado)
-      .eq('fatura_referencia', faturaRef)
-      .eq('status', 'paga')
-      .eq('user_id', usuarioAtual.id);
-    if (erroFatura) throw erroFatura;
-
-    const { error: erroDelete } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('id', pagamento.id)
-      .eq('user_id', usuarioAtual.id);
-    if (erroDelete) throw erroDelete;
-
-    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
-      p_account_id: pagamento.account_id,
-      p_delta: Number(pagamento.amount),
+    // RPC atômica — ver reabrirFatura em js/cartaoHub.js.
+    const { error: erroRpc } = await supabase.rpc('fz_reabrir_fatura', {
+      p_card_id: cartaoSelecionado,
+      p_fatura_referencia: faturaRef,
     });
-    if (erroSaldo) throw erroSaldo;
+
+    if (erroRpc) {
+      const achou = await reabrirFaturaManual();
+      if (!achou) {
+        document.getElementById('modal-compra-conteudo').innerHTML = `
+          <div class="modal-titulo">Não foi possível localizar o pagamento</div>
+          <p style="color:var(--muted);font-size:13px">Não encontramos a transação desse pagamento no extrato — a fatura não foi reaberta.</p>
+        `;
+        return;
+      }
+    }
 
     fecharModal('modal-compra');
     await recarregar();

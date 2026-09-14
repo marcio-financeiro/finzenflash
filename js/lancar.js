@@ -1,6 +1,8 @@
 import { supabase, requireAuth } from './supabaseClient.js';
 import { aplicarTemaSalvo } from './temaService.js?v=3';
 import { getDescricoesRecentes, popularDatalist, encontrarSugestao } from './autocompleteService.js';
+import { escapeHtml } from './utils/escapeHtml.js';
+import { hojeISO } from './utils/datas.js';
 
 let tipo = 'despesa';
 let contaSelecionada = null;
@@ -9,11 +11,7 @@ let contas = [];
 let categorias = [];
 let lancamentoOriginal = null;
 let descricoesRecentes = [];
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
+let jaPagoTocadoManualmente = false;
 
 function uuid() {
   return crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
@@ -77,13 +75,17 @@ function selecionarTipo(novoTipo) {
   document.getElementById('valor').classList.toggle('cor-receita', tipo === 'receita');
   document.getElementById('sheet-valor-display').classList.toggle('cor-despesa', tipo === 'despesa');
   document.getElementById('sheet-valor-display').classList.toggle('cor-receita', tipo === 'receita');
+  document.getElementById('rotulo-ja-pago').textContent = tipo === 'despesa' ? 'Já paguei' : 'Já recebi';
   renderCategorias();
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
+// Padrão: marcado quando a data é hoje/passado, desmarcado quando é futura —
+// mas só enquanto o usuário não mexeu no toggle manualmente (uma conta com
+// vencimento hoje pode ainda não ter sido paga de fato).
+function atualizarPadraoJaPago() {
+  if (jaPagoTocadoManualmente) return;
+  const dataEscolhida = document.getElementById('data').value || hojeISO();
+  document.getElementById('chk-ja-pago').checked = dataEscolhida <= hojeISO();
 }
 
 function renderContas() {
@@ -238,87 +240,48 @@ async function salvar(user) {
     }
 
     if (escopo === 'only') {
-      const { error: erroUpdate } = await supabase.from('transactions').update({
-        account_id: contaSelecionada,
-        category_id: categoriaSelecionada,
-        type: tipo,
-        amount: valor,
-        description: descricao,
-        date: dataEscolhida,
-      }).eq('id', lancamentoOriginal.id).eq('user_id', user.id);
+      // RPC atômica (update + reconciliação de saldo, cobrindo troca de
+      // conta) numa transação só do banco — antes eram update + 2 chamadas
+      // de increment_account_balance separadas.
+      const { error: erroEditar } = await supabase.rpc('fz_editar_transacao', {
+        p_transaction_id: lancamentoOriginal.id,
+        p_account_id: contaSelecionada,
+        p_category_id: categoriaSelecionada,
+        p_type: tipo,
+        p_amount: valor,
+        p_description: descricao,
+        p_date: dataEscolhida,
+      });
 
-      if (erroUpdate) {
+      if (erroEditar) {
         erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
         btn.disabled = false;
         btn.textContent = textoBotaoPadrao;
         return;
       }
 
-      // Uma conta pendente não afetou o saldo quando foi criada — editá-la
-      // (sem mexer no status) não deve afetar o saldo agora também.
-      if (lancamentoOriginal.status === 'pago') {
-        // Desfaz o efeito do lançamento original na conta antiga e aplica o
-        // novo valor/tipo na conta escolhida — cobre também troca de conta.
-        const deltaReverso = lancamentoOriginal.type === 'receita' ? -Number(lancamentoOriginal.amount) : Number(lancamentoOriginal.amount);
-        await supabase.rpc('increment_account_balance', { p_account_id: lancamentoOriginal.account_id, p_delta: deltaReverso });
-
-        const deltaNovo = tipo === 'receita' ? valor : -valor;
-        const { error: erroSaldo } = await supabase.rpc('increment_account_balance', { p_account_id: contaSelecionada, p_delta: deltaNovo });
-
-        if (erroSaldo) {
-          erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
-          btn.disabled = false;
-          btn.textContent = textoBotaoPadrao;
-          return;
-        }
-      }
-
       window.location.href = '/pages/home.html';
       return;
     }
 
-    // escopo === 'future' — aplica em todas as ocorrências do grupo a partir desta data.
+    // escopo === 'future' — aplica em todas as ocorrências do grupo a partir
+    // desta data (mesma RPC, numa chamada só pra todo o lote).
     const grupoId = lancamentoOriginal.recurrence_group_id || lancamentoOriginal.id;
-    const { data: alvos, error: erroAlvos } = await supabase
-      .from('transactions')
-      .select('id, type, amount, status, account_id')
-      .eq('user_id', user.id)
-      .eq('recurrence_group_id', grupoId)
-      .gte('date', lancamentoOriginal.date);
+    const { error: erroFuturas } = await supabase.rpc('fz_editar_transacoes_futuras', {
+      p_recurrence_group_id: grupoId,
+      p_from_date: lancamentoOriginal.date,
+      p_account_id: contaSelecionada,
+      p_category_id: categoriaSelecionada,
+      p_type: tipo,
+      p_amount: valor,
+      p_description: descricao,
+    });
 
-    if (erroAlvos) {
-      erroEl.textContent = 'Não foi possível buscar as ocorrências futuras.';
-      btn.disabled = false;
-      btn.textContent = textoBotaoPadrao;
-      return;
-    }
-
-    const ids = (alvos || []).map((t) => t.id);
-    const { error: erroUpdateFuturas } = await supabase.from('transactions').update({
-      account_id: contaSelecionada,
-      category_id: categoriaSelecionada,
-      type: tipo,
-      amount: valor,
-      description: descricao,
-    }).in('id', ids).eq('user_id', user.id);
-
-    if (erroUpdateFuturas) {
+    if (erroFuturas) {
       erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
       btn.disabled = false;
       btn.textContent = textoBotaoPadrao;
       return;
-    }
-
-    const deltas = {};
-    for (const old of alvos || []) {
-      if (old.status !== 'pago') continue;
-      const v = Number(old.amount || 0);
-      deltas[old.account_id] = (deltas[old.account_id] || 0) + (old.type === 'receita' ? -v : v);
-      deltas[contaSelecionada] = (deltas[contaSelecionada] || 0) + (tipo === 'receita' ? valor : -valor);
-    }
-    for (const [accId, delta] of Object.entries(deltas)) {
-      if (!delta) continue;
-      await supabase.rpc('increment_account_balance', { p_account_id: accId, p_delta: delta });
     }
 
     window.location.href = '/pages/home.html';
@@ -335,8 +298,10 @@ async function salvar(user) {
     date: dataEscolhida,
     // Data futura = conta que ainda não venceu: fica pendente até ser paga.
     // Sem isso o banco usa o default 'confirmado', que não é nem 'pago'
-    // nem 'pendente' — some do Mapa de calor, Metas e Pendências.
-    status: dataEscolhida > hojeISO() ? 'pendente' : 'pago',
+    // nem 'pendente' — some do Mapa de calor, Metas e Pendências. O toggle
+    // "já paguei/recebi" deixa o usuário desmarcar mesmo com data <= hoje
+    // (ex: conta vencendo hoje que ainda não foi debitada).
+    status: document.getElementById('chk-ja-pago').checked ? 'pago' : 'pendente',
   };
 
   // O cron diário do FinZen (api/recurring-cron.js) gera as ocorrências
@@ -350,29 +315,18 @@ async function salvar(user) {
     dadosNovo.recurrence_group_id = uuid();
   }
 
-  const { error: erroInsercao } = await supabase.from('transactions').insert(dadosNovo);
+  // RPC atômica do FinZen: insere o lançamento e, se já estiver pago,
+  // ajusta o saldo da conta na mesma transação do banco. (Conta pendente,
+  // com data futura, só entra no saldo quando for paga de fato.) Antes eram
+  // insert + increment_account_balance separados — uma falha no segundo
+  // deixava o lançamento salvo sem mexer no saldo.
+  const { error: erroInsercao } = await supabase.rpc('fz_lancar_transacao', { p: dadosNovo });
 
   if (erroInsercao) {
     erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
     btn.disabled = false;
     btn.textContent = textoBotaoPadrao;
     return;
-  }
-
-  // Conta pendente (data futura) só entra no saldo quando for paga de fato.
-  if (dadosNovo.status === 'pago') {
-    const delta = tipo === 'receita' ? valor : -valor;
-    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
-      p_account_id: contaSelecionada,
-      p_delta: delta,
-    });
-
-    if (erroSaldo) {
-      erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
-      btn.disabled = false;
-      btn.textContent = textoBotaoPadrao;
-      return;
-    }
   }
 
   window.location.href = '/pages/home.html';
@@ -391,6 +345,10 @@ async function init() {
     document.getElementById('opcoes-recorrencia').hidden = !e.target.checked;
   });
   document.getElementById('descricao').addEventListener('blur', aplicarSugestaoDescricao);
+  document.getElementById('data').addEventListener('change', atualizarPadraoJaPago);
+  document.getElementById('chk-ja-pago').addEventListener('change', () => {
+    jaPagoTocadoManualmente = true;
+  });
 
   getDescricoesRecentes(supabase, user.id).then((lista) => {
     descricoesRecentes = lista;
@@ -400,8 +358,11 @@ async function init() {
   const idUrl = new URLSearchParams(window.location.search).get('id');
   if (idUrl) {
     // Editar uma ocorrência específica não deveria virar um novo "modelo"
-    // de recorrência — some com a opção nesse caso.
+    // de recorrência — some com a opção nesse caso. O status (pago/pendente)
+    // de um lançamento existente se muda por "dar baixa"/"desfazer baixa",
+    // não por aqui — some o toggle também.
     document.getElementById('secao-recorrencia').hidden = true;
+    document.getElementById('secao-ja-pago').hidden = true;
     const { data, error } = await supabase
       .from('transactions')
       .select('id, account_id, category_id, type, amount, description, date, status, is_recurring, recurrence_group_id')
@@ -425,6 +386,7 @@ async function init() {
   }
 
   selecionarTipo(lancamentoOriginal?.type ?? 'despesa');
+  atualizarPadraoJaPago();
 
   try {
     await carregarContasECategorias(user.id);

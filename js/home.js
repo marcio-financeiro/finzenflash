@@ -6,6 +6,11 @@ import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { iniciarLunaInsights } from './lunaInsights.js';
 import { carregarCotacaoDolar, paraBRL, formatarMoeda } from './currencyService.js';
+import { attachToqueSegurar } from './utils/toqueSegurar.js';
+import { mostrarToast } from './utils/toast.js';
+import { escapeHtml } from './utils/escapeHtml.js';
+import { hojeISO, limitesMes } from './utils/datas.js';
+import { lerValorMonetario } from './utils/valorMonetario.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 let dolarAtual;
@@ -46,12 +51,6 @@ function iconCartao() {
   return '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg>';
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
 function rotuloDia(dataISO) {
   const data = new Date(dataISO + 'T00:00:00');
   const hojeStr = hojeISO();
@@ -74,11 +73,6 @@ async function carregarContas(userId) {
   return data ?? [];
 }
 
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
-
 function addDiasISO(dataISO, dias) {
   const [y, m, d] = dataISO.split('-').map(Number);
   const data = new Date(y, m - 1, d + dias);
@@ -87,15 +81,6 @@ function addDiasISO(dataISO, dias) {
 
 function refMesString(data) {
   return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function limitesMes(ref) {
-  const ano = ref.getFullYear();
-  const mes = ref.getMonth();
-  const inicio = new Date(ano, mes, 1);
-  const fim = new Date(ano, mes + 1, 0);
-  const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return { inicio: toISO(inicio), fim: toISO(fim) };
 }
 
 // Data em que uma fatura de referência `ref` (YYYY-MM) vence — clampa pro
@@ -318,28 +303,28 @@ function renderLancamentos(lancamentos) {
     }
     if (l.origem === 'cartao') {
       html += `
-        <div class="lancamento-card" data-id="${l.id}" data-origem="cartao">
+        <button type="button" class="lancamento-card" data-id="${l.id}" data-origem="cartao" aria-label="Ver fatura de ${escapeHtml(l.description)}">
           <div class="lancamento-icone">${iconCartao()}</div>
           <div class="lancamento-info">
             <div class="lancamento-desc">${escapeHtml(l.description)}</div>
             <div class="lancamento-conta">Cartão · ${escapeHtml(l.nomeOrigem)}</div>
           </div>
           <div class="lancamento-valor valor-sensivel">${fmt.format(Math.abs(l.amount))}</div>
-        </div>
+        </button>
       `;
       continue;
     }
     const receita = l.type === 'receita';
     const sinal = receita ? '+' : '-';
     html += `
-      <div class="lancamento-card" data-id="${l.id}" data-origem="conta">
+      <button type="button" class="lancamento-card" data-id="${l.id}" data-origem="conta" aria-label="Ações para ${escapeHtml(l.description)}">
         <div class="lancamento-icone ${receita ? 'is-receita' : 'is-despesa'}">${receita ? iconReceita() : iconDespesa()}</div>
         <div class="lancamento-info">
           <div class="lancamento-desc">${escapeHtml(l.description)}</div>
           <div class="lancamento-conta">${escapeHtml(l.nomeOrigem)}</div>
         </div>
         <div class="lancamento-valor valor-sensivel ${receita ? 'is-receita' : 'is-despesa'}">${sinal}${fmt.format(Math.abs(l.amount))}</div>
-      </div>
+      </button>
     `;
   }
   container.innerHTML = html;
@@ -380,34 +365,6 @@ function ativarSwipeMes(el) {
       mudarMes(dx < 0 ? 1 : -1);
     }
   });
-}
-
-function attachToqueSegurar(el, aoAcionar) {
-  let timer = null;
-  let moveu = false;
-  const iniciar = () => {
-    moveu = false;
-    timer = setTimeout(() => {
-      if (!moveu) {
-        el.classList.remove('pressionando');
-        aoAcionar();
-      }
-    }, 500);
-    el.classList.add('pressionando');
-  };
-  const cancelar = () => {
-    clearTimeout(timer);
-    timer = null;
-    el.classList.remove('pressionando');
-  };
-  const mover = () => { moveu = true; cancelar(); };
-  el.addEventListener('touchstart', iniciar, { passive: true });
-  el.addEventListener('touchend', cancelar);
-  el.addEventListener('touchmove', mover, { passive: true });
-  el.addEventListener('touchcancel', cancelar);
-  el.addEventListener('mousedown', iniciar);
-  el.addEventListener('mouseup', cancelar);
-  el.addEventListener('mouseleave', cancelar);
 }
 
 function abrirSheetLancamento(lancamento) {
@@ -457,21 +414,16 @@ function abrirSheetLancamento(lancamento) {
 async function darBaixa(lancamento) {
   document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = true; });
 
-  const { data: atualizados, error: erroUpdate } = await supabase
-    .from('transactions')
-    .update({ status: 'pago' })
-    .eq('id', lancamento.id)
-    .eq('user_id', usuarioAtual.id)
-    .eq('status', 'pendente')
-    .select('id');
+  // RPC atômica (mesma do FinZen completo): muda o status pra pago e
+  // ajusta o saldo numa transação só — antes eram 2 chamadas separadas e
+  // uma falha na segunda deixava a conta "paga" sem descontar do saldo.
+  const { error } = await supabase.rpc('fz_marcar_pago', { p_transaction_id: lancamento.id });
 
-  if (erroUpdate || !atualizados?.length) {
+  if (error) {
     document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = false; });
+    mostrarToast('Não foi possível marcar como paga. Tente novamente.');
     return;
   }
-
-  const delta = lancamento.type === 'receita' ? Number(lancamento.amount) : -Number(lancamento.amount);
-  await supabase.rpc('increment_account_balance', { p_account_id: lancamento.accountId, p_delta: delta });
 
   fecharSheetLancamento();
   await init();
@@ -486,6 +438,7 @@ async function desfazerBaixa(lancamento) {
 
   if (error) {
     document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = false; });
+    mostrarToast('Não foi possível desfazer a baixa. Tente novamente.');
     return;
   }
 
@@ -534,7 +487,7 @@ async function excluirLancamento(lancamento, scope) {
   document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = true; });
 
   const grupoId = lancamento.recurrenceGroupId || lancamento.id;
-  let query = supabase.from('transactions').select('id, type, amount, status, account_id').eq('user_id', usuarioAtual.id);
+  let query = supabase.from('transactions').select('id').eq('user_id', usuarioAtual.id);
   if (scope === 'future') query = query.eq('recurrence_group_id', grupoId).gte('date', lancamento.date);
   else if (scope === 'series') query = query.eq('recurrence_group_id', grupoId);
   else query = query.eq('id', lancamento.id);
@@ -545,20 +498,15 @@ async function excluirLancamento(lancamento, scope) {
     return;
   }
 
-  const ids = alvos.map((a) => a.id);
-  const { error: erroDelete } = await supabase.from('transactions').delete().eq('user_id', usuarioAtual.id).in('id', ids);
+  // RPC atômica (apaga + reverte saldo dos que estavam pagos, cada um na
+  // sua conta, numa transação só do banco) — antes eram delete + um
+  // increment_account_balance por item em chamadas separadas.
+  const { error: erroExcluir } = await supabase.rpc('fz_excluir_transacoes', { p_transaction_ids: alvos.map((a) => a.id) });
 
-  if (erroDelete) {
+  if (erroExcluir) {
     document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = false; });
+    mostrarToast('Não foi possível excluir. Tente novamente.');
     return;
-  }
-
-  // Pendente nunca afetou o saldo — só reverte se já tiver sido contabilizado.
-  for (const item of alvos) {
-    if (item.status === 'pago') {
-      const delta = item.type === 'receita' ? -Number(item.amount) : Number(item.amount);
-      await supabase.rpc('increment_account_balance', { p_account_id: item.account_id, p_delta: delta });
-    }
   }
 
   fecharSheetLancamento();
@@ -739,21 +687,27 @@ async function carregarRanking(userId, inicio, fim, inicioAnt, fimAnt, refMes, r
   };
 }
 
-async function carregarEconomia(userId, inicio, fim) {
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('type, amount')
-    .eq('user_id', userId)
-    .gte('date', inicio)
-    .lte('date', fim);
+// Mesma base de cálculo de Relatórios/Saúde (competência): só o que já foi
+// pago, exclui a categoria "Fatura de Cartão" (senão a mesma compra conta
+// duas vezes — ver comentário em carregarRanking) e inclui as compras no
+// cartão pela fatura do mês. Antes somava TUDO do mês (pago + pendente,
+// sem excluir a fatura, sem contar o cartão), o que fazia esse card mostrar
+// um número diferente do resto do app pro mesmo mês.
+async function carregarEconomia(userId, inicio, fim, ref, idCategoriaFatura) {
+  const [{ data, error }, { data: compras, error: erroCompras }] = await Promise.all([
+    supabase.from('transactions').select('type, amount, category_id').eq('user_id', userId).eq('status', 'pago').gte('date', inicio).lte('date', fim),
+    supabase.from('card_transactions').select('valor_parcela').eq('user_id', userId).eq('fatura_referencia', ref),
+  ]);
   if (error) throw error;
+  if (erroCompras) throw erroCompras;
 
   let receitas = 0;
   let despesas = 0;
   for (const t of data ?? []) {
     if (t.type === 'receita') receitas += Number(t.amount);
-    else despesas += Number(t.amount);
+    else if (t.category_id !== idCategoriaFatura) despesas += Number(t.amount);
   }
+  for (const c of compras ?? []) despesas += Number(c.valor_parcela);
   return { receitas, despesas };
 }
 
@@ -821,12 +775,6 @@ async function carregarOrcamentosDoMes(userId, ref) {
     .eq('mes_referencia', ref);
   if (error) throw error;
   return data ?? [];
-}
-
-function lerValorMonetario(bruto) {
-  const normalizado = String(bruto ?? '').trim().replace(/\./g, '').replace(',', '.');
-  const numero = Number(normalizado);
-  return Number.isFinite(numero) ? numero : 0;
 }
 
 async function abrirSheetEditarMetas() {
@@ -1044,14 +992,14 @@ async function abrirSheetListaPendentes() {
       const vencida = l.date <= hojeISO();
       const rotuloVencida = l.date === hojeISO() ? 'vence hoje' : 'vencida';
       return `
-      <div class="lancamento-card ${vencida ? 'vencida' : ''}" data-id="${l.id}">
+      <button type="button" class="lancamento-card ${vencida ? 'vencida' : ''}" data-id="${l.id}" aria-label="Ações para ${escapeHtml(l.description)}">
         <div class="lancamento-icone ${l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${l.type === 'receita' ? iconReceita() : iconDespesa()}</div>
         <div class="lancamento-info">
           <div class="lancamento-desc">${escapeHtml(l.description)}</div>
           <div class="lancamento-conta">${escapeHtml(l.nomeOrigem)} · ${vencida ? `<span class="badge-vencida">${rotuloVencida}</span> ` : ''}vence ${fmtDataCurta.format(new Date(l.date + 'T00:00:00'))}</div>
         </div>
         <div class="lancamento-valor valor-sensivel ${l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${fmt.format(Math.abs(l.amount))}</div>
-      </div>
+      </button>
     `;
     }).join('');
     container.querySelectorAll('.lancamento-card').forEach((el) => {
@@ -1581,8 +1529,8 @@ async function recarregarResumoMensal() {
     const idCategoriaFatura = categoriasDespesaCache.find((c) => c.nome === 'Fatura de Cartão')?.id ?? null;
     const [ranking, economia, economiaAnterior, mapacalor] = await Promise.all([
       carregarRanking(usuarioAtual.id, inicio, fim, inicioAnt, fimAnt, ref, refAnt, categoriasOcultasRanking, idCategoriaFatura),
-      carregarEconomia(usuarioAtual.id, inicio, fim),
-      carregarEconomia(usuarioAtual.id, inicioAnt, fimAnt),
+      carregarEconomia(usuarioAtual.id, inicio, fim, ref, idCategoriaFatura),
+      carregarEconomia(usuarioAtual.id, inicioAnt, fimAnt, refAnt, idCategoriaFatura),
       carregarMapaCalor(usuarioAtual.id, inicio, fim, idCategoriaFatura),
     ]);
     cacheResumo.ranking = ranking;
@@ -1660,19 +1608,20 @@ async function recarregarTimeline(user) {
   }
 }
 
-async function init() {
-  aplicarTemaSalvo();
+// init() roda de novo em pageshow/visibilitychange (ver o fim do arquivo)
+// pra atualizar os dados — mas o menu inferior, as sheets e os botões
+// fixos só podem ser configurados UMA vez, senão cada volta pra tela
+// empilha mais um listener (o "mês anterior" passava a pular 2, 3, 4
+// meses) e mais uma cópia da sheet "Mais" no body.
+let eventosConfigurados = false;
+let carregandoDados = false;
+
+function configurarEventosFixos() {
+  if (eventosConfigurados) return;
+  eventosConfigurados = true;
+
   montarNavInferior('home');
   configurarBotaoSair();
-  configurarBotaoPrivacidade('btn-privacidade');
-
-  const user = await requireAuth();
-  if (!user) return;
-
-  renderMes();
-
-  usuarioAtual = user;
-  carregarTemaDoBanco(supabase, user.id);
 
   document.getElementById('btn-mes-anterior').addEventListener('click', () => mudarMes(-1));
   document.getElementById('btn-mes-proximo').addEventListener('click', () => mudarMes(1));
@@ -1701,6 +1650,25 @@ async function init() {
   const sheetListaPendentes = document.getElementById('sheet-lista-pendentes');
   sheetListaPendentes.addEventListener('click', (e) => { if (e.target === sheetListaPendentes) sheetListaPendentes.hidden = true; });
   ativarArrastarParaFechar(sheetListaPendentes);
+}
+
+async function init() {
+  aplicarTemaSalvo();
+  configurarEventosFixos();
+  configurarBotaoPrivacidade('btn-privacidade');
+
+  const user = await requireAuth();
+  if (!user) return;
+
+  // Uma recarga ainda em andamento (ex.: voltou pra aba duas vezes seguidas)
+  // não precisa de outra em paralelo disputando o mesmo DOM.
+  if (carregandoDados) return;
+  carregandoDados = true;
+
+  renderMes();
+
+  usuarioAtual = user;
+  carregarTemaDoBanco(supabase, user.id);
 
   try {
     const [contas, lancamentos, preferencias, categoriasDespesa, categoriasOcultas, dolar] = await Promise.all([
@@ -1729,6 +1697,8 @@ async function init() {
     console.error(err);
     document.getElementById('lista-lancamentos').innerHTML =
       '<div class="conta-vazia">Não foi possível carregar seus dados. Puxe pra atualizar.</div>';
+  } finally {
+    carregandoDados = false;
   }
 }
 

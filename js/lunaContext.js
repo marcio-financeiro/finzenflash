@@ -78,7 +78,9 @@ export async function coletarContexto(userId) {
     supabase.from('transactions')
       .select('type,amount,date,status,accounts:account_id(currency)')
       .eq('user_id', userId)
-      .gte('date', mes3Atras).lte('date', primeiroDia)
+      // .lt (não .lte): o dia 1 do mês atual já está em transacoesMes —
+      // com .lte ele entrava também no "histórico", contando duas vezes.
+      .gte('date', mes3Atras).lt('date', primeiroDia)
       .eq('status', 'pago'),
 
     supabase.from('budgets')

@@ -1,9 +1,13 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { aplicarTemaSalvo } from './temaService.js?v=3';
-import { ativarArrastarParaFechar } from './sheetGestos.js';
+import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { attachValorMask } from './utils/valorMask.js';
 import { formatarMoeda } from './currencyService.js';
+import { mostrarToast } from './utils/toast.js';
+import { escapeHtml } from './utils/escapeHtml.js';
+import { lerValorMonetarioPorId as lerValorMonetario } from './utils/valorMonetario.js';
+import { campoTexto, campoSelect } from './utils/campos.js';
 
 const CAMPOS_VALOR_POR_TIPO = {
   conta: ['f-saldo'],
@@ -52,12 +56,6 @@ async function salvarPreferenciaPrincipal(userId, chave, valorId) {
 }
 
 const LABELS_FREQUENCIA = { mensal: 'Mensal', semanal: 'Semanal', anual: 'Anual' };
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
 
 function inicial(nome) {
   return escapeHtml((nome || '?').trim().charAt(0).toUpperCase());
@@ -422,6 +420,7 @@ async function excluirItem(tipo, item) {
   const tabela = { conta: 'accounts', cartao: 'credit_cards', categoria: 'categories', recorrente: 'transactions', orcamento: 'budgets' }[tipo];
   const { error } = await supabase.from(tabela).delete().eq('id', item.id).eq('user_id', usuarioAtual.id);
   if (error) {
+    mostrarToast('Não foi possível excluir. Tente novamente.', 'erro');
     btn.disabled = false;
     btn.textContent = 'Excluir';
     return;
@@ -429,29 +428,6 @@ async function excluirItem(tipo, item) {
   fecharSheet('sheet-acoes');
   if (tipo === 'orcamento') { await recarregarOrcamentos(); return; }
   await recarregarTudo();
-}
-
-function campoTexto(id, label, valor, placeholder = '') {
-  return `
-    <div class="field">
-      <label for="${id}">${label}</label>
-      <input type="text" id="${id}" value="${escapeHtml(valor ?? '')}" placeholder="${placeholder}">
-    </div>
-  `;
-}
-
-function campoSelect(id, label, opcoes, valorAtual) {
-  const options = opcoes.map((o) => {
-    const valor = typeof o === 'string' ? o : o.valor;
-    const texto = typeof o === 'string' ? o : o.texto;
-    return `<option value="${escapeHtml(valor)}" ${valor === valorAtual ? 'selected' : ''}>${escapeHtml(texto)}</option>`;
-  }).join('');
-  return `
-    <div class="field">
-      <label for="${id}">${label}</label>
-      <select id="${id}">${options}</select>
-    </div>
-  `;
 }
 
 function abrirSheetForm(tipo, item) {
@@ -559,13 +535,6 @@ function formOrcamento(o) {
   `;
 }
 
-function lerValorMonetario(id) {
-  const bruto = document.getElementById(id).value.trim();
-  const normalizado = bruto.replace(/\./g, '').replace(',', '.');
-  const numero = Number(normalizado);
-  return Number.isFinite(numero) ? numero : 0;
-}
-
 async function salvarOrcamento(item) {
   const erro = document.getElementById('erro-form');
   const btn = document.getElementById('btn-salvar-form');
@@ -623,11 +592,20 @@ async function salvarForm(tipo, item) {
       tipo: tipoConta,
       account_kind: 'bank',
       currency: document.getElementById('f-moeda').value,
-      saldo_atual: lerValorMonetario('f-saldo'),
       color: document.getElementById('f-cor').value,
       active: document.getElementById('f-ativo').value === 'true',
       icon: item?.icon || null,
     };
+    // Editar uma conta (até só o nome) reenviava sempre o saldo mostrado no
+    // campo — se um lançamento tivesse mexido no saldo enquanto a tela
+    // estava aberta (ou entre abrir a tela e salvar), essa gravação
+    // "voltava" o saldo pro valor antigo, apagando esse lançamento do
+    // saldo. Só grava saldo_atual se o usuário realmente mudou o valor
+    // (novas contas sempre gravam o valor digitado, mesmo que seja 0).
+    const saldoDigitado = lerValorMonetario('f-saldo');
+    if (!item || Math.abs(saldoDigitado - Number(item.saldo_atual ?? 0)) >= 0.005) {
+      dados.saldo_atual = saldoDigitado;
+    }
   } else if (tipo === 'cartao') {
     tabela = 'credit_cards';
     const fechamento = Number(document.getElementById('f-fechamento').value) || null;
@@ -708,25 +686,20 @@ async function salvarForm(tipo, item) {
   await recarregarTudo();
 }
 
-async function init() {
-  aplicarTemaSalvo();
+// init() roda de novo em pageshow/visibilitychange (ver o fim do arquivo)
+// pra atualizar os dados — o menu, as sheets e os botões fixos só podem
+// ser configurados UMA vez, senão cada volta pra tela empilha mais um
+// listener (o "+" abria a sheet várias vezes, o mês do orçamento pulava
+// 2, 3, 4 meses por toque).
+let eventosConfigurados = false;
+let carregandoDados = false;
+
+function configurarEventosFixos() {
+  if (eventosConfigurados) return;
+  eventosConfigurados = true;
+
   montarNavInferior('cadastros');
   configurarBotaoSair();
-
-  const user = await requireAuth();
-  if (!user) return;
-  usuarioAtual = user;
-
-  try {
-    [cartaoPrincipalId, contaPrincipalId] = await Promise.all([
-      carregarPreferenciaPrincipal(user.id, CHAVE_CARTAO_PRINCIPAL),
-      carregarPreferenciaPrincipal(user.id, CHAVE_CONTA_PRINCIPAL),
-    ]);
-  } catch (err) {
-    console.error(err);
-    // Não crítico — a preferência de "principal" é só um destaque visual,
-    // seguimos sem ela em vez de bloquear a tela.
-  }
 
   gruposColapsados = carregarGruposColapsados();
   document.querySelectorAll('.grupo-cadastro').forEach((el) => {
@@ -762,6 +735,29 @@ async function init() {
   }
   document.getElementById('btn-orcamento-mes-anterior').addEventListener('click', () => mudarOrcamentoMes(-1));
   document.getElementById('btn-orcamento-mes-proximo').addEventListener('click', () => mudarOrcamentoMes(1));
+}
+
+async function init() {
+  aplicarTemaSalvo();
+  configurarEventosFixos();
+
+  const user = await requireAuth();
+  if (!user) return;
+  usuarioAtual = user;
+
+  if (carregandoDados) return;
+  carregandoDados = true;
+
+  try {
+    [cartaoPrincipalId, contaPrincipalId] = await Promise.all([
+      carregarPreferenciaPrincipal(user.id, CHAVE_CARTAO_PRINCIPAL),
+      carregarPreferenciaPrincipal(user.id, CHAVE_CONTA_PRINCIPAL),
+    ]);
+  } catch (err) {
+    console.error(err);
+    // Não crítico — a preferência de "principal" é só um destaque visual,
+    // seguimos sem ela em vez de bloquear a tela.
+  }
 
   try {
     await recarregarTudo();
@@ -772,6 +768,8 @@ async function init() {
       const el = document.getElementById(id);
       if (el) el.innerHTML = erro;
     });
+  } finally {
+    carregandoDados = false;
   }
 }
 

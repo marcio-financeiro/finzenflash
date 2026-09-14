@@ -4,6 +4,9 @@ import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
 import { carregarCotacaoDolar, paraBRL, formatarMoeda } from '../currencyService.js';
+import { mostrarToast } from '../utils/toast.js';
+import { escapeHtml } from '../utils/escapeHtml.js';
+import { hojeISO, limitesMes } from '../utils/datas.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 let dolarAtual;
@@ -18,26 +21,6 @@ let diaFiltro = '';
 let usuarioAtual = null;
 let idCategoriaFatura = null;
 const fmtDataCompleta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
-
-function limitesMes(ref) {
-  const ano = ref.getFullYear();
-  const mes = ref.getMonth();
-  const inicio = new Date(ano, mes, 1);
-  const fim = new Date(ano, mes + 1, 0);
-  const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return { inicio: toISO(inicio), fim: toISO(fim) };
-}
 
 async function carregarFiltros(userId) {
   const [{ data: dadosContas }, { data: dadosCategorias }, dolar] = await Promise.all([
@@ -83,10 +66,14 @@ async function carregarLancamentos(userId) {
   // visão filtrada por conta bancária, o que não faz sentido).
   if (contaFiltro) return doConta;
 
+  // 1 linha por compra (parcela_atual=1) com o valor total — sem isso uma
+  // compra em 10x aparecia 10 vezes no mesmo dia (todas as parcelas têm a
+  // mesma data_compra). Mesma regra de js/extrato.js e da Home.
   let queryCartao = supabase
     .from('card_transactions')
-    .select('id, purchase_group_id, valor_parcela, descricao, data_compra, category_id, credit_cards(nome), categories(nome, icon)')
-    .eq('user_id', userId);
+    .select('id, purchase_group_id, valor_total, parcelas, descricao, data_compra, category_id, credit_cards(nome), categories(nome, icon)')
+    .eq('user_id', userId)
+    .eq('parcela_atual', 1);
 
   if (diaFiltro) {
     queryCartao = queryCartao.eq('data_compra', diaFiltro);
@@ -103,7 +90,8 @@ async function carregarLancamentos(userId) {
     origem: 'cartao',
     purchaseGroupId: c.purchase_group_id,
     type: 'despesa',
-    amount: c.valor_parcela,
+    amount: c.valor_total,
+    parcelas: c.parcelas,
     description: c.descricao,
     date: c.data_compra,
     accounts: { nome: c.credit_cards?.nome ?? '', currency: 'BRL' },
@@ -146,7 +134,7 @@ function renderTabela(lancamentos) {
         <td>${vencida ? `<span style="color:var(--danger);font-weight:800">${rotuloVencida}</span> · ` : ''}${fmtData.format(new Date(l.date + 'T00:00:00'))}</td>
         <td>${escapeHtml(l.description)}</td>
         <td>${categoria}</td>
-        <td>${escapeHtml(l.accounts?.nome ?? '')}${doCartao ? ' <span style="color:var(--muted);font-size:11px">(cartão)</span>' : ''}</td>
+        <td>${escapeHtml(l.accounts?.nome ?? '')}${doCartao ? ` <span style="color:var(--muted);font-size:11px">(cartão${l.parcelas > 1 ? ` ${l.parcelas}x` : ''})</span>` : ''}</td>
         <td class="num ${receita ? 'positivo' : 'negativo'} valor-sensivel">${receita ? '+' : '-'} ${formatarMoeda(Math.abs(l.amount), l.accounts?.currency)}</td>
         <td><button type="button" class="btn-desktop" data-id="${l.id}">Detalhes</button></td>
       </tr>
@@ -195,20 +183,13 @@ function abrirDetalhes(lancamento) {
 async function darBaixa(lancamento) {
   document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = true; });
 
-  const { data: atualizados, error: erroUpdate } = await supabase
-    .from('transactions')
-    .update({ status: 'pago' })
-    .eq('id', lancamento.id)
-    .eq('user_id', usuarioAtual.id)
-    .eq('status', 'pendente')
-    .select('id');
-  if (erroUpdate || !atualizados?.length) {
+  // RPC atômica (status + saldo numa transação só) — ver darBaixa em js/home.js.
+  const { error } = await supabase.rpc('fz_marcar_pago', { p_transaction_id: lancamento.id });
+  if (error) {
     document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = false; });
+    mostrarToast('Não foi possível marcar como paga. Tente novamente.');
     return;
   }
-
-  const delta = lancamento.type === 'receita' ? Number(lancamento.amount) : -Number(lancamento.amount);
-  await supabase.rpc('increment_account_balance', { p_account_id: lancamento.account_id, p_delta: delta });
 
   fecharModal('modal-lancamento');
   await recarregar(usuarioAtual.id);
@@ -220,6 +201,7 @@ async function desfazerBaixa(lancamento) {
   const { error } = await supabase.rpc('fz_desfazer_baixa', { p_transaction_id: lancamento.id });
   if (error) {
     document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = false; });
+    mostrarToast('Não foi possível desfazer a baixa. Tente novamente.');
     return;
   }
 
@@ -259,7 +241,7 @@ async function excluirLancamento(lancamento, scope) {
   document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = true; });
 
   const grupoId = lancamento.recurrence_group_id || lancamento.id;
-  let query = supabase.from('transactions').select('id, type, amount, status, account_id').eq('user_id', usuarioAtual.id);
+  let query = supabase.from('transactions').select('id').eq('user_id', usuarioAtual.id);
   if (scope === 'future') query = query.eq('recurrence_group_id', grupoId).gte('date', lancamento.date);
   else if (scope === 'series') query = query.eq('recurrence_group_id', grupoId);
   else query = query.eq('id', lancamento.id);
@@ -270,18 +252,12 @@ async function excluirLancamento(lancamento, scope) {
     return;
   }
 
-  const ids = alvos.map((a) => a.id);
-  const { error: erroDelete } = await supabase.from('transactions').delete().eq('user_id', usuarioAtual.id).in('id', ids);
-  if (erroDelete) {
+  // RPC atômica — ver excluirLancamento em js/home.js.
+  const { error: erroExcluir } = await supabase.rpc('fz_excluir_transacoes', { p_transaction_ids: alvos.map((a) => a.id) });
+  if (erroExcluir) {
     document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = false; });
+    mostrarToast('Não foi possível excluir. Tente novamente.');
     return;
-  }
-
-  for (const item of alvos) {
-    if (item.status === 'pago') {
-      const delta = item.type === 'receita' ? -Number(item.amount) : Number(item.amount);
-      await supabase.rpc('increment_account_balance', { p_account_id: item.account_id, p_delta: delta });
-    }
   }
 
   fecharModal('modal-lancamento');

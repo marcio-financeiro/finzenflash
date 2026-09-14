@@ -4,6 +4,8 @@ import { getDescricoesRecentes, popularDatalist, encontrarSugestao } from '../au
 import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
+import { escapeHtml } from '../utils/escapeHtml.js';
+import { hojeISO } from '../utils/datas.js';
 
 let tipo = 'despesa';
 let contaSelecionada = null;
@@ -12,20 +14,10 @@ let contas = [];
 let categorias = [];
 let lancamentoOriginal = null;
 let descricoesRecentes = [];
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
+let jaPagoTocadoManualmente = false;
 
 function uuid() {
   return crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
 }
 
 function moedaSelecionada() {
@@ -69,7 +61,14 @@ function selecionarTipo(novoTipo) {
   document.getElementById('btn-receita').classList.toggle('ativo-receita', tipo === 'receita');
   document.getElementById('valor').classList.toggle('cor-despesa', tipo === 'despesa');
   document.getElementById('valor').classList.toggle('cor-receita', tipo === 'receita');
+  document.getElementById('rotulo-ja-pago').textContent = tipo === 'despesa' ? 'Já paguei' : 'Já recebi';
   renderCategorias();
+}
+
+function atualizarPadraoJaPago() {
+  if (jaPagoTocadoManualmente) return;
+  const dataEscolhida = document.getElementById('data').value || hojeISO();
+  document.getElementById('chk-ja-pago').checked = dataEscolhida <= hojeISO();
 }
 
 function renderContas() {
@@ -237,82 +236,45 @@ async function salvar(user) {
     }
 
     if (escopo === 'only') {
-      const { error: erroUpdate } = await supabase.from('transactions').update({
-        account_id: contaSelecionada,
-        category_id: categoriaSelecionada,
-        type: tipo,
-        amount: valor,
-        description: descricao,
-        date: dataEscolhida,
-      }).eq('id', lancamentoOriginal.id).eq('user_id', user.id);
+      // RPC atômica — ver salvar() em js/lancar.js.
+      const { error: erroEditar } = await supabase.rpc('fz_editar_transacao', {
+        p_transaction_id: lancamentoOriginal.id,
+        p_account_id: contaSelecionada,
+        p_category_id: categoriaSelecionada,
+        p_type: tipo,
+        p_amount: valor,
+        p_description: descricao,
+        p_date: dataEscolhida,
+      });
 
-      if (erroUpdate) {
+      if (erroEditar) {
         erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
         btn.disabled = false;
         btn.textContent = textoBotaoPadrao;
         return;
       }
 
-      if (lancamentoOriginal.status === 'pago') {
-        const deltaReverso = lancamentoOriginal.type === 'receita' ? -Number(lancamentoOriginal.amount) : Number(lancamentoOriginal.amount);
-        await supabase.rpc('increment_account_balance', { p_account_id: lancamentoOriginal.account_id, p_delta: deltaReverso });
-
-        const deltaNovo = tipo === 'receita' ? valor : -valor;
-        const { error: erroSaldo } = await supabase.rpc('increment_account_balance', { p_account_id: contaSelecionada, p_delta: deltaNovo });
-
-        if (erroSaldo) {
-          erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
-          btn.disabled = false;
-          btn.textContent = textoBotaoPadrao;
-          return;
-        }
-      }
-
       window.location.href = '/pages/desktop/extrato.html';
       return;
     }
 
+    // escopo === 'future' — RPC atômica, numa chamada só pra todo o lote.
     const grupoId = lancamentoOriginal.recurrence_group_id || lancamentoOriginal.id;
-    const { data: alvos, error: erroAlvos } = await supabase
-      .from('transactions')
-      .select('id, type, amount, status, account_id')
-      .eq('user_id', user.id)
-      .eq('recurrence_group_id', grupoId)
-      .gte('date', lancamentoOriginal.date);
+    const { error: erroFuturas } = await supabase.rpc('fz_editar_transacoes_futuras', {
+      p_recurrence_group_id: grupoId,
+      p_from_date: lancamentoOriginal.date,
+      p_account_id: contaSelecionada,
+      p_category_id: categoriaSelecionada,
+      p_type: tipo,
+      p_amount: valor,
+      p_description: descricao,
+    });
 
-    if (erroAlvos) {
-      erroEl.textContent = 'Não foi possível buscar as ocorrências futuras.';
-      btn.disabled = false;
-      btn.textContent = textoBotaoPadrao;
-      return;
-    }
-
-    const ids = (alvos || []).map((t) => t.id);
-    const { error: erroUpdateFuturas } = await supabase.from('transactions').update({
-      account_id: contaSelecionada,
-      category_id: categoriaSelecionada,
-      type: tipo,
-      amount: valor,
-      description: descricao,
-    }).in('id', ids).eq('user_id', user.id);
-
-    if (erroUpdateFuturas) {
+    if (erroFuturas) {
       erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
       btn.disabled = false;
       btn.textContent = textoBotaoPadrao;
       return;
-    }
-
-    const deltas = {};
-    for (const old of alvos || []) {
-      if (old.status !== 'pago') continue;
-      const v = Number(old.amount || 0);
-      deltas[old.account_id] = (deltas[old.account_id] || 0) + (old.type === 'receita' ? -v : v);
-      deltas[contaSelecionada] = (deltas[contaSelecionada] || 0) + (tipo === 'receita' ? valor : -valor);
-    }
-    for (const [accId, delta] of Object.entries(deltas)) {
-      if (!delta) continue;
-      await supabase.rpc('increment_account_balance', { p_account_id: accId, p_delta: delta });
     }
 
     window.location.href = '/pages/desktop/extrato.html';
@@ -327,7 +289,7 @@ async function salvar(user) {
     amount: valor,
     description: descricao,
     date: dataEscolhida,
-    status: dataEscolhida > hojeISO() ? 'pendente' : 'pago',
+    status: document.getElementById('chk-ja-pago').checked ? 'pago' : 'pendente',
   };
 
   if (document.getElementById('chk-recorrente')?.checked) {
@@ -338,28 +300,14 @@ async function salvar(user) {
     dadosNovo.recurrence_group_id = uuid();
   }
 
-  const { error: erroInsercao } = await supabase.from('transactions').insert(dadosNovo);
+  // RPC atômica (insert + saldo numa transação só) — ver salvar() em js/lancar.js.
+  const { error: erroInsercao } = await supabase.rpc('fz_lancar_transacao', { p: dadosNovo });
 
   if (erroInsercao) {
     erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
     btn.disabled = false;
     btn.textContent = textoBotaoPadrao;
     return;
-  }
-
-  if (dadosNovo.status === 'pago') {
-    const delta = tipo === 'receita' ? valor : -valor;
-    const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
-      p_account_id: contaSelecionada,
-      p_delta: delta,
-    });
-
-    if (erroSaldo) {
-      erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
-      btn.disabled = false;
-      btn.textContent = textoBotaoPadrao;
-      return;
-    }
   }
 
   window.location.href = '/pages/desktop/home.html';
@@ -383,6 +331,10 @@ async function iniciar() {
     document.getElementById('opcoes-recorrencia').hidden = !e.target.checked;
   });
   document.getElementById('descricao').addEventListener('blur', aplicarSugestaoDescricao);
+  document.getElementById('data').addEventListener('change', atualizarPadraoJaPago);
+  document.getElementById('chk-ja-pago').addEventListener('change', () => {
+    jaPagoTocadoManualmente = true;
+  });
 
   getDescricoesRecentes(supabase, user.id).then((lista) => {
     descricoesRecentes = lista;
@@ -392,6 +344,7 @@ async function iniciar() {
   const idUrl = new URLSearchParams(window.location.search).get('id');
   if (idUrl) {
     document.getElementById('secao-recorrencia').hidden = true;
+    document.getElementById('secao-ja-pago').hidden = true;
     const { data, error } = await supabase
       .from('transactions')
       .select('id, account_id, category_id, type, amount, description, date, status, is_recurring, recurrence_group_id')
@@ -415,6 +368,7 @@ async function iniciar() {
   }
 
   selecionarTipo(lancamentoOriginal?.type ?? 'despesa');
+  atualizarPadraoJaPago();
 
   try {
     await carregarContasECategorias(user.id);

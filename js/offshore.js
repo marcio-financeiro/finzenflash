@@ -4,6 +4,11 @@ import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { attachValorMask } from './utils/valorMask.js';
+import { mostrarToast } from './utils/toast.js';
+import { escapeHtml } from './utils/escapeHtml.js';
+import { hojeISO } from './utils/datas.js';
+import { lerValorMonetario } from './utils/valorMonetario.js';
+import { campoTexto, campoSelect } from './utils/campos.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDataCurta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -34,23 +39,6 @@ let ciclos = [];
 let horas = [];
 let cursos = [];
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
-
-function lerValorMonetario(bruto) {
-  const normalizado = String(bruto ?? '').trim().replace(/\./g, '').replace(',', '.');
-  const numero = Number(normalizado);
-  return Number.isFinite(numero) ? numero : 0;
-}
-
 function fmtData(iso) {
   if (!iso) return '—';
   return fmtDataCurta.format(new Date(iso + 'T00:00:00'));
@@ -59,25 +47,6 @@ function fmtData(iso) {
 function diasEntre(d1, d2) {
   if (!d1 || !d2) return 0;
   return Math.round((new Date(d2 + 'T00:00:00') - new Date(d1 + 'T00:00:00')) / 86400000);
-}
-
-function campoTexto(id, label, valor, placeholder = '') {
-  return `
-    <div class="field">
-      <label for="${id}">${label}</label>
-      <input type="text" id="${id}" value="${escapeHtml(valor ?? '')}" placeholder="${placeholder}">
-    </div>
-  `;
-}
-
-function campoSelect(id, label, opcoes, valorAtual) {
-  const options = opcoes.map((o) => `<option value="${o.valor}" ${o.valor === valorAtual ? 'selected' : ''}>${o.texto}</option>`).join('');
-  return `
-    <div class="field">
-      <label for="${id}">${label}</label>
-      <select id="${id}">${options}</select>
-    </div>
-  `;
 }
 
 // ── Carregar dados ──────────────────────────────────────
@@ -202,7 +171,7 @@ function confirmarExclusaoCiclo(ciclo) {
     btn.disabled = true;
     btn.textContent = 'Excluindo...';
     const { error } = await supabase.from('offshore_cycles').delete().eq('id', ciclo.id).eq('user_id', usuarioAtual.id);
-    if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+    if (error) { mostrarToast('Não foi possível excluir. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Excluir'; return; }
     document.getElementById('sheet-acao-ciclo').hidden = true;
     await Promise.all([carregarCiclos(usuarioAtual.id), carregarHE(usuarioAtual.id)]);
     renderTudo();
@@ -314,7 +283,7 @@ function confirmarExclusaoHE(he) {
     btn.disabled = true;
     btn.textContent = 'Excluindo...';
     const { error } = await supabase.from('offshore_overtime').delete().eq('id', he.id).eq('user_id', usuarioAtual.id);
-    if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+    if (error) { mostrarToast('Não foi possível excluir. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Excluir'; return; }
     document.getElementById('sheet-acao-he').hidden = true;
     await carregarHE(usuarioAtual.id);
     renderTudo();
@@ -456,7 +425,7 @@ function confirmarExclusaoCurso(curso) {
     btn.disabled = true;
     btn.textContent = 'Excluindo...';
     const { error } = await supabase.from('certifications').delete().eq('id', curso.id).eq('user_id', usuarioAtual.id);
-    if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+    if (error) { mostrarToast('Não foi possível excluir. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Excluir'; return; }
     document.getElementById('sheet-acao-curso').hidden = true;
     await carregarCursos(usuarioAtual.id);
     renderTudo();

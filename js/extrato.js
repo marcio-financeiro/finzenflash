@@ -4,6 +4,10 @@ import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { carregarCotacaoDolar, paraBRL, formatarMoeda } from './currencyService.js';
+import { attachToqueSegurar } from './utils/toqueSegurar.js';
+import { mostrarToast } from './utils/toast.js';
+import { escapeHtml } from './utils/escapeHtml.js';
+import { hojeISO, limitesMes } from './utils/datas.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 let dolarAtual;
@@ -31,29 +35,9 @@ function iconCartao() {
   return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg>';
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
-
 function rotuloDia(dataISO) {
   const data = new Date(dataISO + 'T00:00:00');
   return fmtDia.format(data).toUpperCase();
-}
-
-function limitesMes(ref) {
-  const ano = ref.getFullYear();
-  const mes = ref.getMonth();
-  const inicio = new Date(ano, mes, 1);
-  const fim = new Date(ano, mes + 1, 0);
-  const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return { inicio: toISO(inicio), fim: toISO(fim) };
 }
 
 async function carregarFiltros(userId) {
@@ -102,10 +86,16 @@ async function carregarLancamentos(userId) {
   // visão filtrada por conta bancária, o que não faz sentido).
   if (contaFiltro) return doConta;
 
+  // Uma compra parcelada tem N linhas em card_transactions (uma por
+  // parcela), todas com a mesma data_compra — sem filtrar parcela_atual=1
+  // a compra aparecia N vezes no mesmo dia. Aqui é a visão "o que comprei
+  // neste mês": 1 linha por compra, com o valor total (mesma regra dos
+  // "últimos lançamentos" da Home).
   let queryCartao = supabase
     .from('card_transactions')
-    .select('id, purchase_group_id, valor_parcela, descricao, data_compra, category_id, credit_cards(nome), categories(nome, icon)')
-    .eq('user_id', userId);
+    .select('id, purchase_group_id, valor_total, parcelas, descricao, data_compra, category_id, credit_cards(nome), categories(nome, icon)')
+    .eq('user_id', userId)
+    .eq('parcela_atual', 1);
 
   if (diaFiltro) {
     queryCartao = queryCartao.eq('data_compra', diaFiltro);
@@ -122,7 +112,8 @@ async function carregarLancamentos(userId) {
     origem: 'cartao',
     purchaseGroupId: c.purchase_group_id,
     type: 'despesa',
-    amount: c.valor_parcela,
+    amount: c.valor_total,
+    parcelas: c.parcelas,
     description: c.descricao,
     date: c.data_compra,
     accounts: { nome: c.credit_cards?.nome ?? '', currency: 'BRL' },
@@ -170,9 +161,9 @@ function renderLista(lancamentos) {
     const vencida = !doCartao && l.status === 'pendente' && l.date <= hojeISO();
     const statusTag = vencida
       ? `<span class="badge-vencida">${l.date === hojeISO() ? 'vence hoje' : 'vencida'}</span> · `
-      : (doCartao ? '<span class="badge-vencida" style="background:var(--surface-2);color:var(--muted)">cartão</span> · ' : '');
+      : (doCartao ? `<span class="badge-vencida" style="background:var(--surface-2);color:var(--muted)">cartão${l.parcelas > 1 ? ` ${l.parcelas}x` : ''}</span> · ` : '');
     html += `
-      <button type="button" class="lancamento-card ${vencida ? 'vencida' : ''}" data-id="${l.id}">
+      <button type="button" class="lancamento-card ${vencida ? 'vencida' : ''}" data-id="${l.id}" aria-label="${doCartao ? 'Ver' : 'Ações para'} ${escapeHtml(l.description)}">
         <div class="lancamento-icone ${receita ? 'is-receita' : 'is-despesa'}">${receita ? iconReceita() : (doCartao ? iconCartao() : iconDespesa())}</div>
         <div class="lancamento-info">
           <div class="lancamento-desc">${escapeHtml(l.description)}</div>
@@ -192,34 +183,6 @@ function renderLista(lancamentos) {
       attachToqueSegurar(el, () => abrirSheetLancamento(lancamento));
     }
   });
-}
-
-function attachToqueSegurar(el, aoAcionar) {
-  let timer = null;
-  let moveu = false;
-  const iniciar = () => {
-    moveu = false;
-    timer = setTimeout(() => {
-      if (!moveu) {
-        el.classList.remove('pressionando');
-        aoAcionar();
-      }
-    }, 500);
-    el.classList.add('pressionando');
-  };
-  const cancelar = () => {
-    clearTimeout(timer);
-    timer = null;
-    el.classList.remove('pressionando');
-  };
-  const mover = () => { moveu = true; cancelar(); };
-  el.addEventListener('touchstart', iniciar, { passive: true });
-  el.addEventListener('touchend', cancelar);
-  el.addEventListener('touchmove', mover, { passive: true });
-  el.addEventListener('touchcancel', cancelar);
-  el.addEventListener('mousedown', iniciar);
-  el.addEventListener('mouseup', cancelar);
-  el.addEventListener('mouseleave', cancelar);
 }
 
 function abrirSheetLancamento(lancamento) {
@@ -269,21 +232,14 @@ function abrirSheetLancamento(lancamento) {
 async function darBaixa(lancamento) {
   document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = true; });
 
-  const { data: atualizados, error: erroUpdate } = await supabase
-    .from('transactions')
-    .update({ status: 'pago' })
-    .eq('id', lancamento.id)
-    .eq('user_id', usuarioAtual.id)
-    .eq('status', 'pendente')
-    .select('id');
+  // RPC atômica (status + saldo numa transação só) — ver darBaixa em home.js.
+  const { error } = await supabase.rpc('fz_marcar_pago', { p_transaction_id: lancamento.id });
 
-  if (erroUpdate || !atualizados?.length) {
+  if (error) {
     document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = false; });
+    mostrarToast('Não foi possível marcar como paga. Tente novamente.');
     return;
   }
-
-  const delta = lancamento.type === 'receita' ? Number(lancamento.amount) : -Number(lancamento.amount);
-  await supabase.rpc('increment_account_balance', { p_account_id: lancamento.account_id, p_delta: delta });
 
   fecharSheetLancamento();
   await recarregar(usuarioAtual.id);
@@ -296,6 +252,7 @@ async function desfazerBaixa(lancamento) {
 
   if (error) {
     document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = false; });
+    mostrarToast('Não foi possível desfazer a baixa. Tente novamente.');
     return;
   }
 
@@ -344,7 +301,7 @@ async function excluirLancamento(lancamento, scope) {
   document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = true; });
 
   const grupoId = lancamento.recurrence_group_id || lancamento.id;
-  let query = supabase.from('transactions').select('id, type, amount, status, account_id').eq('user_id', usuarioAtual.id);
+  let query = supabase.from('transactions').select('id').eq('user_id', usuarioAtual.id);
   if (scope === 'future') query = query.eq('recurrence_group_id', grupoId).gte('date', lancamento.date);
   else if (scope === 'series') query = query.eq('recurrence_group_id', grupoId);
   else query = query.eq('id', lancamento.id);
@@ -355,20 +312,13 @@ async function excluirLancamento(lancamento, scope) {
     return;
   }
 
-  const ids = alvos.map((a) => a.id);
-  const { error: erroDelete } = await supabase.from('transactions').delete().eq('user_id', usuarioAtual.id).in('id', ids);
+  // RPC atômica — ver excluirLancamento em js/home.js.
+  const { error: erroExcluir } = await supabase.rpc('fz_excluir_transacoes', { p_transaction_ids: alvos.map((a) => a.id) });
 
-  if (erroDelete) {
+  if (erroExcluir) {
     document.querySelectorAll('#sheet-lancamento-conteudo .sheet-acao-btn').forEach((b) => { b.disabled = false; });
+    mostrarToast('Não foi possível excluir. Tente novamente.');
     return;
-  }
-
-  // Pendente nunca afetou o saldo — só reverte se já tiver sido contabilizado.
-  for (const item of alvos) {
-    if (item.status === 'pago') {
-      const delta = item.type === 'receita' ? -Number(item.amount) : Number(item.amount);
-      await supabase.rpc('increment_account_balance', { p_account_id: item.account_id, p_delta: delta });
-    }
   }
 
   fecharSheetLancamento();

@@ -6,6 +6,13 @@ import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
 import { attachValorMask } from '../utils/valorMask.js';
+import { mostrarToast } from '../utils/toast.js';
+import { escapeHtml } from '../utils/escapeHtml.js';
+import { hojeISO } from '../utils/datas.js';
+import { lerValorMonetario } from '../utils/valorMonetario.js';
+import { campoTexto as _campoTextoBase, campoSelect as _campoSelectBase } from '../utils/campos.js';
+const campoTexto = (id, label, valor, placeholder) => _campoTextoBase(id, label, valor, placeholder, true);
+const campoSelect = (id, label, opcoes, valorAtual) => _campoSelectBase(id, label, opcoes, valorAtual, true);
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtPct = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2).replace('.', ',')}%`;
@@ -37,21 +44,8 @@ let dolarAtual = DEFAULT_USD_BRL;
 let chartDonut = null;
 let chartEvolucao = null;
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
-function hojeISO() {
-  const hoje = new Date();
-  return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
-
-function lerValorMonetario(bruto) {
-  const normalizado = String(bruto ?? '').trim().replace(/\./g, '').replace(',', '.');
-  const numero = Number(normalizado);
-  return Number.isFinite(numero) ? numero : 0;
+function formatarMoedaConta(valor, currency) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: currency || 'BRL' }).format(valor);
 }
 
 function tipoLabel(t) {
@@ -71,25 +65,6 @@ function classeKey(t) {
 function calcAplicado(a) { return Number(a.quantidade) * Number(a.preco_medio); }
 function calcAtual(a) { return Number(a.quantidade) * Number(a.cotacao_atual || a.preco_medio); }
 function calcBRL(a, v) { return (a.moeda || 'BRL') === 'USD' ? v * dolarAtual : v; }
-
-function campoTexto(id, label, valor, placeholder = '') {
-  return `
-    <div class="field">
-      <label for="${id}">${label}</label>
-      <input type="text" class="input-desktop" id="${id}" value="${escapeHtml(valor ?? '')}" placeholder="${placeholder}">
-    </div>
-  `;
-}
-
-function campoSelect(id, label, opcoes, valorAtual) {
-  const options = opcoes.map((o) => `<option value="${escapeHtml(o.valor)}" ${o.valor === valorAtual ? 'selected' : ''}>${escapeHtml(o.texto)}</option>`).join('');
-  return `
-    <div class="field">
-      <label for="${id}">${label}</label>
-      <select class="input-desktop" id="${id}">${options}</select>
-    </div>
-  `;
-}
 
 async function carregarDolar(userId) {
   const { data } = await supabase
@@ -459,7 +434,7 @@ function confirmarExclusaoPosicao(ativo) {
     btn.disabled = true;
     btn.textContent = 'Removendo...';
     const { error } = await supabase.from('investments').update({ ativo: false }).eq('id', ativo.id).eq('user_id', usuarioAtual.id);
-    if (error) { btn.disabled = false; btn.textContent = 'Remover'; return; }
+    if (error) { mostrarToast('Não foi possível remover. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Remover'; return; }
     fecharModal('modal-acao-posicao');
     await carregarAtivos(usuarioAtual.id);
     await recarregarTudo();
@@ -595,7 +570,7 @@ function confirmarExclusaoProvento(dividendo) {
     btn.textContent = 'Excluindo...';
     await reverterEfeitoProvento(dividendo);
     const { error } = await supabase.from('dividends').delete().eq('id', dividendo.id).eq('user_id', usuarioAtual.id);
-    if (error) { btn.disabled = false; btn.textContent = 'Excluir'; return; }
+    if (error) { mostrarToast('Não foi possível excluir. Tente novamente.', 'erro'); btn.disabled = false; btn.textContent = 'Excluir'; return; }
     fecharModal('modal-acao-provento');
     await Promise.all([carregarDividendos(usuarioAtual.id), carregarTodasContas(usuarioAtual.id), carregarContas(usuarioAtual.id)]);
     renderProventosMiniKpis(calcularKpisProventos());
@@ -794,8 +769,17 @@ async function salvarLancamento() {
   const conta = contas.find((c) => c.id === contaId);
   if (!conta) { erroEl.textContent = 'Conta não encontrada.'; return; }
 
-  if (operacaoAtual === 'compra' && Number(conta.saldo_atual) < valorTotal) {
-    erroEl.textContent = `Saldo insuficiente na conta (${fmt.format(conta.saldo_atual || 0)}).`;
+  // O saldo da conta é debitado/creditado na moeda DA CONTA — comprar um
+  // ativo em USD pagando de uma conta BRL (ou vice-versa) precisa converter
+  // pela cotação atual, senão descontava "12,50" de dólar como se fossem
+  // R$ 12,50. (Mesma regra já usada em salvarDividendo.)
+  const contaMoeda = conta.currency || 'BRL';
+  let valorConta = valorTotal;
+  if (moeda !== contaMoeda) valorConta = moeda === 'USD' ? valorTotal * dolarAtual : valorTotal / dolarAtual;
+  valorConta = Math.round(valorConta * 100) / 100;
+
+  if (operacaoAtual === 'compra' && Number(conta.saldo_atual) < valorConta) {
+    erroEl.textContent = `Saldo insuficiente na conta (${formatarMoedaConta(conta.saldo_atual || 0, contaMoeda)}).`;
     return;
   }
 
@@ -850,7 +834,7 @@ async function salvarLancamento() {
 
     const { error: erroSaldo } = await supabase.rpc('increment_account_balance', {
       p_account_id: contaId,
-      p_delta: operacaoAtual === 'compra' ? -valorTotal : valorTotal,
+      p_delta: operacaoAtual === 'compra' ? -valorConta : valorConta,
     });
     if (erroSaldo) throw erroSaldo;
 
@@ -858,7 +842,7 @@ async function salvarLancamento() {
     await supabase.from('transactions').insert({
       user_id: usuarioAtual.id, account_id: contaId,
       type: operacaoAtual === 'compra' ? 'despesa' : 'receita',
-      amount: valorTotal,
+      amount: valorConta,
       description: `${categoriaLabel} ${ticker} (${quantidade}x ${fmt.format(preco)})`,
       date: data, status: 'pago',
       notes: obs || `${tipoLabel(tipo)} via ${conta.nome}`,
