@@ -17,6 +17,8 @@ let cartaoFiltro = '';
 let mostrarQuitadas = false;
 let abertos = new Set();
 let chartParcelas = null;
+let refsGrafico = [];
+let mesFiltro = null;
 
 function rotuloMes(ref) {
   const [y, m] = ref.split('-').map(Number);
@@ -134,8 +136,56 @@ function renderResumo(lista) {
   document.getElementById('resumo-mes-proximo').textContent = fmt.format(comprometidoMes(mesProximo));
 }
 
+// Parcelas ainda em aberto de um mês específico (clicado no gráfico),
+// juntando compras diferentes — respeita o filtro de cartão da tela.
+function itensDoMes(mesRef) {
+  const linhas = [];
+  for (const g of grupos) {
+    if (cartaoFiltro && g.cardId !== cartaoFiltro) continue;
+    for (const i of g.itens) {
+      if (i.fatura_referencia === mesRef && i.status !== 'paga') {
+        linhas.push({ ...i, descricao: g.descricao, cardNome: g.cardNome });
+      }
+    }
+  }
+  return linhas;
+}
+
+function renderListaPorMes(container) {
+  const linhas = itensDoMes(mesFiltro);
+  const aviso = `
+    <div class="filtro-mes-aviso">
+      <span>Parcelas em aberto de ${rotuloMes(mesFiltro)}</span>
+      <button type="button" id="btn-limpar-filtro-mes">Ver todas</button>
+    </div>
+  `;
+  const corpo = linhas.length === 0
+    ? '<div class="lista-vazia">Nenhuma parcela em aberto nesse mês.</div>'
+    : `
+      <div class="parcela-card">
+        ${linhas.map((i) => `
+          <div class="parcela-linha-detalhe">
+            <div class="parcela-linha-desc">${escapeHtml(i.descricao)}<span class="parcela-linha-num">${i.parcela_atual}/${i.parcelas}</span></div>
+            <div class="parcela-linha-valor valor-sensivel">${fmt.format(Number(i.valor_parcela))}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  container.innerHTML = aviso + corpo;
+  document.getElementById('btn-limpar-filtro-mes').addEventListener('click', () => {
+    mesFiltro = null;
+    renderLista();
+  });
+}
+
 function renderLista() {
   const container = document.getElementById('lista-parcelamentos');
+
+  if (mesFiltro) {
+    renderListaPorMes(container);
+    return;
+  }
+
   const lista = gruposFiltrados();
 
   if (lista.length === 0) {
@@ -244,6 +294,7 @@ async function renderGraficoMensal() {
   card.hidden = false;
 
   const refs = [...porMes.keys()].sort();
+  refsGrafico = refs;
   const labels = refs.map(rotuloMesCurto);
   const seriePaga = refs.map((r) => porMes.get(r).paga);
   const serieAberta = refs.map((r) => porMes.get(r).aberta);
@@ -268,6 +319,18 @@ async function renderGraficoMensal() {
           y: { stacked: true, ticks: { display: false }, grid: { display: false } },
         },
         plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+        // Clicar num mês filtra a lista abaixo pras parcelas ainda em
+        // aberto daquele mês — clicar de novo no mesmo mês limpa o filtro.
+        onHover: (evt, elements) => {
+          evt.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+        },
+        onClick: (evt, elements) => {
+          if (!elements.length) return;
+          const ref = refsGrafico[elements[0].index];
+          if (!ref) return;
+          mesFiltro = mesFiltro === ref ? null : ref;
+          renderLista();
+        },
       },
       plugins: [rotuloTotalPlugin],
     });

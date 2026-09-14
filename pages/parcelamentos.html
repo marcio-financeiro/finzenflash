@@ -142,6 +142,22 @@
     .parcela-linha-check.paga { color: var(--success); }
     .parcela-linha-check.aberta { color: var(--muted); }
 
+    .filtro-mes-aviso {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--accent-soft);
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .filtro-mes-aviso button { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 800; text-decoration: underline; padding: 0; font-family: inherit; }
+    .parcela-linha-desc { font-weight: 700; }
+    .parcela-linha-desc .parcela-linha-num { font-weight: 700; color: var(--muted); margin-left: 4px; }
+
     .conta-vazia { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
 
     .nav-inferior { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; background: var(--surface); border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom, 0px); }
