@@ -83,16 +83,6 @@ async function carregarLancamentos(userId) {
   // visão filtrada por conta bancária, o que não faz sentido).
   if (contaFiltro) return doConta;
 
-  // Pagar a fatura gera uma transação despesa na categoria "Fatura de
-  // Cartão" — ela e as compras de cartão que a compõem não podem aparecer
-  // juntas na mesma lista/resumo, senão a mesma compra conta (e aparece)
-  // duas vezes: uma via card_transactions, outra via essa transação. Só
-  // exclui quando o usuário não filtrou por essa categoria de propósito
-  // (senão "Fatura de Cartão" no filtro nunca mostraria nada).
-  const doContaSemFatura = categoriaFiltro === idCategoriaFatura
-    ? doConta
-    : doConta.filter((t) => t.category_id !== idCategoriaFatura);
-
   let queryCartao = supabase
     .from('card_transactions')
     .select('id, purchase_group_id, valor_parcela, descricao, data_compra, category_id, credit_cards(nome), categories(nome, icon)')
@@ -120,13 +110,17 @@ async function carregarLancamentos(userId) {
     categories: c.categories,
   }));
 
-  return [...doContaSemFatura, ...doCartao].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  return [...doConta, ...doCartao].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
 function renderResumo(lancamentos) {
   let entradas = 0;
   let saidas = 0;
   for (const l of lancamentos) {
+    // O pagamento de fatura aparece na lista (é um lançamento real), mas
+    // não entra no resumo: as compras que ele quita já foram somadas via
+    // card_transactions, e a soma dobraria se essa transação também contasse.
+    if (l.category_id === idCategoriaFatura) continue;
     const valorBRL = paraBRL(l.amount, l.accounts?.currency, dolarAtual);
     if (l.type === 'receita') entradas += valorBRL;
     else saidas += valorBRL;
