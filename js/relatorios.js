@@ -9,6 +9,7 @@ const CORES_CATEGORIA = ['#0E7C86', '#14A3AE', '#c9963f', '#D9583A', '#8ea198', 
 
 let usuarioAtual = null;
 let charts = {};
+let idCategoriaFatura = null;
 const modo = { tipo: 'mes', mes: '', inicio: '', fim: '' };
 
 function escapeHtml(str) {
@@ -79,15 +80,21 @@ async function carregarTendencia12Meses(mesFinal) {
   const fim = fimMes(meses[meses.length - 1]);
 
   const [{ data: tx }, { data: cardTx }] = await Promise.all([
-    supabase.from('transactions').select('type,amount,date').eq('user_id', usuarioAtual.id)
+    supabase.from('transactions').select('type,amount,date,category_id').eq('user_id', usuarioAtual.id)
       .gte('date', inicio).lte('date', fim).eq('status', 'pago'),
     supabase.from('card_transactions').select('valor_parcela,fatura_referencia').eq('user_id', usuarioAtual.id)
       .in('fatura_referencia', meses),
   ]);
 
-  const receitas = meses.map((m) => (tx || []).filter((t) => t.date?.startsWith(m) && t.type === 'receita').reduce((s, t) => s + Number(t.amount || 0), 0));
+  // Pagar a fatura gera uma transação despesa na categoria "Fatura de
+  // Cartão" — sem excluir ela daqui, a mesma compra conta duas vezes: uma
+  // via card_transactions (a compra em si) e outra via essa transação
+  // (o pagamento da fatura que já engloba aquela compra).
+  const txSemFatura = (tx || []).filter((t) => t.category_id !== idCategoriaFatura);
+
+  const receitas = meses.map((m) => txSemFatura.filter((t) => t.date?.startsWith(m) && t.type === 'receita').reduce((s, t) => s + Number(t.amount || 0), 0));
   const despesas = meses.map((m) =>
-    (tx || []).filter((t) => t.date?.startsWith(m) && t.type === 'despesa').reduce((s, t) => s + Number(t.amount || 0), 0) +
+    txSemFatura.filter((t) => t.date?.startsWith(m) && t.type === 'despesa').reduce((s, t) => s + Number(t.amount || 0), 0) +
     (cardTx || []).filter((c) => c.fatura_referencia === m).reduce((s, c) => s + Number(c.valor_parcela || 0), 0)
   );
 
@@ -102,7 +109,10 @@ async function carregarTransacoesPeriodo(inicioISO, fimISO) {
     supabase.from('card_transactions').select('valor_parcela,fatura_referencia,category_id,categories:category_id(nome)').eq('user_id', usuarioAtual.id)
       .in('fatura_referencia', meses),
   ]);
-  return { tx: tx || [], cardTx: cardTx || [] };
+  // Ver comentário em carregarTendencia12Meses — mesma exclusão pra não
+  // contar a compra do cartão duas vezes quando a fatura é paga no período.
+  const txSemFatura = (tx || []).filter((t) => t.category_id !== idCategoriaFatura);
+  return { tx: txSemFatura, cardTx: cardTx || [] };
 }
 
 async function carregarOrcamento(mes) {
@@ -114,7 +124,7 @@ async function carregarOrcamento(mes) {
   ]);
 
   const gastos = {};
-  (tx || []).forEach((t) => { if (t.category_id) gastos[t.category_id] = (gastos[t.category_id] || 0) + Number(t.amount || 0); });
+  (tx || []).forEach((t) => { if (t.category_id && t.category_id !== idCategoriaFatura) gastos[t.category_id] = (gastos[t.category_id] || 0) + Number(t.amount || 0); });
   (cardTx || []).forEach((c) => { if (c.category_id) gastos[c.category_id] = (gastos[c.category_id] || 0) + Number(c.valor_parcela || 0); });
 
   return (budgets || []).map((b) => ({
@@ -222,10 +232,13 @@ async function renderCategorias(dadosPeriodo) {
   let tx, cardTx;
   if (modo.tipo === 'mes') {
     [{ data: tx }, { data: cardTx }] = await Promise.all([
-      supabase.from('transactions').select('amount,categories:category_id(nome)').eq('user_id', usuarioAtual.id)
+      supabase.from('transactions').select('amount,category_id,categories:category_id(nome)').eq('user_id', usuarioAtual.id)
         .gte('date', inicioMes(modo.mes)).lte('date', fimMes(modo.mes)).eq('status', 'pago').eq('type', 'despesa'),
       supabase.from('card_transactions').select('valor_parcela,categories:category_id(nome)').eq('user_id', usuarioAtual.id).eq('fatura_referencia', modo.mes),
     ]);
+    // Ver comentário em carregarTendencia12Meses — mesma exclusão pra não
+    // contar a compra do cartão duas vezes quando a fatura é paga no mês.
+    tx = (tx || []).filter((t) => t.category_id !== idCategoriaFatura);
   } else {
     tx = (dadosPeriodo?.tx || []).filter((t) => t.type === 'despesa');
     cardTx = dadosPeriodo?.cardTx || [];
@@ -373,6 +386,9 @@ async function init() {
   const user = await requireAuth();
   if (!user) return;
   usuarioAtual = user;
+
+  const { data: catFatura } = await supabase.from('categories').select('id').eq('user_id', user.id).eq('nome', 'Fatura de Cartão').maybeSingle();
+  idCategoriaFatura = catFatura?.id ?? null;
 
   const hoje = new Date();
   modo.mes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
