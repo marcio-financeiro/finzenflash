@@ -623,11 +623,20 @@ async function salvarForm(tipo, item) {
       tipo: tipoConta,
       account_kind: 'bank',
       currency: document.getElementById('f-moeda').value,
-      saldo_atual: lerValorMonetario('f-saldo'),
       color: document.getElementById('f-cor').value,
       active: document.getElementById('f-ativo').value === 'true',
       icon: item?.icon || null,
     };
+    // Editar uma conta (até só o nome) reenviava sempre o saldo mostrado no
+    // campo — se um lançamento tivesse mexido no saldo enquanto a tela
+    // estava aberta (ou entre abrir a tela e salvar), essa gravação
+    // "voltava" o saldo pro valor antigo, apagando esse lançamento do
+    // saldo. Só grava saldo_atual se o usuário realmente mudou o valor
+    // (novas contas sempre gravam o valor digitado, mesmo que seja 0).
+    const saldoDigitado = lerValorMonetario('f-saldo');
+    if (!item || Math.abs(saldoDigitado - Number(item.saldo_atual ?? 0)) >= 0.005) {
+      dados.saldo_atual = saldoDigitado;
+    }
   } else if (tipo === 'cartao') {
     tabela = 'credit_cards';
     const fechamento = Number(document.getElementById('f-fechamento').value) || null;

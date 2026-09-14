@@ -5,6 +5,7 @@ import { loadChart } from '../loadChart.js';
 import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
+import { mostrarToast } from '../utils/toast.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtMesCurto = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
@@ -243,6 +244,7 @@ async function excluirCompra(compra) {
   if (error) {
     btn.disabled = false;
     btn.textContent = 'Excluir compra';
+    mostrarToast('Não foi possível excluir a compra. Tente novamente.');
     return;
   }
 

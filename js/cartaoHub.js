@@ -5,6 +5,8 @@ import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
 import { loadChart } from './loadChart.js';
+import { attachToqueSegurar } from './utils/toqueSegurar.js';
+import { mostrarToast } from './utils/toast.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtMesCurto = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
@@ -162,13 +164,13 @@ function renderCompras(compras) {
     return;
   }
   container.innerHTML = compras.map((c) => `
-    <div class="compra-card" data-id="${c.id}">
+    <button type="button" class="compra-card" data-id="${c.id}" aria-label="Ações para ${escapeHtml(c.descricao)}">
       <div class="compra-info">
         <div class="compra-desc">${escapeHtml(c.descricao)}</div>
         <div class="compra-parcela">${c.parcelas > 1 ? `Parcela ${c.parcela_atual}/${c.parcelas}` : 'À vista'}</div>
       </div>
       <div class="compra-valor valor-sensivel">${fmt.format(Number(c.valor_parcela))}</div>
-    </div>
+    </button>
   `).join('');
 
   container.querySelectorAll('.compra-card').forEach((el) => {
@@ -177,33 +179,6 @@ function renderCompras(compras) {
   });
 }
 
-function attachToqueSegurar(el, aoAcionar) {
-  let timer = null;
-  let moveu = false;
-  const iniciar = () => {
-    moveu = false;
-    timer = setTimeout(() => {
-      if (!moveu) {
-        el.classList.remove('pressionando');
-        aoAcionar();
-      }
-    }, 500);
-    el.classList.add('pressionando');
-  };
-  const cancelar = () => {
-    clearTimeout(timer);
-    timer = null;
-    el.classList.remove('pressionando');
-  };
-  const mover = () => { moveu = true; cancelar(); };
-  el.addEventListener('touchstart', iniciar, { passive: true });
-  el.addEventListener('touchend', cancelar);
-  el.addEventListener('touchmove', mover, { passive: true });
-  el.addEventListener('touchcancel', cancelar);
-  el.addEventListener('mousedown', iniciar);
-  el.addEventListener('mouseup', cancelar);
-  el.addEventListener('mouseleave', cancelar);
-}
 
 async function abrirSheetCompra(compra) {
   const conteudo = document.getElementById('sheet-compra-conteudo');
@@ -289,6 +264,7 @@ async function excluirCompra(compra) {
   if (error) {
     btn.disabled = false;
     btn.textContent = 'Excluir compra';
+    mostrarToast('Não foi possível excluir a compra. Tente novamente.');
     return;
   }
 

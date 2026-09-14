@@ -237,82 +237,45 @@ async function salvar(user) {
     }
 
     if (escopo === 'only') {
-      const { error: erroUpdate } = await supabase.from('transactions').update({
-        account_id: contaSelecionada,
-        category_id: categoriaSelecionada,
-        type: tipo,
-        amount: valor,
-        description: descricao,
-        date: dataEscolhida,
-      }).eq('id', lancamentoOriginal.id).eq('user_id', user.id);
+      // RPC atômica — ver salvar() em js/lancar.js.
+      const { error: erroEditar } = await supabase.rpc('fz_editar_transacao', {
+        p_transaction_id: lancamentoOriginal.id,
+        p_account_id: contaSelecionada,
+        p_category_id: categoriaSelecionada,
+        p_type: tipo,
+        p_amount: valor,
+        p_description: descricao,
+        p_date: dataEscolhida,
+      });
 
-      if (erroUpdate) {
+      if (erroEditar) {
         erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
         btn.disabled = false;
         btn.textContent = textoBotaoPadrao;
         return;
       }
 
-      if (lancamentoOriginal.status === 'pago') {
-        const deltaReverso = lancamentoOriginal.type === 'receita' ? -Number(lancamentoOriginal.amount) : Number(lancamentoOriginal.amount);
-        await supabase.rpc('increment_account_balance', { p_account_id: lancamentoOriginal.account_id, p_delta: deltaReverso });
-
-        const deltaNovo = tipo === 'receita' ? valor : -valor;
-        const { error: erroSaldo } = await supabase.rpc('increment_account_balance', { p_account_id: contaSelecionada, p_delta: deltaNovo });
-
-        if (erroSaldo) {
-          erroEl.textContent = 'Lançamento salvo, mas o saldo não pôde ser atualizado.';
-          btn.disabled = false;
-          btn.textContent = textoBotaoPadrao;
-          return;
-        }
-      }
-
       window.location.href = '/pages/desktop/extrato.html';
       return;
     }
 
+    // escopo === 'future' — RPC atômica, numa chamada só pra todo o lote.
     const grupoId = lancamentoOriginal.recurrence_group_id || lancamentoOriginal.id;
-    const { data: alvos, error: erroAlvos } = await supabase
-      .from('transactions')
-      .select('id, type, amount, status, account_id')
-      .eq('user_id', user.id)
-      .eq('recurrence_group_id', grupoId)
-      .gte('date', lancamentoOriginal.date);
+    const { error: erroFuturas } = await supabase.rpc('fz_editar_transacoes_futuras', {
+      p_recurrence_group_id: grupoId,
+      p_from_date: lancamentoOriginal.date,
+      p_account_id: contaSelecionada,
+      p_category_id: categoriaSelecionada,
+      p_type: tipo,
+      p_amount: valor,
+      p_description: descricao,
+    });
 
-    if (erroAlvos) {
-      erroEl.textContent = 'Não foi possível buscar as ocorrências futuras.';
-      btn.disabled = false;
-      btn.textContent = textoBotaoPadrao;
-      return;
-    }
-
-    const ids = (alvos || []).map((t) => t.id);
-    const { error: erroUpdateFuturas } = await supabase.from('transactions').update({
-      account_id: contaSelecionada,
-      category_id: categoriaSelecionada,
-      type: tipo,
-      amount: valor,
-      description: descricao,
-    }).in('id', ids).eq('user_id', user.id);
-
-    if (erroUpdateFuturas) {
+    if (erroFuturas) {
       erroEl.textContent = 'Não foi possível salvar. Tente novamente.';
       btn.disabled = false;
       btn.textContent = textoBotaoPadrao;
       return;
-    }
-
-    const deltas = {};
-    for (const old of alvos || []) {
-      if (old.status !== 'pago') continue;
-      const v = Number(old.amount || 0);
-      deltas[old.account_id] = (deltas[old.account_id] || 0) + (old.type === 'receita' ? -v : v);
-      deltas[contaSelecionada] = (deltas[contaSelecionada] || 0) + (tipo === 'receita' ? valor : -valor);
-    }
-    for (const [accId, delta] of Object.entries(deltas)) {
-      if (!delta) continue;
-      await supabase.rpc('increment_account_balance', { p_account_id: accId, p_delta: delta });
     }
 
     window.location.href = '/pages/desktop/extrato.html';

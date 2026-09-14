@@ -4,6 +4,7 @@ import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
 import { carregarCotacaoDolar, paraBRL, formatarMoeda } from '../currencyService.js';
+import { mostrarToast } from '../utils/toast.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 let dolarAtual;
@@ -204,6 +205,7 @@ async function darBaixa(lancamento) {
   const { error } = await supabase.rpc('fz_marcar_pago', { p_transaction_id: lancamento.id });
   if (error) {
     document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = false; });
+    mostrarToast('Não foi possível marcar como paga. Tente novamente.');
     return;
   }
 
@@ -217,6 +219,7 @@ async function desfazerBaixa(lancamento) {
   const { error } = await supabase.rpc('fz_desfazer_baixa', { p_transaction_id: lancamento.id });
   if (error) {
     document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = false; });
+    mostrarToast('Não foi possível desfazer a baixa. Tente novamente.');
     return;
   }
 
@@ -256,7 +259,7 @@ async function excluirLancamento(lancamento, scope) {
   document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = true; });
 
   const grupoId = lancamento.recurrence_group_id || lancamento.id;
-  let query = supabase.from('transactions').select('id, type, amount, status, account_id').eq('user_id', usuarioAtual.id);
+  let query = supabase.from('transactions').select('id').eq('user_id', usuarioAtual.id);
   if (scope === 'future') query = query.eq('recurrence_group_id', grupoId).gte('date', lancamento.date);
   else if (scope === 'series') query = query.eq('recurrence_group_id', grupoId);
   else query = query.eq('id', lancamento.id);
@@ -267,18 +270,12 @@ async function excluirLancamento(lancamento, scope) {
     return;
   }
 
-  const ids = alvos.map((a) => a.id);
-  const { error: erroDelete } = await supabase.from('transactions').delete().eq('user_id', usuarioAtual.id).in('id', ids);
-  if (erroDelete) {
+  // RPC atômica — ver excluirLancamento em js/home.js.
+  const { error: erroExcluir } = await supabase.rpc('fz_excluir_transacoes', { p_transaction_ids: alvos.map((a) => a.id) });
+  if (erroExcluir) {
     document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = false; });
+    mostrarToast('Não foi possível excluir. Tente novamente.');
     return;
-  }
-
-  for (const item of alvos) {
-    if (item.status === 'pago') {
-      const delta = item.type === 'receita' ? -Number(item.amount) : Number(item.amount);
-      await supabase.rpc('increment_account_balance', { p_account_id: item.account_id, p_delta: delta });
-    }
   }
 
   fecharModal('modal-lancamento');

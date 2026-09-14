@@ -7,6 +7,7 @@ import { inicializarBoard } from './board.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
 import { formatarMoeda, carregarCotacaoDolar, paraBRL } from '../currencyService.js';
 import { loadChart } from '../loadChart.js';
+import { mostrarToast } from '../utils/toast.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtData = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -316,20 +317,22 @@ async function carregarRanking(userId, inicio, fim, inicioAnt, fimAnt, refMesAtu
   };
 }
 
-async function carregarEconomia(userId, inicio, fim) {
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('type, amount')
-    .eq('user_id', userId)
-    .gte('date', inicio)
-    .lte('date', fim);
+// Mesma base de Relatórios/Saúde — ver comentário em js/home.js.
+async function carregarEconomia(userId, inicio, fim, ref) {
+  const [{ data, error }, { data: compras, error: erroCompras }] = await Promise.all([
+    supabase.from('transactions').select('type, amount, category_id').eq('user_id', userId).eq('status', 'pago').gte('date', inicio).lte('date', fim),
+    supabase.from('card_transactions').select('valor_parcela').eq('user_id', userId).eq('fatura_referencia', ref),
+  ]);
   if (error) throw error;
+  if (erroCompras) throw erroCompras;
+
   let receitas = 0;
   let despesas = 0;
   for (const t of data ?? []) {
     if (t.type === 'receita') receitas += Number(t.amount);
-    else despesas += Number(t.amount);
+    else if (t.category_id !== idCategoriaFatura) despesas += Number(t.amount);
   }
+  for (const c of compras ?? []) despesas += Number(c.valor_parcela);
   return { receitas, despesas };
 }
 
@@ -428,15 +431,16 @@ async function carregarPendentes(userId, tipo, inicio, fim) {
   return { tipo, count: (data ?? []).length, total };
 }
 
-async function carregarPendentesLista(userId, tipo, inicio, fim) {
+// Sem limite de data (nem só do mês em curso) — igual a js/home.js: o
+// usuário quer ver/editar uma conta pendente independente de quando ela
+// vence, não só as do mês que está olhando no momento.
+async function carregarPendentesLista(userId, tipo) {
   const { data, error } = await supabase
     .from('transactions')
     .select('id, type, amount, description, date, account_id, accounts(nome)')
     .eq('user_id', userId)
     .eq('type', tipo)
     .eq('status', 'pendente')
-    .gte('date', inicio)
-    .lte('date', fim)
     .order('date', { ascending: true });
   if (error) throw error;
   return (data ?? []).map((t) => ({ ...t, nomeOrigem: t.accounts?.nome ?? '' }));
@@ -754,8 +758,7 @@ async function abrirModalPendentes() {
   abrirModal('modal-pendentes');
 
   try {
-    const { inicio, fim } = limitesMes(mesRef);
-    const itens = await carregarPendentesLista(usuarioAtual.id, pendentesTipo, inicio, fim);
+    const itens = await carregarPendentesLista(usuarioAtual.id, pendentesTipo);
     if (itens.length === 0) {
       container.innerHTML = '<div class="lista-vazia">Nenhuma pendência.</div>';
       return;
@@ -809,6 +812,7 @@ async function darBaixa(lancamento, btn, modalId = 'modal-pendentes') {
   const { error } = await supabase.rpc('fz_marcar_pago', { p_transaction_id: lancamento.id });
   if (error) {
     if (btn) btn.disabled = false;
+    mostrarToast('Não foi possível marcar como paga. Tente novamente.');
     return;
   }
 
@@ -822,6 +826,7 @@ async function desfazerBaixa(lancamento) {
   const { error } = await supabase.rpc('fz_desfazer_baixa', { p_transaction_id: lancamento.id });
   if (error) {
     document.querySelectorAll('#modal-lancamento-conteudo .btn-desktop').forEach((b) => { b.disabled = false; });
+    mostrarToast('Não foi possível desfazer a baixa. Tente novamente.');
     return;
   }
 
@@ -885,7 +890,7 @@ function confirmarExclusaoLancamento(lancamento) {
 
 async function excluirLancamentoDaHome(lancamento, scope) {
   const grupoId = lancamento.recurrence_group_id || lancamento.id;
-  let query = supabase.from('transactions').select('id, type, amount, status, account_id').eq('user_id', usuarioAtual.id);
+  let query = supabase.from('transactions').select('id').eq('user_id', usuarioAtual.id);
   if (scope === 'future') query = query.eq('recurrence_group_id', grupoId).gte('date', lancamento.date);
   else if (scope === 'series') query = query.eq('recurrence_group_id', grupoId);
   else query = query.eq('id', lancamento.id);
@@ -893,16 +898,9 @@ async function excluirLancamentoDaHome(lancamento, scope) {
   const { data: alvos, error: erroAlvos } = await query;
   if (erroAlvos || !alvos || !alvos.length) return;
 
-  const ids = alvos.map((a) => a.id);
-  const { error: erroDelete } = await supabase.from('transactions').delete().eq('user_id', usuarioAtual.id).in('id', ids);
-  if (erroDelete) return;
-
-  for (const item of alvos) {
-    if (item.status === 'pago') {
-      const delta = item.type === 'receita' ? -Number(item.amount) : Number(item.amount);
-      await supabase.rpc('increment_account_balance', { p_account_id: item.account_id, p_delta: delta });
-    }
-  }
+  // RPC atômica — ver excluirLancamento em js/home.js.
+  const { error: erroExcluir } = await supabase.rpc('fz_excluir_transacoes', { p_transaction_ids: alvos.map((a) => a.id) });
+  if (erroExcluir) { mostrarToast('Não foi possível excluir. Tente novamente.'); return; }
 
   fecharModal('modal-lancamento');
   await recarregarSaldosELista();
@@ -1126,8 +1124,8 @@ async function carregarDadosDoMes() {
 
   const [ranking, economia, economiaAnt, metas, mapacalor, pendentes] = await Promise.all([
     carregarRanking(usuarioAtual.id, inicio, fim, inicioAnt, fimAnt, refMesAtual, refMesAnt, categoriasOcultasRanking),
-    carregarEconomia(usuarioAtual.id, inicio, fim),
-    carregarEconomia(usuarioAtual.id, inicioAnt, fimAnt),
+    carregarEconomia(usuarioAtual.id, inicio, fim, refMesAtual),
+    carregarEconomia(usuarioAtual.id, inicioAnt, fimAnt, refMesAnt),
     carregarMetas(usuarioAtual.id, refMesAtual),
     carregarMapaCalor(usuarioAtual.id, inicio, fim),
     carregarPendentes(usuarioAtual.id, pendentesTipo, inicio, fim),
