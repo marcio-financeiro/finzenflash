@@ -156,7 +156,12 @@ async function carregarTimeline(userId, contaIds, saldoAtualReal) {
     }
     for (const [chave, total] of porFatura) {
       const [cardId, ref] = chave.split('|');
-      const dataVencimento = dataVencimentoFatura(ref, cartaoPorId.get(cardId).vencimento_dia);
+      let dataVencimento = dataVencimentoFatura(ref, cartaoPorId.get(cardId).vencimento_dia);
+      // Fatura vencendo hoje ou já atrasada (mas ainda aberta) cai fora da
+      // janela de "pendente" abaixo (que só conta a partir de amanhã) —
+      // sem isso ela sumia da projeção até ser paga, fazendo o Previsto
+      // "cair de repente" no pagamento em vez de já refletir a despesa.
+      if (dataVencimento <= hoje) dataVencimento = addDiasISO(hoje, 1);
       transacoes.push({ type: 'despesa', amount: total, date: dataVencimento, status: 'pendente' });
     }
   }
