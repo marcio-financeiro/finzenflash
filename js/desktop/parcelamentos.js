@@ -188,6 +188,38 @@ function renderLista() {
   });
 }
 
+// "R$ 2,7k" / "R$ 349" — compacto o bastante pra caber em cima de cada
+// barra sem precisar de hover pra ver o valor.
+function fmtCompacto(v) {
+  if (v >= 1000) return `R$ ${(v / 1000).toFixed(1).replace('.', ',')}k`;
+  return `R$ ${Math.round(v)}`;
+}
+
+// Desenha o total (paga + aberta) acima de cada barra empilhada. Usa o
+// último dataset da pilha pra achar o topo — num stacked bar do Chart.js,
+// a posição y de cada segmento já soma os anteriores, então mesmo com
+// "aberta" zerado (mês quitado) o topo bate certo.
+const rotuloTotalPlugin = {
+  id: 'rotuloTotal',
+  afterDatasetsDraw(chart) {
+    const { ctx, data } = chart;
+    const meta = chart.getDatasetMeta(data.datasets.length - 1);
+    const corTexto = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#111';
+    ctx.save();
+    ctx.font = '700 10px Manrope, system-ui, sans-serif';
+    ctx.fillStyle = corTexto;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    data.labels.forEach((_, i) => {
+      const total = data.datasets.reduce((s, ds) => s + (Number(ds.data[i]) || 0), 0);
+      const bar = meta.data[i];
+      if (!bar || total <= 0) return;
+      ctx.fillText(fmtCompacto(total), bar.x, bar.y - 4);
+    });
+    ctx.restore();
+  },
+};
+
 // Soma valor_parcela por fatura_referencia (1 barra por mês), separando o
 // que já foi pago do que ainda está em aberto — mostra de uma vez a curva
 // de comprometimento passada e futura.
@@ -230,12 +262,14 @@ async function renderGraficoMensal() {
       },
       options: {
         maintainAspectRatio: false,
+        layout: { padding: { top: 20 } },
         scales: {
           x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
           y: { stacked: true, ticks: { display: false }, grid: { display: false } },
         },
         plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
       },
+      plugins: [rotuloTotalPlugin],
     });
   } catch (err) {
     console.error(err);
