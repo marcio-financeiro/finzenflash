@@ -8,8 +8,8 @@ import { loadChart } from '../loadChart.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtMesAno = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
-const fmtMesCurto = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit' });
 const fmtDataCurta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const MESES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
 let usuarioAtual = null;
 let grupos = [];
@@ -28,7 +28,7 @@ function rotuloMes(ref) {
 // grande demais quando há muitas barras (parcelamento longo, ex: 24x).
 function rotuloMesCurto(ref) {
   const [y, m] = ref.split('-').map(Number);
-  return fmtMesCurto.format(new Date(y, m - 1, 1)).replace('.', '');
+  return `${MESES_ABREV[m - 1]}/${String(y).slice(2)}`;
 }
 
 function mesAtualRef() {
