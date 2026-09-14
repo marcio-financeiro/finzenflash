@@ -16,6 +16,7 @@ let contaFiltro = '';
 let categoriaFiltro = '';
 let diaFiltro = '';
 let usuarioAtual = null;
+let idCategoriaFatura = null;
 const fmtDataCompleta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 function escapeHtml(str) {
@@ -82,6 +83,16 @@ async function carregarLancamentos(userId) {
   // visão filtrada por conta bancária, o que não faz sentido).
   if (contaFiltro) return doConta;
 
+  // Pagar a fatura gera uma transação despesa na categoria "Fatura de
+  // Cartão" — ela e as compras de cartão que a compõem não podem aparecer
+  // juntas na mesma lista/resumo, senão a mesma compra conta (e aparece)
+  // duas vezes: uma via card_transactions, outra via essa transação. Só
+  // exclui quando o usuário não filtrou por essa categoria de propósito
+  // (senão "Fatura de Cartão" no filtro nunca mostraria nada).
+  const doContaSemFatura = categoriaFiltro === idCategoriaFatura
+    ? doConta
+    : doConta.filter((t) => t.category_id !== idCategoriaFatura);
+
   let queryCartao = supabase
     .from('card_transactions')
     .select('id, purchase_group_id, valor_parcela, descricao, data_compra, category_id, credit_cards(nome), categories(nome, icon)')
@@ -109,7 +120,7 @@ async function carregarLancamentos(userId) {
     categories: c.categories,
   }));
 
-  return [...doConta, ...doCartao].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  return [...doContaSemFatura, ...doCartao].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
 function renderResumo(lancamentos) {
@@ -313,6 +324,9 @@ async function iniciar() {
   const user = await requireAuth();
   if (!user) return;
   usuarioAtual = user;
+
+  const { data: catFatura } = await supabase.from('categories').select('id').eq('user_id', user.id).eq('nome', 'Fatura de Cartão').maybeSingle();
+  idCategoriaFatura = catFatura?.id ?? null;
 
   montarNavRail('extrato');
   configurarBotaoSair();
