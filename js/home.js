@@ -948,15 +948,18 @@ async function carregarPendentes(userId, tipo, inicio, fim) {
   return { tipo, count: (data ?? []).length, total };
 }
 
-async function carregarPendentesLista(userId, tipo) {
-  // Sem limite de data (nem só do mês atual) — o usuário quer ver/editar
-  // uma conta pendente independente de quando ela vence.
+async function carregarPendentesLista(userId, tipo, inicio, fim) {
+  // Mesmo intervalo do card de resumo (mesRef) — sem isso a lista mostrava
+  // pendências de qualquer mês futuro enquanto o card só contava o mês
+  // selecionado, dando números completamente diferentes.
   const { data, error } = await supabase
     .from('transactions')
     .select('id, type, amount, description, date, account_id, is_recurring, recurrence_group_id, accounts(nome)')
     .eq('user_id', userId)
     .eq('type', tipo)
     .eq('status', 'pendente')
+    .gte('date', inicio)
+    .lte('date', fim)
     .order('date', { ascending: true });
   if (error) throw error;
 
@@ -983,7 +986,8 @@ async function abrirSheetListaPendentes() {
   document.getElementById('sheet-lista-pendentes').hidden = false;
 
   try {
-    const itens = await carregarPendentesLista(usuarioAtual.id, pendentesTipo);
+    const { inicio, fim } = limitesMes(mesRef);
+    const itens = await carregarPendentesLista(usuarioAtual.id, pendentesTipo, inicio, fim);
     if (itens.length === 0) {
       container.innerHTML = '<div class="conta-vazia">Nenhuma pendência.</div>';
       return;
