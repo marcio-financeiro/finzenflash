@@ -933,6 +933,38 @@ async function carregarFaturasMesCorrente(userId, ref) {
   return { count: (data ?? []).length, total };
 }
 
+// 1 item por cartão com fatura aberta no mês — pro card de resumo já soma
+// tudo direto (carregarFaturasMesCorrente), mas a lista de pendências
+// precisa de 1 linha por cartão (ex: Nubank, Nomad) pra abrir a fatura.
+async function carregarFaturasPendentesLista(userId, ref) {
+  const { data, error } = await supabase
+    .from('card_transactions')
+    .select('valor_parcela, credit_cards(id, nome, vencimento_dia)')
+    .eq('user_id', userId)
+    .eq('status', 'aberta')
+    .eq('fatura_referencia', ref);
+  if (error) throw error;
+
+  const porCartao = new Map();
+  for (const row of data ?? []) {
+    const cartao = row.credit_cards;
+    if (!cartao) continue;
+    const atual = porCartao.get(cartao.id) ?? { nome: cartao.nome, vencimentoDia: cartao.vencimento_dia, total: 0 };
+    atual.total += Number(row.valor_parcela);
+    porCartao.set(cartao.id, atual);
+  }
+
+  return [...porCartao.entries()].map(([cardId, c]) => ({
+    id: `fatura-${cardId}-${ref}`,
+    origem: 'cartao',
+    type: 'despesa',
+    amount: c.total,
+    description: `Fatura ${c.nome}`,
+    date: dataVencimentoFatura(ref, c.vencimentoDia),
+    cardId,
+  }));
+}
+
 async function carregarPendentes(userId, tipo, inicio, fim) {
   const { data, error } = await supabase
     .from('transactions')
@@ -988,27 +1020,44 @@ async function abrirSheetListaPendentes() {
   try {
     const { inicio, fim } = limitesMes(mesRef);
     const itens = await carregarPendentesLista(usuarioAtual.id, pendentesTipo, inicio, fim);
+
+    // Fatura de cartão aberta também é uma despesa pendente do mês — sem
+    // isso o card de resumo contava Nubank/Nomad no total, mas a lista não
+    // mostrava nenhuma linha pra elas.
+    if (pendentesTipo === 'despesa') {
+      const refMes = `${mesRef.getFullYear()}-${String(mesRef.getMonth() + 1).padStart(2, '0')}`;
+      const faturas = await carregarFaturasPendentesLista(usuarioAtual.id, refMes);
+      itens.push(...faturas);
+      itens.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    }
+
     if (itens.length === 0) {
       container.innerHTML = '<div class="conta-vazia">Nenhuma pendência.</div>';
       return;
     }
     container.innerHTML = itens.map((l) => {
+      const doCartao = l.origem === 'cartao';
       const vencida = l.date <= hojeISO();
       const rotuloVencida = l.date === hojeISO() ? 'vence hoje' : 'vencida';
       return `
-      <button type="button" class="lancamento-card ${vencida ? 'vencida' : ''}" data-id="${l.id}" aria-label="Ações para ${escapeHtml(l.description)}">
-        <div class="lancamento-icone ${l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${l.type === 'receita' ? iconReceita() : iconDespesa()}</div>
+      <button type="button" class="lancamento-card ${vencida ? 'vencida' : ''}" data-id="${l.id}" aria-label="${doCartao ? 'Ver' : 'Ações para'} ${escapeHtml(l.description)}">
+        <div class="lancamento-icone ${doCartao ? '' : l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${doCartao ? iconCartao() : l.type === 'receita' ? iconReceita() : iconDespesa()}</div>
         <div class="lancamento-info">
           <div class="lancamento-desc">${escapeHtml(l.description)}</div>
-          <div class="lancamento-conta">${escapeHtml(l.nomeOrigem)} · ${vencida ? `<span class="badge-vencida">${rotuloVencida}</span> ` : ''}vence ${fmtDataCurta.format(new Date(l.date + 'T00:00:00'))}</div>
+          <div class="lancamento-conta">${doCartao ? 'Cartão · ' : `${escapeHtml(l.nomeOrigem)} · `}${vencida ? `<span class="badge-vencida">${rotuloVencida}</span> ` : ''}vence ${fmtDataCurta.format(new Date(l.date + 'T00:00:00'))}</div>
         </div>
-        <div class="lancamento-valor valor-sensivel ${l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${fmt.format(Math.abs(l.amount))}</div>
+        <div class="lancamento-valor valor-sensivel ${doCartao ? 'is-despesa' : l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${fmt.format(Math.abs(l.amount))}</div>
       </button>
     `;
     }).join('');
     container.querySelectorAll('.lancamento-card').forEach((el) => {
       const lancamento = itens.find((l) => l.id === el.dataset.id);
-      if (lancamento) el.addEventListener('click', () => {
+      if (!lancamento) return;
+      if (lancamento.origem === 'cartao') {
+        el.addEventListener('click', () => { window.location.href = `/pages/cartao.html?cartao=${lancamento.cardId}`; });
+        return;
+      }
+      el.addEventListener('click', () => {
         document.getElementById('sheet-lista-pendentes').hidden = true;
         abrirSheetLancamento(lancamento);
       });

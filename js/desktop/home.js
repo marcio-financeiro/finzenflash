@@ -413,6 +413,18 @@ async function carregarPendentes(userId, tipo, inicio, fim) {
   return { tipo, count: (data ?? []).length, total };
 }
 
+async function carregarFaturasMesCorrente(userId, ref) {
+  const { data, error } = await supabase
+    .from('card_transactions')
+    .select('valor_parcela')
+    .eq('user_id', userId)
+    .eq('status', 'aberta')
+    .eq('fatura_referencia', ref);
+  if (error) throw error;
+  const total = (data ?? []).reduce((soma, r) => soma + Number(r.valor_parcela), 0);
+  return { count: (data ?? []).length, total };
+}
+
 // Mesmo intervalo do card de resumo (mesRef) — sem isso a lista mostrava
 // pendências de qualquer mês futuro enquanto o card só contava o mês
 // selecionado, dando números completamente diferentes.
@@ -428,6 +440,39 @@ async function carregarPendentesLista(userId, tipo, inicio, fim) {
     .order('date', { ascending: true });
   if (error) throw error;
   return (data ?? []).map((t) => ({ ...t, nomeOrigem: t.accounts?.nome ?? '' }));
+}
+
+// 1 item por cartão com fatura aberta no mês — pro card de resumo já soma
+// tudo direto, mas a lista de pendências precisa de 1 linha por cartão
+// (ex: Nubank, Nomad) pra abrir a fatura.
+async function carregarFaturasPendentesLista(userId, ref) {
+  const { data, error } = await supabase
+    .from('card_transactions')
+    .select('valor_parcela, credit_cards(id, nome, vencimento_dia)')
+    .eq('user_id', userId)
+    .eq('status', 'aberta')
+    .eq('fatura_referencia', ref);
+  if (error) throw error;
+
+  const porCartao = new Map();
+  for (const row of data ?? []) {
+    const cartao = row.credit_cards;
+    if (!cartao) continue;
+    const atual = porCartao.get(cartao.id) ?? { nome: cartao.nome, vencimentoDia: cartao.vencimento_dia, total: 0 };
+    atual.total += Number(row.valor_parcela);
+    porCartao.set(cartao.id, atual);
+  }
+
+  return [...porCartao.entries()].map(([cardId, c]) => ({
+    id: `fatura-${cardId}-${ref}`,
+    origem: 'cartao',
+    type: 'despesa',
+    amount: c.total,
+    description: `Fatura ${c.nome}`,
+    date: dataVencimentoFatura(ref, c.vencimentoDia),
+    nomeOrigem: c.nome,
+    cardId,
+  }));
 }
 
 // ── Render ──
@@ -744,22 +789,36 @@ async function abrirModalPendentes() {
   try {
     const { inicio, fim } = limitesMes(mesRef);
     const itens = await carregarPendentesLista(usuarioAtual.id, pendentesTipo, inicio, fim);
+
+    // Fatura de cartão aberta também é uma despesa pendente do mês — sem
+    // isso o card de resumo contava Nubank/Nomad no total, mas a lista não
+    // mostrava nenhuma linha pra elas.
+    if (pendentesTipo === 'despesa') {
+      const refMes = refMesString(mesRef);
+      const faturas = await carregarFaturasPendentesLista(usuarioAtual.id, refMes);
+      itens.push(...faturas);
+      itens.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    }
+
     if (itens.length === 0) {
       container.innerHTML = '<div class="lista-vazia">Nenhuma pendência.</div>';
       return;
     }
     container.innerHTML = itens.map((l) => {
+      const doCartao = l.origem === 'cartao';
       const vencida = l.date <= hojeISO();
       const rotuloVencida = l.date === hojeISO() ? 'vence hoje' : 'vencida';
       return `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);${vencida ? 'background:var(--danger-soft);border-radius:var(--radius-sm)' : ''}">
         <div>
           <div>${escapeHtml(l.description)}</div>
-          <div style="font-size:12px;color:var(--muted)">${escapeHtml(l.nomeOrigem)} · ${vencida ? `<span style="color:var(--danger);font-weight:800">${rotuloVencida}</span> ` : ''}vence ${fmtDataCurta.format(new Date(l.date + 'T00:00:00'))}</div>
+          <div style="font-size:12px;color:var(--muted)">${doCartao ? 'Cartão' : escapeHtml(l.nomeOrigem)} · ${vencida ? `<span style="color:var(--danger);font-weight:800">${rotuloVencida}</span> ` : ''}vence ${fmtDataCurta.format(new Date(l.date + 'T00:00:00'))}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px">
-          <div class="num ${l.type === 'receita' ? 'positivo' : 'negativo'} valor-sensivel">${fmt.format(Math.abs(l.amount))}</div>
-          <button type="button" class="btn-desktop" data-id="${l.id}" style="height:30px;padding:0 10px;font-size:11px;white-space:nowrap">Marcar como ${l.type === 'receita' ? 'recebida' : 'paga'}</button>
+          <div class="num ${!doCartao && l.type === 'receita' ? 'positivo' : 'negativo'} valor-sensivel">${fmt.format(Math.abs(l.amount))}</div>
+          ${doCartao
+            ? `<button type="button" class="btn-desktop" data-fatura-id="${l.id}" data-card-id="${l.cardId}" style="height:30px;padding:0 10px;font-size:11px;white-space:nowrap">Ver fatura</button>`
+            : `<button type="button" class="btn-desktop" data-id="${l.id}" style="height:30px;padding:0 10px;font-size:11px;white-space:nowrap">Marcar como ${l.type === 'receita' ? 'recebida' : 'paga'}</button>`}
         </div>
       </div>
     `;
@@ -769,6 +828,9 @@ async function abrirModalPendentes() {
         const lancamento = itens.find((l) => l.id === btn.dataset.id);
         if (lancamento) darBaixa(lancamento, btn, 'modal-pendentes');
       });
+    });
+    container.querySelectorAll('button[data-fatura-id]').forEach((btn) => {
+      btn.addEventListener('click', () => { window.location.href = `/pages/desktop/cartao.html?cartao=${btn.dataset.cardId}`; });
     });
   } catch (err) {
     console.error(err);
@@ -891,9 +953,20 @@ async function excluirLancamentoDaHome(lancamento, scope) {
   await recarregarSaldosELista();
 }
 
+// Faturas de cartão em aberto também são despesa pendente do mês — sem
+// isso o total do widget/KPI "Pendências" não incluía Nubank/Nomad, só
+// lançamentos de conta. Usada tanto no toggle Despesas/Receitas quanto na
+// carga inicial (carregarDadosDoMes).
+async function pendentesComFaturas(userId, tipo, inicio, fim) {
+  const pendentes = await carregarPendentes(userId, tipo, inicio, fim);
+  if (tipo !== 'despesa') return pendentes;
+  const faturas = await carregarFaturasMesCorrente(userId, refMesString(mesRef));
+  return { tipo, count: pendentes.count + faturas.count, total: pendentes.total + faturas.total };
+}
+
 async function recarregarPendentes() {
   const { inicio, fim } = limitesMes(mesRef);
-  const pendentes = await carregarPendentes(usuarioAtual.id, pendentesTipo, inicio, fim);
+  const pendentes = await pendentesComFaturas(usuarioAtual.id, pendentesTipo, inicio, fim);
   renderPendentes(pendentes);
 }
 
@@ -1113,7 +1186,7 @@ async function carregarDadosDoMes() {
     carregarEconomia(usuarioAtual.id, inicioAnt, fimAnt, refMesAnt),
     carregarMetas(usuarioAtual.id, refMesAtual),
     carregarMapaCalor(usuarioAtual.id, inicio, fim),
-    carregarPendentes(usuarioAtual.id, pendentesTipo, inicio, fim),
+    pendentesComFaturas(usuarioAtual.id, pendentesTipo, inicio, fim),
     recarregarTimeline(),
   ]);
 
