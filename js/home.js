@@ -1,6 +1,6 @@
 import { supabase, requireAuth, configurarBotaoSair } from './supabaseClient.js';
 import { aplicarTemaSalvo, carregarTemaDoBanco } from './temaService.js?v=3';
-import { invoiceRef, addMonthsRef } from './cardService.js';
+import { invoiceRef } from './cardService.js';
 import { configurarBotaoPrivacidade } from './privacidade.js?v=2';
 import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { montarNavInferior } from './navInferior.js?v=6';
@@ -342,7 +342,7 @@ function renderLancamentos(lancamentos) {
 async function mudarMes(delta) {
   mesRef.setMonth(mesRef.getMonth() + delta);
   renderMes();
-  await Promise.all([recarregarTimeline(usuarioAtual), recarregarResumoMensal(), recarregarCardPendentes()]);
+  await Promise.all([recarregarTimeline(usuarioAtual), recarregarResumoMensal(), recarregarCardPendentes(), recarregarCardCartoes()]);
 }
 
 function ativarSwipeMes(el) {
@@ -1034,7 +1034,7 @@ function rotuloFechamento(data) {
   return `${fmtDataCurta.format(data)}, ${semana}.`;
 }
 
-async function carregarCartoesResumo(userId) {
+async function carregarCartoesResumo(userId, refMes) {
   const { data, error } = await supabase
     .from('credit_cards')
     .select('id, nome, fechamento_dia, vencimento_dia')
@@ -1046,53 +1046,35 @@ async function carregarCartoesResumo(userId) {
   const cartoes = data ?? [];
   const linhas = await Promise.all(cartoes.map(async (cartao) => {
     // invoiceRef(hoje, ...) devolve a fatura que ainda está ACUMULANDO
-    // compras (a próxima a fechar) — não a fatura que acabou de fechar e
-    // está aguardando pagamento, que é a "conta deste mês" pro usuário.
-    // Checa a fatura anterior primeiro: se ainda tiver item 'aberta'
-    // (fechou mas não foi paga), é ela que importa agora.
-    const refAtual = invoiceRef(hojeISO(), cartao.fechamento_dia, cartao.vencimento_dia);
-    const refAnterior = addMonthsRef(refAtual, -1);
+    // compras (a próxima a fechar) — usada só pra saber se a fatura do mês
+    // navegado (refMes) ainda está aberta acumulando, ou se já fechou e
+    // segue sem pagamento.
+    const refAcumulando = invoiceRef(hojeISO(), cartao.fechamento_dia, cartao.vencimento_dia);
 
-    const { data: itensAnterior, error: erroAnterior } = await supabase
+    const { data: itens, error: erroItens } = await supabase
       .from('card_transactions')
       .select('valor_parcela, status')
       .eq('card_id', cartao.id)
-      .eq('fatura_referencia', refAnterior);
-    if (erroAnterior) throw erroAnterior;
+      .eq('fatura_referencia', refMes);
+    if (erroItens) throw erroItens;
 
-    const abertosAnterior = (itensAnterior ?? []).filter((c) => c.status === 'aberta');
+    const lista = itens ?? [];
+    const total = lista.reduce((soma, c) => soma + Number(c.valor_parcela), 0);
+    const temAberta = lista.some((c) => c.status === 'aberta');
 
-    let proximaFatura = 0;
-    let statusFatura = 'aberta';
-    let faturaExibida = refAtual;
-
-    if (abertosAnterior.length > 0) {
-      proximaFatura = abertosAnterior.reduce((soma, c) => soma + Number(c.valor_parcela), 0);
-      statusFatura = 'fechada';
-      faturaExibida = refAnterior;
+    let statusFatura;
+    if (lista.length === 0) {
+      statusFatura = 'aberta';
+    } else if (temAberta) {
+      // "Fechada" só faz sentido pra um ciclo que já passou (fechou e não
+      // foi paga). Uma fatura futura já pode ter parcelas 'aberta' (de uma
+      // compra parcelada), mas ainda não fechou — continua "Aberta".
+      statusFatura = refMes >= refAcumulando ? 'aberta' : 'fechada';
     } else {
-      const { data: itensAtual, error: erroAtual } = await supabase
-        .from('card_transactions')
-        .select('valor_parcela')
-        .eq('card_id', cartao.id)
-        .eq('fatura_referencia', refAtual)
-        .eq('status', 'aberta');
-      if (erroAtual) throw erroAtual;
-      const totalAtual = (itensAtual ?? []).reduce((soma, c) => soma + Number(c.valor_parcela), 0);
-      const pagosAnterior = (itensAnterior ?? []).filter((c) => c.status === 'paga');
-
-      if (totalAtual > 0) {
-        proximaFatura = totalAtual;
-        statusFatura = 'aberta';
-        faturaExibida = refAtual;
-      } else if (pagosAnterior.length > 0) {
-        proximaFatura = pagosAnterior.reduce((soma, c) => soma + Number(c.valor_parcela), 0);
-        statusFatura = 'paga';
-        faturaExibida = refAnterior;
-      }
+      statusFatura = 'paga';
     }
 
-    return { cartao, fechamento: proximoFechamento(cartao.fechamento_dia), proximaFatura, statusFatura, faturaExibida };
+    return { cartao, fechamento: proximoFechamento(cartao.fechamento_dia), proximaFatura: total, statusFatura, faturaExibida: refMes };
   }));
 
   const total = linhas.reduce((soma, l) => soma + l.proximaFatura, 0);
@@ -1549,7 +1531,7 @@ async function recarregarResumoMensal() {
 
 async function recarregarCardCartoes() {
   try {
-    cacheResumo.cartoes = await carregarCartoesResumo(usuarioAtual.id);
+    cacheResumo.cartoes = await carregarCartoesResumo(usuarioAtual.id, refMesString(mesRef));
     renderResumoCards();
   } catch (err) {
     console.error(err);
