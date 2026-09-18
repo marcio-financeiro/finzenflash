@@ -179,6 +179,10 @@
     .lancamento-valor { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
     .lancamento-valor.is-receita { color: var(--success); }
     .lancamento-valor.is-despesa { color: var(--danger); }
+    .lancamento-chevron { flex-shrink: 0; color: var(--muted); transition: transform 0.2s; }
+    .lancamento-chevron.aberto { transform: rotate(180deg); }
+    .lancamento-subitem { margin-top: 6px; margin-left: 20px; width: calc(100% - 20px); padding: 10px 14px; background: var(--surface-2); }
+    .lancamento-subitem .lancamento-icone { width: 32px; height: 32px; }
 
     .conta-vazia { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
 

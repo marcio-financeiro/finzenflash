@@ -981,29 +981,110 @@ async function carregarPendentesLista(userId, tipo, inicio, fim, refMes) {
 
   // O card de resumo (recarregarCardPendentes) soma as compras de cartão em
   // aberto na fatura do mês navegado junto com as despesas pendentes — essa
-  // lista precisa trazer os mesmos itens, senão o total bate mas a lista
-  // mostra só uma fração do que está sendo contado.
+  // lista precisa trazer o mesmo total, senão o total bate mas a lista some
+  // com a diferença. Mas listar compra por compra polui demais: agrupa por
+  // cartão (uma linha = uma fatura em aberto) e deixa expandir pra ver as
+  // compras que compõem aquele total.
   const { data: compras, error: erroCompras } = await supabase
     .from('card_transactions')
-    .select('id, descricao, valor_parcela, data_compra, purchase_group_id, credit_cards(nome)')
+    .select('id, card_id, descricao, valor_parcela, data_compra, purchase_group_id, credit_cards(nome)')
     .eq('user_id', userId)
     .eq('status', 'aberta')
     .eq('fatura_referencia', refMes);
   if (erroCompras) throw erroCompras;
 
-  const doCartao = (compras ?? []).map((c) => ({
-    id: c.id,
-    origem: 'cartao',
-    purchaseGroupId: c.purchase_group_id,
+  const porCartao = new Map();
+  for (const c of compras ?? []) {
+    if (!porCartao.has(c.card_id)) {
+      porCartao.set(c.card_id, { cardId: c.card_id, nome: c.credit_cards?.nome ?? '', total: 0, dataMaisAntiga: c.data_compra, compras: [] });
+    }
+    const grupo = porCartao.get(c.card_id);
+    grupo.total += Number(c.valor_parcela);
+    if (c.data_compra < grupo.dataMaisAntiga) grupo.dataMaisAntiga = c.data_compra;
+    grupo.compras.push({ id: c.id, descricao: c.descricao, valor: Number(c.valor_parcela), purchaseGroupId: c.purchase_group_id });
+  }
+
+  const doCartao = Array.from(porCartao.values()).map((g) => ({
+    id: `fatura-${g.cardId}`,
+    origem: 'cartao-fatura',
     type: 'despesa',
-    amount: c.valor_parcela,
-    description: c.descricao,
-    date: c.data_compra,
+    amount: g.total,
+    description: `Fatura ${g.nome}`,
+    date: g.dataMaisAntiga,
     status: 'pendente',
-    nomeOrigem: c.credit_cards?.nome ?? '',
+    nomeOrigem: g.nome,
+    compras: g.compras,
   }));
 
   return [...doConta, ...doCartao].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}
+
+const faturasExpandidasPendentes = new Set();
+
+function renderListaPendentesItens(itens) {
+  const container = document.getElementById('lista-pendentes-itens');
+  if (itens.length === 0) {
+    container.innerHTML = '<div class="conta-vazia">Nenhuma pendência.</div>';
+    return;
+  }
+  container.innerHTML = itens.map((l) => {
+    if (l.origem === 'cartao-fatura') {
+      const expandido = faturasExpandidasPendentes.has(l.id);
+      const qtd = l.compras.length;
+      const comprasHtml = expandido ? l.compras.map((c) => `
+        <button type="button" class="lancamento-card lancamento-subitem" data-grupo="${c.purchaseGroupId}" aria-label="Editar compra ${escapeHtml(c.descricao)}">
+          <div class="lancamento-icone is-despesa">${iconCartao()}</div>
+          <div class="lancamento-info"><div class="lancamento-desc">${escapeHtml(c.descricao)}</div></div>
+          <div class="lancamento-valor valor-sensivel is-despesa">${fmt.format(c.valor)}</div>
+        </button>
+      `).join('') : '';
+      return `
+        <button type="button" class="lancamento-card" data-id="${l.id}" aria-label="${expandido ? 'Recolher' : 'Expandir'} fatura ${escapeHtml(l.nomeOrigem)}" aria-expanded="${expandido}">
+          <div class="lancamento-icone is-despesa">${iconCartao()}</div>
+          <div class="lancamento-info">
+            <div class="lancamento-desc">${escapeHtml(l.description)}</div>
+            <div class="lancamento-conta">fatura em aberto · ${qtd} compra${qtd > 1 ? 's' : ''}</div>
+          </div>
+          <div class="lancamento-valor valor-sensivel is-despesa">${fmt.format(l.amount)}</div>
+          <svg class="lancamento-chevron ${expandido ? 'aberto' : ''}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        ${comprasHtml}
+      `;
+    }
+    const vencida = l.date <= hojeISO();
+    const rotuloVencida = l.date === hojeISO() ? 'vence hoje' : 'vencida';
+    return `
+      <button type="button" class="lancamento-card ${vencida ? 'vencida' : ''}" data-id="${l.id}" aria-label="Ações para ${escapeHtml(l.description)}">
+        <div class="lancamento-icone ${l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${l.type === 'receita' ? iconReceita() : iconDespesa()}</div>
+        <div class="lancamento-info">
+          <div class="lancamento-desc">${escapeHtml(l.description)}</div>
+          <div class="lancamento-conta">${escapeHtml(l.nomeOrigem)} · ${vencida ? `<span class="badge-vencida">${rotuloVencida}</span> ` : ''}vence ${fmtDataCurta.format(new Date(l.date + 'T00:00:00'))}</div>
+        </div>
+        <div class="lancamento-valor valor-sensivel ${l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${fmt.format(Math.abs(l.amount))}</div>
+      </button>
+    `;
+  }).join('');
+
+  container.querySelectorAll('.lancamento-card[data-id]').forEach((el) => {
+    const lancamento = itens.find((l) => l.id === el.dataset.id);
+    if (!lancamento) return;
+    el.addEventListener('click', () => {
+      if (lancamento.origem === 'cartao-fatura') {
+        if (faturasExpandidasPendentes.has(lancamento.id)) faturasExpandidasPendentes.delete(lancamento.id);
+        else faturasExpandidasPendentes.add(lancamento.id);
+        renderListaPendentesItens(itens);
+      } else {
+        document.getElementById('sheet-lista-pendentes').hidden = true;
+        abrirSheetLancamento(lancamento);
+      }
+    });
+  });
+  container.querySelectorAll('.lancamento-subitem').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.location.href = `/pages/comprar-cartao.html?grupo=${el.dataset.grupo}`;
+    });
+  });
 }
 
 async function abrirSheetListaPendentes() {
@@ -1012,42 +1093,13 @@ async function abrirSheetListaPendentes() {
   const container = document.getElementById('lista-pendentes-itens');
   container.innerHTML = '<div class="conta-vazia">Carregando...</div>';
   document.getElementById('sheet-lista-pendentes').hidden = false;
+  faturasExpandidasPendentes.clear();
 
   try {
     const { inicio, fim } = limitesMes(mesRef);
     const refMes = `${mesRef.getFullYear()}-${String(mesRef.getMonth() + 1).padStart(2, '0')}`;
     const itens = await carregarPendentesLista(usuarioAtual.id, pendentesTipo, inicio, fim, refMes);
-    if (itens.length === 0) {
-      container.innerHTML = '<div class="conta-vazia">Nenhuma pendência.</div>';
-      return;
-    }
-    container.innerHTML = itens.map((l) => {
-      const doCartao = l.origem === 'cartao';
-      const vencida = !doCartao && l.date <= hojeISO();
-      const rotuloVencida = l.date === hojeISO() ? 'vence hoje' : 'vencida';
-      return `
-      <button type="button" class="lancamento-card ${vencida ? 'vencida' : ''}" data-id="${l.id}" aria-label="Ações para ${escapeHtml(l.description)}">
-        <div class="lancamento-icone ${l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${l.type === 'receita' ? iconReceita() : (doCartao ? iconCartao() : iconDespesa())}</div>
-        <div class="lancamento-info">
-          <div class="lancamento-desc">${escapeHtml(l.description)}</div>
-          <div class="lancamento-conta">${escapeHtml(l.nomeOrigem)} · ${doCartao ? 'fatura em aberto' : `${vencida ? `<span class="badge-vencida">${rotuloVencida}</span> ` : ''}vence ${fmtDataCurta.format(new Date(l.date + 'T00:00:00'))}`}</div>
-        </div>
-        <div class="lancamento-valor valor-sensivel ${l.type === 'receita' ? 'is-receita' : 'is-despesa'}">${fmt.format(Math.abs(l.amount))}</div>
-      </button>
-    `;
-    }).join('');
-    container.querySelectorAll('.lancamento-card').forEach((el) => {
-      const lancamento = itens.find((l) => l.id === el.dataset.id);
-      if (!lancamento) return;
-      el.addEventListener('click', () => {
-        document.getElementById('sheet-lista-pendentes').hidden = true;
-        if (lancamento.origem === 'cartao') {
-          window.location.href = `/pages/comprar-cartao.html?grupo=${lancamento.purchaseGroupId}`;
-        } else {
-          abrirSheetLancamento(lancamento);
-        }
-      });
-    });
+    renderListaPendentesItens(itens);
   } catch (err) {
     console.error(err);
     container.innerHTML = '<div class="conta-vazia">Não foi possível carregar.</div>';
