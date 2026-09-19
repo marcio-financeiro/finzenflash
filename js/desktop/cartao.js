@@ -1,7 +1,7 @@
 import { supabase, requireAuth, configurarBotaoSair } from '../supabaseClient.js';
 import { aplicarTemaSalvo } from '../temaService.js';
 import { invoiceRef, addMonthsRef } from '../cardService.js';
-import { loadChart } from '../loadChart.js';
+import { loadChart } from './loadChart.js';
 import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';

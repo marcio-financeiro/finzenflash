@@ -2,7 +2,7 @@
    tabelas densas, modal centralizado, números tabulares. */
 
 .pagina-titulo-bloco { margin-bottom: 22px; }
-.pagina-titulo-bloco h1 { font-size: 24px; font-weight: 800; margin: 0 0 4px 0; }
+.pagina-titulo-bloco h1 { font-family: var(--font-display); font-size: 25px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 4px 0; }
 .pagina-titulo-bloco p { margin: 0; color: var(--muted); font-size: 13px; }
 
 /* Números financeiros — alinhamento tabular, tratamento de dado */
@@ -80,7 +80,7 @@
 /* KPI simples dentro de widgets */
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; }
 .kpi-rotulo { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
-.kpi-valor { font-size: 22px; margin-top: 4px; }
+.kpi-valor { font-family: var(--font-display); font-size: 22px; font-weight: 700; margin-top: 4px; }
 
 /* Início: tira de KPIs + board em duas colunas independentes (larga +
    lateral estreita). Cada coluna é uma pilha simples (flex column) —
@@ -90,7 +90,7 @@
 .kpi-strip-3 { grid-template-columns: repeat(3, 1fr); }
 .kpi-tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; }
 .kpi-tile .rotulo { font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
-.kpi-tile .valor { font-size: 19px; margin-top: 4px; }
+.kpi-tile .valor { font-family: var(--font-display); font-size: 19px; font-weight: 700; margin-top: 4px; }
 
 .board-zonas { display: grid; grid-template-columns: 1.7fr 1fr; gap: 16px; align-items: start; }
 .board-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
@@ -149,7 +149,7 @@
   flex-direction: column;
   gap: 16px;
 }
-.modal-titulo { font-size: 17px; font-weight: 800; }
+.modal-titulo { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
 .modal-fechar { position: absolute; top: 18px; right: 20px; background: none; border: none; color: var(--muted); cursor: pointer; }
 
 /* Paleta de comando */
@@ -222,7 +222,11 @@
   cursor: pointer;
 }
 .btn-desktop:hover { border-color: var(--accent); color: var(--accent); }
-.btn-desktop.primario { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast, #fff); }
+.btn-desktop.primario {
+  background: linear-gradient(135deg, var(--accent-grad-1), var(--accent-grad-2));
+  border-color: transparent;
+  color: var(--accent-contrast, #fff);
+}
 .btn-desktop.primario:hover { color: var(--accent-contrast, #fff); opacity: 0.9; }
 .btn-desktop.perigo { border-color: var(--danger); color: var(--danger); }
 

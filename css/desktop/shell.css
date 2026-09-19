@@ -20,7 +20,14 @@ body.desktop-body {
   display: flex;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Manrope', -apple-system, sans-serif;
+  font-family: 'Inter', -apple-system, sans-serif;
+  /* Raio mais arredondado e um par de fontes com mais personalidade que o
+     mobile — escopado ao desktop via variável redefinida aqui (não em
+     variables.css, que é compartilhado com o mobile). */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --font-display: 'Sora', 'Inter', -apple-system, sans-serif;
 }
 
 .app-shell {
@@ -29,7 +36,11 @@ body.desktop-body {
   width: 100%;
 }
 
-/* Trilha de ícones — extensão vertical da bottom-nav mobile, sempre visível */
+/* Trilha de ícones — extensão vertical da bottom-nav mobile, sempre visível.
+   Cápsula flutuante (margem + cantos arredondados) em vez de encostada nas
+   bordas, pra casar com o resto dos cards do board. */
+.app-shell { padding: 14px; gap: 14px; }
+
 .rail {
   flex-shrink: 0;
   width: 68px;
@@ -39,26 +50,29 @@ body.desktop-body {
   gap: 4px;
   padding: 18px 0;
   background: var(--surface);
-  border-right: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   position: sticky;
-  top: 0;
-  height: 100dvh;
+  top: 14px;
+  height: calc(100dvh - 28px);
   z-index: 20;
 }
 
 .rail-logo {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, var(--accent-grad-1), var(--accent-grad-2));
+  background: linear-gradient(145deg, var(--accent-grad-1), var(--accent-grad-2));
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-weight: 700;
   font-size: 13px;
   margin-bottom: 14px;
   flex-shrink: 0;
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--accent) 65%, transparent);
 }
 
 .rail-itens {
@@ -117,7 +131,7 @@ body.desktop-body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: calc(100dvh - 28px);
   overflow: hidden;
 }
 
@@ -133,8 +147,9 @@ body.desktop-body {
 }
 
 .topbar-titulo {
+  font-family: var(--font-display);
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
   white-space: nowrap;
 }
 

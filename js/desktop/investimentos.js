@@ -1,6 +1,6 @@
 import { supabase, requireAuth, configurarBotaoSair } from '../supabaseClient.js';
 import { aplicarTemaSalvo } from '../temaService.js';
-import { loadChart } from '../loadChart.js';
+import { loadChart } from './loadChart.js';
 import { getCotacoes, limparCache } from '../quoteCache.js';
 import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';

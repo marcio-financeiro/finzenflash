@@ -4,7 +4,7 @@ import { addMonthsRef } from '../cardService.js';
 import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { escapeHtml } from '../utils/escapeHtml.js';
-import { loadChart } from '../loadChart.js';
+import { loadChart } from './loadChart.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtMesAno = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });

@@ -6,7 +6,7 @@ import { abrirComandos } from './comandos.js';
 import { inicializarBoard } from './board.js';
 import { configurarModal, abrirModal, fecharModal } from './modal.js';
 import { formatarMoeda, carregarCotacaoDolar, paraBRL } from '../currencyService.js';
-import { loadChart } from '../loadChart.js';
+import { loadChart } from './loadChart.js';
 import { mostrarToast } from '../utils/toast.js';
 import { escapeHtml } from '../utils/escapeHtml.js';
 import { hojeISO, limitesMes } from '../utils/datas.js';
