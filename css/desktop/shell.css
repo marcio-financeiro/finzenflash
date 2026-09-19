@@ -251,4 +251,24 @@ body.desktop-body {
   .topbar-busca { max-width: none; flex: 1 1 auto; }
 
   .content-scroll { padding: 16px; overflow-x: hidden; }
+
+  /* Aparência antiga só no celular: mantém a estrutura responsiva acima
+     (trilha horizontal, min-width:0, topbar quebrando linha — isso resolveu
+     o corte de conteúdo), mas volta fonte/raio/cápsula de antes do redesign
+     "Financia". No desktop nada muda. */
+  body.desktop-body {
+    font-family: 'Manrope', -apple-system, sans-serif;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --font-display: 'Manrope', -apple-system, sans-serif;
+  }
+  .rail {
+    border: none;
+    box-shadow: none;
+    background: transparent;
+  }
+  .rail-logo {
+    box-shadow: none;
+  }
 }

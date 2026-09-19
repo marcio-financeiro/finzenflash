@@ -106,6 +106,12 @@
   .kpi-strip, .kpi-strip-3 { grid-template-columns: minmax(0, 1fr); }
   .board { grid-template-columns: minmax(0, 1fr); }
   .widget { grid-column: 1 / -1; }
+
+  /* Botão primário volta a ser sólido (sem gradiente) só no celular. */
+  .btn-desktop.primario {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
 }
 
 /* Tabela densa */
