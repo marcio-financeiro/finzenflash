@@ -72,6 +72,10 @@ function configurarTecladoValor() {
 
   const sheet = document.getElementById('sheet-valor');
   document.getElementById('btn-abrir-valor').addEventListener('click', () => {
+    // Se outro campo ainda está com foco e teclado do celular aberto, o
+    // primeiro toque no valor só fecha esse teclado sem abrir a folha —
+    // tira o foco antes, garantindo que a folha sempre abre de primeira.
+    document.activeElement?.blur();
     sheet.hidden = false;
   });
   document.getElementById('btn-concluir-valor').addEventListener('click', () => {
