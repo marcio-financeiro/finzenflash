@@ -88,7 +88,7 @@
    sem precisar medir altura por JS como o .board de uma grade só. */
 .kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
 .kpi-strip-3 { grid-template-columns: repeat(3, 1fr); }
-.kpi-tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; }
+.kpi-tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; min-width: 0; }
 .kpi-tile .rotulo { font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
 .kpi-tile .valor { font-family: var(--font-display); font-size: 19px; font-weight: 700; margin-top: 4px; }
 
@@ -100,6 +100,12 @@
 @media (max-width: 1100px) {
   .kpi-strip { grid-template-columns: repeat(2, 1fr); }
   .board-zonas { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .kpi-strip, .kpi-strip-3 { grid-template-columns: minmax(0, 1fr); }
+  .board { grid-template-columns: minmax(0, 1fr); }
+  .widget { grid-column: 1 / -1; }
 }
 
 /* Tabela densa */

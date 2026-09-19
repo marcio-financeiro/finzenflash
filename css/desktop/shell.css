@@ -205,3 +205,50 @@ body.desktop-body {
   .topbar-busca { max-width: 200px; }
   .content-scroll { padding: 16px; }
 }
+
+/* Tela de celular: a versão desktop não vira a versão mobile do app (layout
+   e telas continuam os mesmos), só deixa de quebrar quando alguém abre essa
+   URL num aparelho estreito — trilha de ícones horizontal no topo, conteúdo
+   em fluxo normal da página (sem a altura fixa em 100dvh + scroll interno),
+   topbar em duas linhas e board/kpis sempre em 1 coluna. */
+@media (max-width: 640px) {
+  html, body { height: auto; overflow-x: hidden; }
+
+  /* min-width:0 é o ponto chave: sem isso, o item flex cresce pra caber o
+     conteúdo que não quebra linha (a trilha de ícones vira uma fileira
+     rolável), em vez de encolher pra caber na tela — foi o que causava
+     cards cortados na lateral mesmo sem barra de rolagem visível. */
+  .app-shell { flex-direction: column; padding: 10px; gap: 10px; width: 100%; min-width: 0; min-height: 0; }
+
+  .rail {
+    flex-direction: row;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    position: static;
+    padding: 8px;
+    gap: 6px;
+    overflow-x: auto;
+  }
+  .rail-logo { margin: 0 4px 0 0; }
+  .rail-itens { flex-direction: row; flex: none; }
+  .rail-rodape { flex-direction: row; margin-left: auto; }
+  .rail-item { width: 40px; height: 40px; flex-shrink: 0; }
+  /* Tooltip por hover não faz sentido em touch — e abrindo pro lado ela
+     sairia da tela nessa largura. */
+  .rail-item .rail-tooltip { display: none; }
+
+  .content { height: auto; overflow: visible; }
+
+  .topbar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 14px 16px;
+    gap: 10px;
+  }
+  .topbar-titulo { font-size: 19px; }
+  .topbar-acoes { margin-left: 0; width: 100%; flex-wrap: wrap; }
+  .topbar-busca { max-width: none; flex: 1 1 auto; }
+
+  .content-scroll { padding: 16px; overflow-x: hidden; }
+}
