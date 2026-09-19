@@ -30,9 +30,10 @@
     })();
   </script>
   <style>
-    .score-bloco { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
-    #score-numero { font-size: 48px; font-weight: 800; }
-    #score-numero span { font-size: 20px; color: var(--muted); font-weight: 700; }
+    .score-bloco { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+    .score-aro { width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .score-aro-valor { width: 80px; height: 80px; border-radius: 50%; background: var(--surface); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 26px; font-weight: 700; }
+    #score-numero span { font-size: 13px; color: var(--muted); font-weight: 500; }
     .score-badge { display: inline-block; font-size: 12px; font-weight: 800; padding: 4px 12px; border-radius: 20px; margin-top: 6px; }
     .score-badge.excelente { background: var(--success-soft); color: var(--success); }
     .score-badge.bom { background: var(--accent-soft); color: var(--accent); }
@@ -67,10 +68,10 @@
           <div class="widget" style="--widget-cols:4">
             <div class="widget-cabecalho"><span class="widget-titulo">Score geral</span></div>
             <div class="score-bloco">
-              <div>
-                <div id="score-numero">– <span>/100</span></div>
-                <div class="score-badge" id="score-badge" hidden></div>
+              <div class="score-aro" id="score-aro">
+                <div class="score-aro-valor" id="score-numero">– <span>/100</span></div>
               </div>
+              <div class="score-badge" id="score-badge" hidden></div>
             </div>
             <div id="score-data"></div>
             <p id="analise-texto" style="font-size:13px;color:var(--muted);margin-top:10px"></p>

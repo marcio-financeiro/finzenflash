@@ -153,6 +153,7 @@ function corNota(nota) {
 function renderTudo({ score, metricas, taxaPoupanca, pctUso, mesesCobertura, receitasMes, despesasMes }) {
   const cls = classificacao(score);
   document.getElementById('score-numero').innerHTML = `${score} <span>/100</span>`;
+  document.getElementById('score-aro').style.background = `conic-gradient(${corNota(score)} ${score}%, var(--surface-2) 0)`;
   const badge = document.getElementById('score-badge');
   badge.hidden = false;
   badge.className = `score-badge ${cls.classe}`;

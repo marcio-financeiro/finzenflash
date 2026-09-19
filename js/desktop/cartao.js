@@ -251,7 +251,9 @@ function renderResumo(totalFatura, limiteUsado) {
   const disponivel = Math.max(limite - limiteUsado, 0);
   const percentual = limite > 0 ? Math.min((limiteUsado / limite) * 100, 100) : 0;
 
-  document.getElementById('limite-barra-fill').style.width = `${percentual}%`;
+  const cor = percentual >= 90 ? 'var(--danger)' : percentual >= 70 ? 'var(--warning)' : 'var(--accent)';
+  document.getElementById('limite-aro').style.background = `conic-gradient(${cor} ${percentual}%, var(--surface-2) 0)`;
+  document.getElementById('limite-aro-pct').textContent = `${Math.round(percentual)}%`;
   document.getElementById('limite-usado').textContent = `Usado ${fmt.format(limiteUsado)}`;
   document.getElementById('limite-disponivel').textContent = `Disp. ${fmt.format(disponivel)}`;
 }
