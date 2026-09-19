@@ -52,6 +52,22 @@
     .lancar-recorrencia-opcoes { display: flex; gap: 12px; margin-top: 10px; }
     .lancar-recorrencia-opcoes[hidden] { display: none; }
     .lancar-recorrencia-opcoes > div { flex: 1; }
+
+    /* Teclado numérico do valor — em tela de toque o div não abre teclado
+       nenhum sozinho (não é um input de verdade), então um clique/toque
+       nele abre esse modal com teclas grandes. Digitar com teclado físico
+       continua funcionando direto no campo (fora do modal), sem precisar
+       abrir nada. */
+    .lancar-valor-modal { font-size: 32px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; margin: 4px 0 16px; }
+    .lancar-valor-modal.cor-despesa { color: var(--danger); }
+    .lancar-valor-modal.cor-receita { color: var(--success); }
+    .teclado-desktop { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .tecla-desktop {
+      height: 52px; border: 1px solid var(--border); background: var(--surface-2); border-radius: var(--radius-md);
+      font-size: 18px; font-weight: 700; color: var(--text); font-family: inherit; cursor: pointer;
+    }
+    .tecla-desktop:hover { border-color: var(--accent); color: var(--accent); }
+    .tecla-desktop.tecla-apagar { color: var(--danger); font-size: 15px; }
   </style>
 </head>
 <body class="desktop-body">
@@ -134,6 +150,29 @@
           <button type="button" class="btn-desktop primario" id="btn-salvar" style="align-self:flex-start;padding:0 28px">Salvar lançamento</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-valor" hidden>
+    <div class="modal-caixa" style="max-width:360px">
+      <button type="button" class="modal-fechar" id="btn-fechar-modal-valor" aria-label="Fechar">✕</button>
+      <div class="modal-titulo">Valor</div>
+      <div class="lancar-valor-modal" id="valor-modal-display">R$ 0,00</div>
+      <div class="teclado-desktop">
+        <button type="button" class="tecla-desktop" data-acao="1">1</button>
+        <button type="button" class="tecla-desktop" data-acao="2">2</button>
+        <button type="button" class="tecla-desktop" data-acao="3">3</button>
+        <button type="button" class="tecla-desktop" data-acao="4">4</button>
+        <button type="button" class="tecla-desktop" data-acao="5">5</button>
+        <button type="button" class="tecla-desktop" data-acao="6">6</button>
+        <button type="button" class="tecla-desktop" data-acao="7">7</button>
+        <button type="button" class="tecla-desktop" data-acao="8">8</button>
+        <button type="button" class="tecla-desktop" data-acao="9">9</button>
+        <button type="button" class="tecla-desktop" data-acao="00">00</button>
+        <button type="button" class="tecla-desktop" data-acao="0">0</button>
+        <button type="button" class="tecla-desktop tecla-apagar" data-acao="apagar">⌫</button>
+      </div>
+      <button type="button" class="btn-desktop primario" id="btn-concluir-valor" style="margin-top:16px;width:100%">Concluído</button>
     </div>
   </div>
 

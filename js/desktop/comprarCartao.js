@@ -3,6 +3,7 @@ import { aplicarTemaSalvo } from '../temaService.js';
 import { invoiceRef, addMonthsRef, novoGrupoCompra } from '../cardService.js';
 import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
+import { configurarModal, abrirModal, fecharModal } from './modal.js';
 import { escapeHtml } from '../utils/escapeHtml.js';
 import { hojeISO } from '../utils/datas.js';
 
@@ -34,25 +35,48 @@ function valorEmReais() {
 }
 
 function atualizarDisplayValor(centavos) {
+  const texto = formatarValorDigitado(Number(centavos));
   document.getElementById('valor').dataset.centavos = centavos;
-  document.getElementById('valor').textContent = formatarValorDigitado(Number(centavos));
+  document.getElementById('valor').textContent = texto;
+  document.getElementById('valor-modal-display').textContent = texto;
   atualizarValorParcela();
 }
 
+// O #valor não é um input de verdade — em tela de toque, tocar nele não
+// abre teclado nenhum sozinho (por isso o modal com teclas grandes, igual
+// ao teclado numérico dedicado do Flash mobile). Digitar com teclado físico
+// continua funcionando direto no campo, sem precisar abrir o modal.
 function configurarInputValor() {
   atualizarDisplayValor('0');
+
+  const digitar = (acao) => {
+    let centavos = document.getElementById('valor').dataset.centavos || '0';
+    if (acao === 'apagar') {
+      centavos = centavos.slice(0, -1) || '0';
+    } else {
+      centavos = (centavos === '0' ? '' : centavos) + acao;
+      centavos = centavos.slice(0, 12);
+    }
+    atualizarDisplayValor(centavos);
+  };
+
   document.getElementById('valor').addEventListener('keydown', (e) => {
     if (e.key >= '0' && e.key <= '9') {
-      let centavos = document.getElementById('valor').dataset.centavos || '0';
-      centavos = (centavos === '0' ? '' : centavos) + e.key;
-      atualizarDisplayValor(centavos.slice(0, 12));
+      digitar(e.key);
     } else if (e.key === 'Backspace') {
-      let centavos = document.getElementById('valor').dataset.centavos || '0';
-      atualizarDisplayValor(centavos.slice(0, -1) || '0');
+      digitar('apagar');
     }
     e.preventDefault();
   });
   document.getElementById('valor').setAttribute('tabindex', '0');
+  document.getElementById('valor').addEventListener('click', () => abrirModal('modal-valor'));
+
+  document.querySelectorAll('.tecla-desktop').forEach((tecla) => {
+    tecla.addEventListener('click', () => digitar(tecla.dataset.acao));
+  });
+  document.getElementById('btn-concluir-valor').addEventListener('click', () => fecharModal('modal-valor'));
+  document.getElementById('btn-fechar-modal-valor').addEventListener('click', () => fecharModal('modal-valor'));
+  configurarModal('modal-valor');
 }
 
 function atualizarValorParcela() {
