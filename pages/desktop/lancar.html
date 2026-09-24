@@ -68,6 +68,21 @@
     }
     .tecla-desktop:hover { border-color: var(--accent); color: var(--accent); }
     .tecla-desktop.tecla-apagar { color: var(--danger); font-size: 15px; }
+
+    /* Dropdown próprio de sugestões — ver comentário em js/desktop/lancar.js */
+    .lista-sugestoes {
+      position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 10;
+      background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-md);
+      max-height: 220px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    }
+    .lista-sugestoes[hidden] { display: none; }
+    .sugestao-item {
+      display: block; width: 100%; text-align: left; border: none; background: none; cursor: pointer;
+      padding: 12px 16px; font-size: 14px; font-weight: 600; color: var(--text); font-family: inherit;
+      border-bottom: 1px solid var(--border);
+    }
+    .sugestao-item:last-child { border-bottom: none; }
+    .sugestao-item:hover { background: var(--surface-2); }
   </style>
 </head>
 <body class="desktop-body">
@@ -98,7 +113,10 @@
 
           <div class="lancar-campo">
             <label for="descricao">Descrição</label>
-            <input type="text" class="input-desktop" id="descricao" list="lista-descricoes" placeholder="Ex.: Mercado, Aluguel, Salário...">
+            <div style="position:relative">
+              <input type="text" class="input-desktop" id="descricao" list="lista-descricoes" placeholder="Ex.: Mercado, Aluguel, Salário...">
+              <div class="lista-sugestoes" id="lista-sugestoes-descricao" hidden></div>
+            </div>
             <datalist id="lista-descricoes"></datalist>
             <div id="aviso-sugestao" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
           </div>

@@ -58,3 +58,13 @@ export function encontrarSugestao(descricoes, valorDigitado) {
   if (!alvo) return null;
   return descricoes.find((d) => d.description.toLowerCase() === alvo) || null;
 }
+
+// <datalist> não tem suporte real no Safari iOS (não mostra dropdown
+// nenhum ao digitar) — sem isso, autocompletar na prática só funcionava no
+// Android/desktop. Essa lista alimenta um dropdown próprio, renderizado em
+// JS, que funciona em qualquer navegador.
+export function filtrarSugestoes(descricoes, valorDigitado, limite = 6) {
+  const alvo = (valorDigitado || '').trim().toLowerCase();
+  if (!alvo) return [];
+  return descricoes.filter((d) => d.description.toLowerCase().includes(alvo)).slice(0, limite);
+}

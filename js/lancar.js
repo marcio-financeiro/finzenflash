@@ -1,6 +1,6 @@
 import { supabase, requireAuth } from './supabaseClient.js';
 import { aplicarTemaSalvo } from './temaService.js?v=3';
-import { getDescricoesRecentes, popularDatalist, encontrarSugestao } from './autocompleteService.js';
+import { getDescricoesRecentes, popularDatalist, encontrarSugestao, filtrarSugestoes } from './autocompleteService.js';
 import { escapeHtml } from './utils/escapeHtml.js';
 import { hojeISO } from './utils/datas.js';
 
@@ -151,6 +151,37 @@ function aplicarSugestaoDescricao() {
     preencheu = true;
   }
   if (preencheu) aviso.textContent = 'Categoria/conta preenchidas com base no último lançamento parecido.';
+}
+
+// Dropdown próprio em cima do <datalist> nativo — Safari iOS não mostra o
+// dropdown do <datalist> ao digitar, então sem isso o autocompletar na
+// prática nunca aparecia no iPhone.
+function renderSugestoesDescricao() {
+  const lista = document.getElementById('lista-sugestoes-descricao');
+  const itens = filtrarSugestoes(descricoesRecentes, document.getElementById('descricao').value);
+  if (itens.length === 0) {
+    lista.hidden = true;
+    lista.innerHTML = '';
+    return;
+  }
+  lista.innerHTML = itens.map((s, i) => `<button type="button" class="sugestao-item" data-idx="${i}">${escapeHtml(s.description)}</button>`).join('');
+  lista.hidden = false;
+  lista.querySelectorAll('.sugestao-item').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.getElementById('descricao').value = itens[Number(btn.dataset.idx)].description;
+      lista.hidden = true;
+      aplicarSugestaoDescricao();
+    });
+  });
+}
+
+function configurarSugestoesDescricao() {
+  const lista = document.getElementById('lista-sugestoes-descricao');
+  document.getElementById('descricao').addEventListener('input', renderSugestoesDescricao);
+  // mousedown/touchstart antes do click: sem isso, o blur do campo (que
+  // fecharia a lista) dispara antes do click no item, e a seleção nunca
+  // chega a acontecer.
+  lista.addEventListener('mousedown', (e) => e.preventDefault());
 }
 
 async function carregarContaPrincipal(userId) {
@@ -349,7 +380,11 @@ async function init() {
   document.getElementById('chk-recorrente').addEventListener('change', (e) => {
     document.getElementById('opcoes-recorrencia').hidden = !e.target.checked;
   });
-  document.getElementById('descricao').addEventListener('blur', aplicarSugestaoDescricao);
+  document.getElementById('descricao').addEventListener('blur', () => {
+    aplicarSugestaoDescricao();
+    document.getElementById('lista-sugestoes-descricao').hidden = true;
+  });
+  configurarSugestoesDescricao();
   document.getElementById('data').addEventListener('change', atualizarPadraoJaPago);
   document.getElementById('chk-ja-pago').addEventListener('change', () => {
     jaPagoTocadoManualmente = true;
