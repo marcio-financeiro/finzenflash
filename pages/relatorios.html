@@ -145,6 +145,10 @@
     .ranking-nome { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ranking-valor { font-size: 13px; font-weight: 800; white-space: nowrap; }
     .ranking-pct { font-size: 11px; color: var(--muted); width: 42px; text-align: right; flex-shrink: 0; }
+    .ranking-variacao { font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 20px; flex-shrink: 0; }
+    .ranking-variacao.subiu { background: var(--danger-soft); color: var(--danger); }
+    .ranking-variacao.desceu { background: var(--success-soft); color: var(--success); }
+    .ranking-variacao.neutro { background: var(--surface-2); color: var(--muted); }
 
     .conta-vazia { text-align: center; color: var(--muted); font-size: 13px; padding: 16px 0; }
 
@@ -324,12 +328,21 @@
           <div class="balanco-rotulo">Balanço</div>
           <div class="balanco-valor" id="balanco-total">R$ 0,00</div>
         </div>
+        <div class="balanco-linha">
+          <div class="balanco-rotulo">Taxa de poupança</div>
+          <div class="balanco-valor" id="balanco-poupanca">—</div>
+        </div>
         <div class="balanco-badge" id="balanco-badge" hidden></div>
       </div>
 
       <div class="card" id="card-recdes">
         <div class="card-titulo" id="titulo-recdes">Receita vs Despesa — últimos 12 meses</div>
         <div class="grafico-wrap"><canvas id="chart-recdes"></canvas></div>
+      </div>
+
+      <div class="card" id="card-patrimonio" hidden>
+        <div class="card-titulo">Evolução do Patrimônio Líquido</div>
+        <div class="grafico-wrap"><canvas id="chart-patrimonio"></canvas></div>
       </div>
 
       <div class="card">
@@ -347,6 +360,6 @@
     <div id="nav-inferior-slot"></div>
   </div>
 
-  <script type="module" src="../js/relatorios.js?v=9"></script>
+  <script type="module" src="../js/relatorios.js?v=10"></script>
 </body>
 </html>

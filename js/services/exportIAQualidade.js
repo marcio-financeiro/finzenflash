@@ -86,6 +86,7 @@ export function montarMetadata({ inicio, fim, movimentos, dados, qualidade, appV
       'finzen_data_quality.json',
       'finzen_metadata.json',
       'finzen_data_dictionary.json',
+      'finzen_prompt_sugerido.txt',
     ],
     qualidade_dos_dados: qualidade.status,
   };
@@ -121,6 +122,9 @@ export const DATA_DICTIONARY = {
   finzen_monthly: { descricao: 'Uma linha por mês — consolidação, nunca substitui finzen_movimentacoes.csv.' },
   finzen_patrimonio: { descricao: 'Uma linha por mês, copiada diretamente de patrimony_history (calculado pelo próprio FinZen). dividas = fatura de cartão em aberto — o FinZen não tem conceito de empréstimo/financiamento; saldo negativo de conta já reduz "disponibilidade" em vez de aparecer aqui.' },
   finzen_investimentos: { descricao: 'Uma linha por ativo na carteira (posição atual, não histórico de operações — isso está em finzen_movimentacoes.csv com tipo investimento_compra/investimento_venda/dividendo).' },
-  finzen_indicadores: { descricao: 'Camada 3 — cada indicador tem valor/período/unidade/fórmula/origem, e pode ser recalculado a partir dos CSVs primários citados em "source".' },
-  finzen_carteira: { descricao: 'Seis dimensões independentes de avaliação financeira (fluxo de caixa, liquidez, poupança, endividamento, patrimônio, investimentos). Deliberadamente SEM um score único — ver seção 10 da especificação original.' },
+  finzen_indicadores: {
+    descricao: 'Camada 3 — dois blocos: "periodo_atual" (indicadores do período pedido) e "periodo_anterior" (mesmo indicadores, calculados pro período de mesmo tamanho imediatamente anterior — pra IA comparar tendência, não só foto). Dentro de cada bloco, cada indicador tem valor/período/unidade/fórmula/origem e pode ser recalculado a partir dos CSVs primários citados em "source". "periodo_anterior" pode vir todo com valor null se não houver dados nesse intervalo (ex: conta nova).',
+  },
+  finzen_carteira: { descricao: 'Seis dimensões independentes de avaliação financeira do período atual (fluxo de caixa, liquidez, poupança, endividamento, patrimônio, investimentos). Deliberadamente SEM um score único — ver seção 10 da especificação original.' },
+  finzen_prompt_sugerido: { descricao: 'Texto pronto (não JSON/CSV) com um prompt sugerido pra colar numa IA externa junto com o pacote — poupa descrever o contexto toda vez.' },
 };

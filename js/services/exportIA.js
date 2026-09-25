@@ -335,4 +335,47 @@ export function construirInvestimentos(dados) {
   });
 }
 
+// ── Período anterior (para comparação) ──────────────────────────────────
+// Mesmo número de dias do período pedido, imediatamente anterior a ele —
+// usado pra comparar indicadores (ex: taxa de poupança piorou ou melhorou
+// vs o período equivalente logo antes).
+export function periodoAnterior(inicioISO, fimISO) {
+  const toISO = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const inicioD = new Date(inicioISO + 'T00:00:00');
+  const fimD = new Date(fimISO + 'T00:00:00');
+  const dias = Math.round((fimD - inicioD) / 86400000) + 1;
+  const fimAntD = new Date(inicioD.getTime() - 86400000);
+  const inicioAntD = new Date(fimAntD.getTime() - (dias - 1) * 86400000);
+  return { inicio: toISO(inicioAntD), fim: toISO(fimAntD) };
+}
+
+// ── Anonimização (opcional, a pedido do usuário) ────────────────────────
+// Troca nomes reais de conta/cartão por rótulos genéricos ("Conta 1",
+// "Cartão 1"), mantendo a mesma consistência dentro do pacote (a mesma
+// conta sempre vira o mesmo rótulo). Não gera nenhum mapa de volta pro
+// nome real dentro dos arquivos exportados — só no app, pra quem gerou.
+export function anonimizarMovimentos(movimentos) {
+  const mapaContas = new Map();
+  const mapaCartoes = new Map();
+
+  function apelido(mapa, prefixo, nome) {
+    if (!nome) return nome;
+    if (!mapa.has(nome)) mapa.set(nome, `${prefixo} ${mapa.size + 1}`);
+    return mapa.get(nome);
+  }
+
+  return movimentos.map((m) => {
+    let conta = m.conta;
+    if (conta && conta.includes(' -> ')) {
+      const [de, para] = conta.split(' -> ');
+      conta = `${apelido(mapaContas, 'Conta', de)} -> ${apelido(mapaContas, 'Conta', para)}`;
+    } else if (m.forma_pagamento === 'cartao') {
+      conta = apelido(mapaCartoes, 'Cartão', conta);
+    } else {
+      conta = apelido(mapaContas, 'Conta', conta);
+    }
+    return { ...m, conta };
+  });
+}
+
 export { mesRef, addMesesISO, mesesEntre };

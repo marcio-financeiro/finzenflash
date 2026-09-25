@@ -3,7 +3,7 @@ import { aplicarTemaSalvo } from '../temaService.js';
 import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { hojeISO } from '../utils/datas.js';
-import { coletarDados, construirMovimentacoes, construirMonthly, construirPatrimonio, construirInvestimentos } from '../services/exportIA.js';
+import { coletarDados, construirMovimentacoes, construirMonthly, construirPatrimonio, construirInvestimentos, periodoAnterior, anonimizarMovimentos } from '../services/exportIA.js';
 import { calcularIndicadores, calcularDimensoes } from '../services/exportIAIndicadores.js';
 import { validarQualidade, montarMetadata, DATA_DICTIONARY } from '../services/exportIAQualidade.js';
 import { montarArquivos, baixarZip, baixarTodosCsvSeparados, baixarTodosJsonSeparados, gerarHtmlRelatorioPDF } from '../services/exportIAArquivos.js';
@@ -55,12 +55,34 @@ async function gerarExportacao() {
       return m >= inicioYM && m <= fimYM;
     }));
     const investimentosCsv = construirInvestimentos(dados);
-    const indicadores = calcularIndicadores(movimentos, monthly, patrimonio, inicioYM, fimYM);
-    const dimensoes = calcularDimensoes(indicadores, investimentosCsv);
+    const indicadoresAtual = calcularIndicadores(movimentos, monthly, patrimonio, inicioYM, fimYM);
+    const dimensoes = calcularDimensoes(indicadoresAtual, investimentosCsv);
     const qualidade = validarQualidade(dados, movimentos);
     const metadata = montarMetadata({ inicio, fim, movimentos, dados, qualidade, appVersion: null });
 
-    ultimoPacote = { movimentos, monthly, patrimonio, investimentosCsv, indicadores, dimensoes, qualidade, metadata, dicionario: DATA_DICTIONARY };
+    // Período anterior (mesmo tamanho, imediatamente antes) — só pra
+    // comparação nos indicadores, não entra em finzen_movimentacoes.csv.
+    const { inicio: inicioAnt, fim: fimAnt } = periodoAnterior(inicio, fim);
+    const inicioAntYM = inicioAnt.slice(0, 7);
+    const fimAntYM = fimAnt.slice(0, 7);
+    const dadosAnt = await coletarDados(supabase, usuarioAtual.id, { inicio: inicioAnt, fim: fimAnt });
+    const movimentosAnt = construirMovimentacoes(dadosAnt);
+    const monthlyAnt = construirMonthly(movimentosAnt, dadosAnt.patrimonyHistory, inicioAntYM, fimAntYM);
+    const patrimonioAnt = construirPatrimonio(dadosAnt.patrimonyHistory.filter((p) => {
+      const m = String(p.reference_month).slice(0, 7);
+      return m >= inicioAntYM && m <= fimAntYM;
+    }));
+    const indicadoresAnterior = calcularIndicadores(movimentosAnt, monthlyAnt, patrimonioAnt, inicioAntYM, fimAntYM);
+    const indicadores = {
+      periodo_atual: indicadoresAtual,
+      periodo_anterior: indicadoresAnterior,
+      periodo_anterior_datas: { inicio: inicioAnt, fim: fimAnt },
+    };
+
+    const anonimizar = document.getElementById('chk-anonimizar')?.checked;
+    const movimentosExport = anonimizar ? anonimizarMovimentos(movimentos) : movimentos;
+
+    ultimoPacote = { movimentos: movimentosExport, monthly, patrimonio, investimentosCsv, indicadores, dimensoes, qualidade, metadata, dicionario: DATA_DICTIONARY };
     ultimosArquivos = montarArquivos(ultimoPacote);
 
     document.getElementById('downloads').classList.add('visivel');

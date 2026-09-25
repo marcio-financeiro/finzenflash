@@ -21,7 +21,34 @@ export function montarArquivos(pacote) {
     'finzen_data_quality.json': JSON.stringify(qualidade, null, 2),
     'finzen_metadata.json': JSON.stringify(metadata, null, 2),
     'finzen_data_dictionary.json': JSON.stringify(dicionario, null, 2),
+    'finzen_prompt_sugerido.txt': gerarPromptSugerido(pacote),
   };
+}
+
+// ── Prompt sugerido ───────────────────────────────────────────────────────
+// A exportação existe pra ser lida por outra IA (não a Luna do próprio
+// FinZen) — esse texto poupa o usuário de ter que descrever o pacote toda
+// vez que for colar os arquivos numa conversa nova.
+function gerarPromptSugerido(pacote) {
+  const { metadata } = pacote;
+  return `FinZen — prompt sugerido para análise com IA
+Cole este texto junto com os arquivos do pacote (ou o conteúdo deles) em uma conversa com a IA de sua escolha (ChatGPT, Gemini, outra instância do Claude, etc).
+
+---
+
+Você é um consultor financeiro pessoal. Os arquivos anexados são meus dados financeiros reais, extraídos do app FinZen — o formato de cada campo está descrito em finzen_data_dictionary.json. Os CSVs (finzen_movimentacoes, finzen_monthly, finzen_patrimonio, finzen_investimentos) são a fonte de verdade; os JSONs (finzen_indicadores, finzen_carteira) são indicadores já calculados a partir deles, só de apoio.
+
+Por favor:
+1. Analise minha taxa de poupança e a estrutura das minhas despesas (fixo vs. variável, essencial vs. não essencial) e aponte os 3 pontos mais importantes.
+2. Em finzen_indicadores.json há "periodo_atual" e "periodo_anterior" (mesmo intervalo de dias, imediatamente antes) — compare os dois e diga se minha situação está melhorando ou piorando, e em quê.
+3. Aponte até 3 categorias de despesa onde eu poderia cortar gasto sem comprometer o essencial.
+4. Avalie minha liquidez/reserva de emergência e diga se ela é suficiente pro meu padrão de gasto.
+5. Se algo em finzen_data_quality.json indicar problema, me avise antes de tirar conclusões — não invente dado que não está nos arquivos.
+
+Não resuma tudo isso em um único "score financeiro" — quero entender cada dimensão separadamente (fluxo de caixa, liquidez, poupança, endividamento, patrimônio, investimentos), como já vem estruturado em finzen_carteira.json.
+
+Período analisado: ${metadata.period_start} a ${metadata.period_end}.
+`;
 }
 
 function baixarBlob(blob, nomeArquivo) {
@@ -61,7 +88,8 @@ const fmtPct = (v) => (v === null || v === undefined ? '—' : `${(v * 100).toFi
 const fmtBRLouTraco = (v) => (v === null || v === undefined ? '—' : fmtBRL.format(v));
 
 export function gerarHtmlRelatorioPDF(pacote) {
-  const { metadata, monthly, patrimonio, investimentosCsv, indicadores } = pacote;
+  const { metadata, monthly, patrimonio, investimentosCsv, indicadores: indicadoresPacote } = pacote;
+  const indicadores = indicadoresPacote.periodo_atual || indicadoresPacote;
   const ultimoMes = monthly[monthly.length - 1];
   const ultimoPatrimonio = patrimonio[patrimonio.length - 1];
 

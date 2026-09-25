@@ -42,6 +42,9 @@
     .resumo-item .valor.qualidade-warning { color: var(--warning, #c9963f); }
     .resumo-item .valor.qualidade-attention { color: var(--danger); }
 
+    .chk-anonimizar { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--muted); line-height: 1.4; cursor: pointer; max-width: 480px; }
+    .chk-anonimizar input { margin-top: 2px; flex-shrink: 0; }
+
     .downloads { display: none; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
     .downloads.visivel { display: flex; }
     .erro-msg { color: var(--danger); font-size: 13px; margin-top: 10px; }
@@ -92,7 +95,12 @@
           <div class="resumo-item"><div class="rotulo">Qualidade dos dados</div><div class="valor" id="resumo-qualidade">—</div></div>
         </div>
 
-        <button type="button" class="btn-desktop primario" id="btn-gerar" style="height:48px;padding:0 28px">Gerar exportação</button>
+        <label class="chk-anonimizar">
+          <input type="checkbox" id="chk-anonimizar">
+          <span>Anonimizar nomes de contas e cartões (vira "Conta 1", "Cartão 1"...)</span>
+        </label>
+
+        <button type="button" class="btn-desktop primario" id="btn-gerar" style="height:48px;padding:0 28px;margin-top:16px">Gerar exportação</button>
         <div class="erro-msg" id="erro-exportar"></div>
 
         <div class="downloads" id="downloads">

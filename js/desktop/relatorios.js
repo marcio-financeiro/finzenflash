@@ -135,6 +135,17 @@ function renderBalanco({ receitasMes, despesasMes, receitasAnt, despesasAnt }) {
   document.getElementById('balanco-total').classList.toggle('positivo', balancoMes >= 0);
   document.getElementById('balanco-total').classList.toggle('negativo', balancoMes < 0);
 
+  const poupancaEl = document.getElementById('balanco-poupanca');
+  if (receitasMes > 0) {
+    const taxa = (balancoMes / receitasMes) * 100;
+    poupancaEl.textContent = `${taxa.toFixed(0)}%`;
+    poupancaEl.classList.toggle('positivo', taxa >= 0);
+    poupancaEl.classList.toggle('negativo', taxa < 0);
+  } else {
+    poupancaEl.textContent = '—';
+    poupancaEl.classList.remove('positivo', 'negativo');
+  }
+
   const badge = document.getElementById('balanco-badge');
   if (despesasAnt > 0) {
     const variacao = ((despesasMes - despesasAnt) / despesasAnt) * 100;
@@ -215,24 +226,15 @@ async function renderRecDes() {
   }
 }
 
-async function renderCategorias(dadosPeriodo) {
-  let tx, cardTx;
-  if (modo.tipo === 'mes') {
-    [{ data: tx }, { data: cardTx }] = await Promise.all([
-      supabase.from('transactions').select('amount,category_id,categories:category_id(nome)').eq('user_id', usuarioAtual.id)
-        .gte('date', inicioMes(modo.mes)).lte('date', fimMes(modo.mes)).eq('status', 'pago').eq('type', 'despesa'),
-      supabase.from('card_transactions').select('valor_parcela,categories:category_id(nome)').eq('user_id', usuarioAtual.id).eq('fatura_referencia', modo.mes),
-    ]);
-    // Ver comentário em carregarTendencia12Meses — mesma exclusão pra não
-    // contar a compra do cartão duas vezes quando a fatura é paga no mês.
-    tx = (tx || []).filter((t) => t.category_id !== idCategoriaFatura);
-  } else {
-    tx = (dadosPeriodo?.tx || []).filter((t) => t.type === 'despesa');
-    cardTx = dadosPeriodo?.cardTx || [];
-  }
-
+async function buscarGastosCategoria(mes) {
+  const [{ data: tx }, { data: cardTx }] = await Promise.all([
+    supabase.from('transactions').select('amount,category_id,categories:category_id(nome)').eq('user_id', usuarioAtual.id)
+      .gte('date', inicioMes(mes)).lte('date', fimMes(mes)).eq('status', 'pago').eq('type', 'despesa'),
+    supabase.from('card_transactions').select('valor_parcela,categories:category_id(nome)').eq('user_id', usuarioAtual.id).eq('fatura_referencia', mes),
+  ]);
+  const txSemFatura = (tx || []).filter((t) => t.category_id !== idCategoriaFatura);
   const mapa = {};
-  (tx || []).forEach((t) => {
+  txSemFatura.forEach((t) => {
     const nome = t.categories?.nome || 'Outros';
     mapa[nome] = (mapa[nome] || 0) + Number(t.amount || 0);
   });
@@ -240,11 +242,35 @@ async function renderCategorias(dadosPeriodo) {
     const nome = c.categories?.nome || 'Cartão';
     mapa[nome] = (mapa[nome] || 0) + Number(c.valor_parcela || 0);
   });
+  return mapa;
+}
 
-  const itens = Object.entries(mapa).map(([nome, valor]) => ({ nome, valor })).sort((a, b) => b.valor - a.valor);
+async function renderCategorias(dadosPeriodo) {
+  let mapa, mapaAnt = null;
+
+  if (modo.tipo === 'mes') {
+    const mesAnt = mesAdicionar(modo.mes, -1);
+    [mapa, mapaAnt] = await Promise.all([buscarGastosCategoria(modo.mes), buscarGastosCategoria(mesAnt)]);
+  } else {
+    const tx = (dadosPeriodo?.tx || []).filter((t) => t.type === 'despesa');
+    const cardTx = dadosPeriodo?.cardTx || [];
+    mapa = {};
+    tx.forEach((t) => { const nome = t.categories?.nome || 'Outros'; mapa[nome] = (mapa[nome] || 0) + Number(t.amount || 0); });
+    cardTx.forEach((c) => { const nome = c.categories?.nome || 'Cartão'; mapa[nome] = (mapa[nome] || 0) + Number(c.valor_parcela || 0); });
+  }
+
+  const itens = Object.entries(mapa).map(([nome, valor]) => {
+    let variacao = null;
+    if (mapaAnt) {
+      const ant = mapaAnt[nome];
+      variacao = ant > 0 ? ((valor - ant) / ant) * 100 : null;
+    }
+    return { nome, valor, variacao };
+  }).sort((a, b) => b.valor - a.valor);
+
   const top8 = itens.slice(0, 8);
   const outros = itens.slice(8).reduce((s, i) => s + i.valor, 0);
-  if (outros > 0) top8.push({ nome: 'Outros', valor: outros });
+  if (outros > 0) top8.push({ nome: 'Outros', valor: outros, variacao: null });
   const total = top8.reduce((s, i) => s + i.valor, 0);
 
   destroyChart('cat');
@@ -259,6 +285,7 @@ async function renderCategorias(dadosPeriodo) {
       <div class="ranking-nome">${escapeHtml(item.nome)}</div>
       <div class="ranking-valor valor-sensivel">${fmt.format(item.valor)}</div>
       <div class="ranking-pct">${total > 0 ? ((item.valor / total) * 100).toFixed(1) : '0'}%</div>
+      ${mapaAnt && item.nome !== 'Outros' ? `<div class="ranking-variacao ${item.variacao === null ? 'neutro' : item.variacao >= 0 ? 'subiu' : 'desceu'}">${item.variacao === null ? 'novo' : `${item.variacao >= 0 ? '+' : ''}${item.variacao.toFixed(0)}%`}</div>` : ''}
     </div>
   `).join('');
 
@@ -277,6 +304,65 @@ async function renderCategorias(dadosPeriodo) {
         plugins: {
           legend: { display: false },
           tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${fmt.format(ctx.raw)}` } },
+        },
+      },
+    });
+  } catch (err) { console.error(err); }
+}
+
+async function carregarPatrimonio(meses) {
+  const inicio = inicioMes(meses[0]);
+  const fim = fimMes(meses[meses.length - 1]);
+  const { data } = await supabase.from('patrimony_history').select('reference_month,net_worth')
+    .eq('user_id', usuarioAtual.id).gte('reference_month', inicio).lte('reference_month', fim);
+  const mapa = {};
+  (data || []).forEach((p) => { mapa[String(p.reference_month).slice(0, 7)] = Number(p.net_worth); });
+  return { labels: meses.map(nomeMes), valores: meses.map((m) => (m in mapa ? mapa[m] : null)) };
+}
+
+async function renderPatrimonio() {
+  destroyChart('patrimonio');
+  const card = document.getElementById('card-patrimonio');
+
+  const meses = modo.tipo === 'mes' ? ultimosNMeses(modo.mes, 12) : mesesEntre(modo.inicio, modo.fim);
+  const { labels, valores } = await carregarPatrimonio(meses);
+
+  if (valores.every((v) => v === null)) {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+
+  const muted = corTema('--muted');
+  const border = corTema('--border');
+  const accent = corTema('--accent');
+
+  try {
+    const Chart = await loadChart();
+    charts.patrimonio = new Chart(document.getElementById('chart-patrimonio'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Patrimônio líquido',
+          data: valores,
+          borderColor: accent,
+          backgroundColor: accent + '22',
+          fill: true,
+          tension: 0.3,
+          spanGaps: true,
+          pointRadius: 2,
+        }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (ctx) => ' ' + fmt.format(ctx.raw) } },
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: muted, font: { size: 9 } } },
+          y: { grid: { color: border }, ticks: { color: muted, font: { size: 9 } } },
         },
       },
     });
@@ -340,7 +426,7 @@ async function renderOrcamento() {
 
 async function renderTudo() {
   const dadosPeriodo = await renderRecDes();
-  await Promise.all([renderCategorias(dadosPeriodo), renderOrcamento()]);
+  await Promise.all([renderCategorias(dadosPeriodo), renderOrcamento(), renderPatrimonio()]);
 }
 
 function atualizarLabelMes() {
