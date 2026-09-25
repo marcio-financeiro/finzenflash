@@ -561,7 +561,11 @@ async function iniciar() {
     renderTudo();
   } catch (err) {
     console.error(err);
-    document.getElementById('lista-ciclos').innerHTML = '<div class="lista-vazia">Não foi possível carregar os dados.</div>';
+    const msgErro = '<div class="lista-vazia">Não foi possível carregar os dados.</div>';
+    ['lista-ciclos', 'lista-cursos', 'lista-he', 'lista-historico'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = msgErro;
+    });
   }
 }
 

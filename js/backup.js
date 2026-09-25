@@ -1,5 +1,6 @@
 import { supabase, requireAuth } from './supabaseClient.js';
 import { aplicarTemaSalvo } from './temaService.js?v=3';
+import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { hojeISO } from './utils/datas.js';
 import { gerarBackupCompleto, inspecionarBackup, restaurarBackupCompleto, TABELAS_BACKUP } from './services/backupService.js';
 
@@ -112,6 +113,8 @@ async function init() {
   const user = await requireAuth();
   if (!user) return;
   usuarioAtual = user;
+
+  ativarArrastarParaFechar(document.getElementById('sheet-confirmar'));
 
   document.getElementById('btn-fazer-backup').addEventListener('click', fazerBackup);
   document.getElementById('btn-escolher-arquivo').addEventListener('click', () => document.getElementById('input-arquivo').click());

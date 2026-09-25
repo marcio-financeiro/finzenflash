@@ -13,6 +13,7 @@ const fmtDataCurta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '
 let usuarioAtual = null;
 let horizonteDias = 30;
 let chartProjecao = null;
+let idCategoriaFatura = null;
 
 function dataAdicionar(iso, dias) {
   const d = new Date(iso + 'T00:00:00');
@@ -37,20 +38,25 @@ async function carregarSaldoInicial(userId) {
 async function carregarLancamentosPendentes(userId, inicio, fim) {
   const { data, error } = await supabase
     .from('transactions')
-    .select('date, type, amount, description, is_recurring')
+    .select('date, type, amount, description, is_recurring, category_id')
     .eq('user_id', userId)
     .eq('status', 'pendente')
     .gte('date', inicio)
     .lte('date', fim)
     .order('date');
   if (error) throw error;
-  return (data ?? []).map((t) => ({
-    data: t.date,
-    valor: t.type === 'receita' ? Number(t.amount) : -Number(t.amount),
-    nome: t.description || (t.type === 'receita' ? 'Receita' : 'Despesa'),
-    recorrente: !!t.is_recurring,
-    tipo: 'lancamento',
-  }));
+  // Exclui a categoria "Fatura de Cartão": ela já é representada por
+  // carregarFaturasFuturas (soma das parcelas em aberto) — um lançamento
+  // pendente nessa categoria contaria a mesma dívida duas vezes.
+  return (data ?? [])
+    .filter((t) => t.category_id !== idCategoriaFatura)
+    .map((t) => ({
+      data: t.date,
+      valor: t.type === 'receita' ? Number(t.amount) : -Number(t.amount),
+      nome: t.description || (t.type === 'receita' ? 'Receita' : 'Despesa'),
+      recorrente: !!t.is_recurring,
+      tipo: 'lancamento',
+    }));
 }
 
 async function carregarFaturasFuturas(userId, inicio, fim) {
@@ -207,6 +213,9 @@ async function iniciar() {
   const user = await requireAuth();
   if (!user) return;
   usuarioAtual = user;
+
+  const { data: catFatura } = await supabase.from('categories').select('id').eq('user_id', user.id).eq('nome', 'Fatura de Cartão').maybeSingle();
+  idCategoriaFatura = catFatura?.id ?? null;
 
   montarNavRail('projecao');
   configurarBotaoSair();

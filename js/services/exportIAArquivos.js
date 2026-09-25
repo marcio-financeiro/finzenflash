@@ -3,6 +3,7 @@
 // (via window.print(), com layout dedicado — não é a tela de cards).
 import { paraCSV } from '../utils/csv.js';
 import { loadJSZip } from '../loadJSZip.js';
+import { escapeHtml } from '../utils/escapeHtml.js';
 
 const COLUNAS_MOVIMENTACOES = ['id', 'data', 'mes_referencia', 'tipo', 'descricao', 'valor', 'moeda', 'categoria', 'subcategoria', 'conta', 'forma_pagamento', 'fixo_variavel', 'essencial_nao_essencial', 'parcelado', 'parcela_atual', 'total_parcelas', 'valor_parcela', 'recorrente', 'tags', 'observacao', 'status'];
 const COLUNAS_MONTHLY = ['mes', 'receita_total', 'despesa_total', 'saldo', 'despesas_fixas', 'despesas_variaveis', 'despesas_essenciais', 'despesas_nao_essenciais', 'investimentos_realizados', 'resgates', 'dividas_pagas', 'novas_dividas', 'patrimonio_inicio', 'patrimonio_fim'];
@@ -99,7 +100,7 @@ export function gerarHtmlRelatorioPDF(pacote) {
   `).join('');
 
   const linhasInvestimentos = investimentosCsv.filter((i) => i.ativo).map((i) => `
-    <tr><td>${i.ticker}</td><td>${i.classe}</td><td>${fmtBRLouTraco(i.valor_atual)}</td>
+    <tr><td>${escapeHtml(i.ticker)}</td><td>${escapeHtml(i.classe)}</td><td>${fmtBRLouTraco(i.valor_atual)}</td>
     <td>${fmtPct(i.rentabilidade)}</td><td>${i.percentual_carteira ? i.percentual_carteira.toFixed(1) + '%' : '—'}</td></tr>
   `).join('');
 

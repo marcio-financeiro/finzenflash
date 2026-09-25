@@ -1,5 +1,6 @@
 import { supabase, requireAuth } from './supabaseClient.js';
 import { aplicarTemaSalvo } from './temaService.js?v=3';
+import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { invoiceRef, addMonthsRef, novoGrupoCompra } from './cardService.js';
 import { escapeHtml } from './utils/escapeHtml.js';
 import { hojeISO } from './utils/datas.js';
@@ -269,6 +270,8 @@ async function init() {
   aplicarTemaSalvo();
   const user = await requireAuth();
   if (!user) return;
+
+  ativarArrastarParaFechar(document.getElementById('sheet-valor'));
 
   configurarTecladoValor();
   document.getElementById('btn-salvar').addEventListener('click', () => salvar(user));

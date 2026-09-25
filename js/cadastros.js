@@ -216,7 +216,7 @@ function renderContas(container) {
   }
   container.innerHTML = contas.map((c) => `
     <button type="button" class="item-cadastro ${c.active ? '' : 'item-inativo'}" data-tipo="conta" data-id="${c.id}">
-      <div class="item-avatar" style="background:${c.color || '#0E7C86'}">${c.icon || inicial(c.nome)}</div>
+      <div class="item-avatar" style="background:${c.color || '#0E7C86'}">${escapeHtml(c.icon) || inicial(c.nome)}</div>
       <div class="item-info">
         <div class="item-nome">${escapeHtml(c.nome)}${c.id === contaPrincipalId ? '<span class="badge-principal">principal</span>' : ''}${c.active ? '' : '<span class="badge-inativo">inativa</span>'}</div>
         <div class="item-detalhe">${escapeHtml(c.tipo || '')}${c.bank ? ` · ${escapeHtml(c.bank)}` : ''} · ${formatarMoeda(c.saldo_atual || 0, c.currency)}</div>
@@ -258,7 +258,7 @@ function renderCategorias(container) {
     if (c.essencial === false) tags.push('Não essencial');
     return `
     <button type="button" class="item-cadastro ${c.ativo ? '' : 'item-inativo'}" data-tipo="categoria" data-id="${c.id}">
-      <div class="item-avatar" style="background:var(--surface-2)">${c.icon || '•'}</div>
+      <div class="item-avatar" style="background:var(--surface-2)">${escapeHtml(c.icon) || '•'}</div>
       <div class="item-info">
         <div class="item-nome">${escapeHtml(c.nome)}${c.ativo ? '' : '<span class="badge-inativo">inativa</span>'}</div>
         ${tags.length ? `<div class="item-detalhe">${escapeHtml(tags.join(' · '))}</div>` : ''}
@@ -306,7 +306,7 @@ function renderOrcamentos(container) {
 
   container.innerHTML = orcamentos.map((o) => `
     <button type="button" class="item-cadastro" data-tipo="orcamento" data-id="${o.id}">
-      <div class="item-avatar" style="background:var(--surface-2)">${o.categories?.icon || '💰'}</div>
+      <div class="item-avatar" style="background:var(--surface-2)">${escapeHtml(o.categories?.icon) || '💰'}</div>
       <div class="item-info">
         <div class="item-nome">${escapeHtml(o.nome)}</div>
         <div class="item-detalhe">Planejado: ${fmt.format(o.valor_planejado || 0)}</div>

@@ -86,7 +86,7 @@ button:disabled {
 
 .error-msg {
   font-size: 13px;
-  color: var(--danger);
+  color: var(--danger-text);
   text-align: center;
   min-height: 18px;
 }

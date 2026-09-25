@@ -19,16 +19,24 @@ async function carregarResumo() {
   const fim = document.getElementById('periodo-fim').value;
   if (!inicio || !fim) return;
 
-  const dados = await coletarDados(supabase, usuarioAtual.id, { inicio, fim });
-  const movimentos = construirMovimentacoes(dados);
-  const qualidade = validarQualidade(dados, movimentos);
+  const erroEl = document.getElementById('erro-exportar');
+  erroEl.textContent = '';
 
-  document.getElementById('resumo-movimentacoes').textContent = movimentos.length.toLocaleString('pt-BR');
-  document.getElementById('resumo-contas').textContent = dados.accounts.length;
-  document.getElementById('resumo-investimentos').textContent = dados.investments.length;
-  const elQualidade = document.getElementById('resumo-qualidade');
-  elQualidade.textContent = rotuloQualidade(qualidade.status);
-  elQualidade.className = `valor qualidade-${qualidade.status}`;
+  try {
+    const dados = await coletarDados(supabase, usuarioAtual.id, { inicio, fim });
+    const movimentos = construirMovimentacoes(dados);
+    const qualidade = validarQualidade(dados, movimentos);
+
+    document.getElementById('resumo-movimentacoes').textContent = movimentos.length.toLocaleString('pt-BR');
+    document.getElementById('resumo-contas').textContent = dados.accounts.length;
+    document.getElementById('resumo-investimentos').textContent = dados.investments.length;
+    const elQualidade = document.getElementById('resumo-qualidade');
+    elQualidade.textContent = rotuloQualidade(qualidade.status);
+    elQualidade.className = `valor qualidade-${qualidade.status}`;
+  } catch (err) {
+    console.error(err);
+    erroEl.textContent = 'Não foi possível carregar o resumo do período. Tente novamente.';
+  }
 }
 
 async function gerarExportacao() {

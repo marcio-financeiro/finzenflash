@@ -204,7 +204,7 @@ function renderCategorias() {
     if (c.essencial === false) tags.push('Não essencial');
     return `
     <tr class="item-cadastro ${c.ativo ? '' : 'item-inativo'}" data-tipo="categoria" data-id="${c.id}">
-      <td><div class="cad-item-nome">${c.icon || '•'} ${escapeHtml(c.nome)}${c.ativo ? '' : '<span class="badge-inativo">inativa</span>'}</div>${tags.length ? `<div style="font-size:11px;color:var(--muted)">${escapeHtml(tags.join(' · '))}</div>` : ''}</td>
+      <td><div class="cad-item-nome">${escapeHtml(c.icon) || '•'} ${escapeHtml(c.nome)}${c.ativo ? '' : '<span class="badge-inativo">inativa</span>'}</div>${tags.length ? `<div style="font-size:11px;color:var(--muted)">${escapeHtml(tags.join(' · '))}</div>` : ''}</td>
       <td>${c.tipo === 'receita' ? 'Receita' : 'Despesa'}</td>
     </tr>
   `;
@@ -264,7 +264,7 @@ function renderOrcamentos() {
   `;
   document.getElementById('lista-orcamentos').innerHTML = orcamentos.map((o) => `
     <tr class="item-cadastro" data-tipo="orcamento" data-id="${o.id}">
-      <td><div class="cad-item-nome">${o.categories?.icon || '💰'} ${escapeHtml(o.nome)}</div></td>
+      <td><div class="cad-item-nome">${escapeHtml(o.categories?.icon) || '💰'} ${escapeHtml(o.nome)}</div></td>
       <td class="num valor-sensivel">${fmt.format(o.valor_planejado || 0)}</td>
     </tr>
   `).join('');

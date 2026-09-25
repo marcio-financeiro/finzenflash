@@ -1,5 +1,6 @@
 import { supabase, requireAuth } from './supabaseClient.js';
 import { aplicarTemaSalvo } from './temaService.js?v=3';
+import { ativarArrastarParaFechar } from './sheetGestos.js?v=2';
 import { getDescricoesRecentes, popularDatalist, encontrarSugestao, filtrarSugestoes } from './autocompleteService.js';
 import { escapeHtml } from './utils/escapeHtml.js';
 import { hojeISO } from './utils/datas.js';
@@ -372,6 +373,9 @@ async function init() {
   aplicarTemaSalvo();
   const user = await requireAuth();
   if (!user) return;
+
+  ativarArrastarParaFechar(document.getElementById('sheet-valor'));
+  ativarArrastarParaFechar(document.getElementById('sheet-escopo-recorrencia'));
 
   configurarTecladoValor();
   document.getElementById('btn-despesa').addEventListener('click', () => selecionarTipo('despesa'));
