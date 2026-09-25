@@ -8,6 +8,7 @@
 // lógica já usada no resto do app (exclusão da categoria "Fatura de
 // Cartão" pra não contar a compra do cartão duas vezes — o mesmo cuidado
 // que já existe em saude.js/relatorios.js) em vez de reinventar regra nova.
+import { paraBRL, DEFAULT_USD_BRL } from '../currencyService.js';
 
 // Uma compra/venda de ativo e um recebimento de dividendo geram, além do
 // registro "de verdade" (investment_transactions/dividends), uma transação
@@ -247,13 +248,18 @@ export function construirMovimentacoes(dados) {
 }
 
 // ── Resumo mensal ────────────────────────────────────────────────────────
-export function construirMonthly(movimentos, patrimonyHistory, inicioYM, fimYM) {
+// dolarAtual: finzen_monthly.csv/finzen_indicadores.json documentam seus
+// valores como unidade 'BRL' — um movimento com moeda USD (conta Nomad)
+// precisa ser convertido aqui, senão a soma mistura BRL e USD em silêncio.
+// finzen_movimentacoes.csv continua com o valor original (moeda indica
+// qual é) — só o agregado mensal precisa estar numa moeda só.
+export function construirMonthly(movimentos, patrimonyHistory, inicioYM, fimYM, dolarAtual = DEFAULT_USD_BRL) {
   const patrimonioPorMes = new Map(patrimonyHistory.map((p) => [String(p.reference_month).slice(0, 7), p]));
   const meses = mesesEntre(inicioYM, fimYM);
 
   return meses.map((mes) => {
     const doMes = movimentos.filter((m) => m.mes_referencia === mes);
-    const soma = (tipo, filtro) => doMes.filter((m) => m.tipo === tipo && (!filtro || filtro(m))).reduce((s, m) => s + m.valor, 0);
+    const soma = (tipo, filtro) => doMes.filter((m) => m.tipo === tipo && (!filtro || filtro(m))).reduce((s, m) => s + paraBRL(m.valor, m.moeda, dolarAtual), 0);
 
     const receitaTotal = soma('receita');
     const despesaTotal = soma('despesa');

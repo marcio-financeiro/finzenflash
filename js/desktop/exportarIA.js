@@ -3,6 +3,7 @@ import { aplicarTemaSalvo } from '../temaService.js';
 import { montarNavRail } from './navRail.js';
 import { abrirComandos } from './comandos.js';
 import { hojeISO } from '../utils/datas.js';
+import { carregarCotacaoDolar } from '../currencyService.js';
 import { coletarDados, construirMovimentacoes, construirMonthly, construirPatrimonio, construirInvestimentos, periodoAnterior, anonimizarMovimentos } from '../services/exportIA.js';
 import { calcularIndicadores, calcularDimensoes } from '../services/exportIAIndicadores.js';
 import { validarQualidade, montarMetadata, DATA_DICTIONARY } from '../services/exportIAQualidade.js';
@@ -55,9 +56,10 @@ async function gerarExportacao() {
     const inicioYM = inicio.slice(0, 7);
     const fimYM = fim.slice(0, 7);
 
+    const dolarAtual = await carregarCotacaoDolar(supabase, usuarioAtual.id);
     const dados = await coletarDados(supabase, usuarioAtual.id, { inicio, fim });
     const movimentos = construirMovimentacoes(dados);
-    const monthly = construirMonthly(movimentos, dados.patrimonyHistory, inicioYM, fimYM);
+    const monthly = construirMonthly(movimentos, dados.patrimonyHistory, inicioYM, fimYM, dolarAtual);
     const patrimonio = construirPatrimonio(dados.patrimonyHistory.filter((p) => {
       const m = String(p.reference_month).slice(0, 7);
       return m >= inicioYM && m <= fimYM;
@@ -75,7 +77,7 @@ async function gerarExportacao() {
     const fimAntYM = fimAnt.slice(0, 7);
     const dadosAnt = await coletarDados(supabase, usuarioAtual.id, { inicio: inicioAnt, fim: fimAnt });
     const movimentosAnt = construirMovimentacoes(dadosAnt);
-    const monthlyAnt = construirMonthly(movimentosAnt, dadosAnt.patrimonyHistory, inicioAntYM, fimAntYM);
+    const monthlyAnt = construirMonthly(movimentosAnt, dadosAnt.patrimonyHistory, inicioAntYM, fimAntYM, dolarAtual);
     const patrimonioAnt = construirPatrimonio(dadosAnt.patrimonyHistory.filter((p) => {
       const m = String(p.reference_month).slice(0, 7);
       return m >= inicioAntYM && m <= fimAntYM;

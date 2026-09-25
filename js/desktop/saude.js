@@ -47,14 +47,14 @@ async function coletarDados(userId) {
     { data: catFatura },
   ] = await Promise.all([
     supabase.from('accounts').select('saldo_atual, currency').eq('user_id', userId).eq('active', true).eq('account_kind', 'bank'),
-    supabase.from('transactions').select('type,amount,date,category_id').eq('user_id', userId)
+    supabase.from('transactions').select('type,amount,date,category_id,accounts:account_id(currency)').eq('user_id', userId)
       .eq('status', 'pago').gte('date', inicio).lte('date', fim),
     supabase.from('card_transactions').select('valor_parcela,category_id').eq('user_id', userId).eq('fatura_referencia', mesAtual),
     // Histórico de 3 meses em competência (mesma base do mês atual): exclui
     // a categoria "Fatura de Cartão" (senão pagar a fatura conta a compra
     // de novo) — a exclusão real acontece em calcularMetricas, aqui só
     // precisa vir o category_id junto.
-    supabase.from('transactions').select('type,amount,date,category_id').eq('user_id', userId)
+    supabase.from('transactions').select('type,amount,date,category_id,accounts:account_id(currency)').eq('user_id', userId)
       .eq('status', 'pago').eq('type', 'despesa').gte('date', inicioMes(mes3Atras)).lte('date', fimMes(mesAnterior)),
     // Compras no cartão dos mesmos 3 meses, pela fatura (não pela data de
     // pagamento) — sem isso a Reserva subestimava o gasto médio e inflava
@@ -90,11 +90,11 @@ async function coletarDados(userId) {
 function calcularMetricas(dados) {
   const { contas, txMes, cardTxMes, txHist, cardTxHist, cardComprasMes, cartoes, cardTxAbertas, budgets, hoje, dolarAtual, idCategoriaFatura } = dados;
 
-  const receitasMes = txMes.filter((t) => t.type === 'receita').reduce((s, t) => s + Number(t.amount || 0), 0);
+  const receitasMes = txMes.filter((t) => t.type === 'receita').reduce((s, t) => s + paraBRL(t.amount, t.accounts?.currency, dolarAtual), 0);
   // Pagar a fatura gera uma transação despesa na categoria "Fatura de
   // Cartão" — exclui ela daqui pra não contar a mesma compra duas vezes
   // (uma via card_transactions, outra via essa transação de pagamento).
-  const despesasTx = txMes.filter((t) => t.type === 'despesa' && t.category_id !== idCategoriaFatura).reduce((s, t) => s + Number(t.amount || 0), 0);
+  const despesasTx = txMes.filter((t) => t.type === 'despesa' && t.category_id !== idCategoriaFatura).reduce((s, t) => s + paraBRL(t.amount, t.accounts?.currency, dolarAtual), 0);
   const despesasCard = cardTxMes.reduce((s, c) => s + Number(c.valor_parcela || 0), 0);
   const despesasMes = despesasTx + despesasCard;
 
@@ -103,7 +103,7 @@ function calcularMetricas(dados) {
 
   const saldoContas = contas.reduce((s, c) => s + paraBRL(c.saldo_atual || 0, c.currency, dolarAtual), 0);
   const porMes = {};
-  txHist.filter((t) => t.category_id !== idCategoriaFatura).forEach((t) => { const m = t.date.slice(0, 7); porMes[m] = (porMes[m] || 0) + Number(t.amount || 0); });
+  txHist.filter((t) => t.category_id !== idCategoriaFatura).forEach((t) => { const m = t.date.slice(0, 7); porMes[m] = (porMes[m] || 0) + paraBRL(t.amount, t.accounts?.currency, dolarAtual); });
   cardTxHist.forEach((c) => { porMes[c.fatura_referencia] = (porMes[c.fatura_referencia] || 0) + Number(c.valor_parcela || 0); });
   const mesesComDado = Object.keys(porMes).length;
   const mediaDespesa = mesesComDado > 0 ? Object.values(porMes).reduce((s, v) => s + v, 0) / mesesComDado : despesasMes;
@@ -116,7 +116,7 @@ function calcularMetricas(dados) {
   const dividas = { nome: 'Dívidas', nota: Math.round(clamp(100 - pctUso, 0, 100)), desc: cartoes.length ? `Uso do cartão em ${pctUso.toFixed(0)}% do limite.` : 'Sem cartões cadastrados.' };
 
   const gastosPorCategoria = {};
-  txMes.filter((t) => t.type === 'despesa' && t.category_id !== idCategoriaFatura).forEach((t) => { if (t.category_id) gastosPorCategoria[t.category_id] = (gastosPorCategoria[t.category_id] || 0) + Number(t.amount || 0); });
+  txMes.filter((t) => t.type === 'despesa' && t.category_id !== idCategoriaFatura).forEach((t) => { if (t.category_id) gastosPorCategoria[t.category_id] = (gastosPorCategoria[t.category_id] || 0) + paraBRL(t.amount, t.accounts?.currency, dolarAtual); });
   cardTxMes.forEach((c) => { if (c.category_id) gastosPorCategoria[c.category_id] = (gastosPorCategoria[c.category_id] || 0) + Number(c.valor_parcela || 0); });
   const dentroDoLimite = budgets.filter((b) => (gastosPorCategoria[b.category_id] || 0) <= Number(b.valor_planejado || 0)).length;
   const orcamento = budgets.length > 0

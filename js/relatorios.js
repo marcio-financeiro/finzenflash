@@ -5,6 +5,7 @@ import { montarNavInferior } from './navInferior.js?v=6';
 import { loadChart } from './loadChart.js';
 import { escapeHtml } from './utils/escapeHtml.js';
 import { hojeISO } from './utils/datas.js';
+import { carregarCotacaoDolar, paraBRL } from './currencyService.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const CORES_CATEGORIA = ['#0E7C86', '#14A3AE', '#c9963f', '#D9583A', '#8ea198', '#1E9E6E', '#4b84f3', '#9b6bd6'];
@@ -12,6 +13,7 @@ const CORES_CATEGORIA = ['#0E7C86', '#14A3AE', '#c9963f', '#D9583A', '#8ea198', 
 let usuarioAtual = null;
 let charts = {};
 let idCategoriaFatura = null;
+let dolarAtual = 5.15;
 const modo = { tipo: 'mes', mes: '', inicio: '', fim: '' };
 
 function inicioMes(ym) { return ym + '-01'; }
@@ -71,7 +73,7 @@ async function carregarTendencia12Meses(mesFinal) {
   const fim = fimMes(meses[meses.length - 1]);
 
   const [{ data: tx }, { data: cardTx }] = await Promise.all([
-    supabase.from('transactions').select('type,amount,date,category_id').eq('user_id', usuarioAtual.id)
+    supabase.from('transactions').select('type,amount,date,category_id,accounts:account_id(currency)').eq('user_id', usuarioAtual.id)
       .gte('date', inicio).lte('date', fim).eq('status', 'pago'),
     supabase.from('card_transactions').select('valor_parcela,fatura_referencia').eq('user_id', usuarioAtual.id)
       .in('fatura_referencia', meses),
@@ -81,7 +83,11 @@ async function carregarTendencia12Meses(mesFinal) {
   // Cartão" — sem excluir ela daqui, a mesma compra conta duas vezes: uma
   // via card_transactions (a compra em si) e outra via essa transação
   // (o pagamento da fatura que já engloba aquela compra).
-  const txSemFatura = (tx || []).filter((t) => t.category_id !== idCategoriaFatura);
+  // amount convertido pra BRL aqui (uma vez só) — lançamento numa conta em
+  // USD (Nomad) grava amount em dólar; card_transactions é sempre BRL.
+  const txSemFatura = (tx || [])
+    .filter((t) => t.category_id !== idCategoriaFatura)
+    .map((t) => ({ ...t, amount: paraBRL(t.amount, t.accounts?.currency, dolarAtual) }));
 
   const receitas = meses.map((m) => txSemFatura.filter((t) => t.date?.startsWith(m) && t.type === 'receita').reduce((s, t) => s + Number(t.amount || 0), 0));
   const despesas = meses.map((m) =>
@@ -95,27 +101,30 @@ async function carregarTendencia12Meses(mesFinal) {
 async function carregarTransacoesPeriodo(inicioISO, fimISO) {
   const meses = mesesEntre(inicioISO, fimISO);
   const [{ data: tx }, { data: cardTx }] = await Promise.all([
-    supabase.from('transactions').select('type,amount,date,category_id,categories:category_id(nome)').eq('user_id', usuarioAtual.id)
+    supabase.from('transactions').select('type,amount,date,category_id,categories:category_id(nome),accounts:account_id(currency)').eq('user_id', usuarioAtual.id)
       .gte('date', inicioISO).lte('date', fimISO).eq('status', 'pago'),
     supabase.from('card_transactions').select('valor_parcela,fatura_referencia,category_id,categories:category_id(nome)').eq('user_id', usuarioAtual.id)
       .in('fatura_referencia', meses),
   ]);
   // Ver comentário em carregarTendencia12Meses — mesma exclusão pra não
-  // contar a compra do cartão duas vezes quando a fatura é paga no período.
-  const txSemFatura = (tx || []).filter((t) => t.category_id !== idCategoriaFatura);
+  // contar a compra do cartão duas vezes quando a fatura é paga no período,
+  // e mesma conversão de amount pra BRL (conta em USD).
+  const txSemFatura = (tx || [])
+    .filter((t) => t.category_id !== idCategoriaFatura)
+    .map((t) => ({ ...t, amount: paraBRL(t.amount, t.accounts?.currency, dolarAtual) }));
   return { tx: txSemFatura, cardTx: cardTx || [] };
 }
 
 async function carregarOrcamento(mes) {
   const [{ data: budgets }, { data: tx }, { data: cardTx }] = await Promise.all([
     supabase.from('budgets').select('valor_planejado,category_id,categories:category_id(nome,icon)').eq('user_id', usuarioAtual.id).eq('mes_referencia', mes),
-    supabase.from('transactions').select('amount,category_id').eq('user_id', usuarioAtual.id)
+    supabase.from('transactions').select('amount,category_id,accounts:account_id(currency)').eq('user_id', usuarioAtual.id)
       .gte('date', inicioMes(mes)).lte('date', fimMes(mes)).eq('status', 'pago').eq('type', 'despesa'),
     supabase.from('card_transactions').select('valor_parcela,category_id').eq('user_id', usuarioAtual.id).eq('fatura_referencia', mes),
   ]);
 
   const gastos = {};
-  (tx || []).forEach((t) => { if (t.category_id && t.category_id !== idCategoriaFatura) gastos[t.category_id] = (gastos[t.category_id] || 0) + Number(t.amount || 0); });
+  (tx || []).forEach((t) => { if (t.category_id && t.category_id !== idCategoriaFatura) gastos[t.category_id] = (gastos[t.category_id] || 0) + paraBRL(t.amount, t.accounts?.currency, dolarAtual); });
   (cardTx || []).forEach((c) => { if (c.category_id) gastos[c.category_id] = (gastos[c.category_id] || 0) + Number(c.valor_parcela || 0); });
 
   return (budgets || []).map((b) => ({
@@ -232,7 +241,7 @@ async function renderRecDes() {
 // ranking do mês atual e pro cálculo de variação vs mês anterior) ────────
 async function buscarGastosCategoria(mes) {
   const [{ data: tx }, { data: cardTx }] = await Promise.all([
-    supabase.from('transactions').select('amount,category_id,categories:category_id(nome)').eq('user_id', usuarioAtual.id)
+    supabase.from('transactions').select('amount,category_id,categories:category_id(nome),accounts:account_id(currency)').eq('user_id', usuarioAtual.id)
       .gte('date', inicioMes(mes)).lte('date', fimMes(mes)).eq('status', 'pago').eq('type', 'despesa'),
     supabase.from('card_transactions').select('valor_parcela,categories:category_id(nome)').eq('user_id', usuarioAtual.id).eq('fatura_referencia', mes),
   ]);
@@ -240,7 +249,7 @@ async function buscarGastosCategoria(mes) {
   const mapa = {};
   txSemFatura.forEach((t) => {
     const nome = t.categories?.nome || 'Outros';
-    mapa[nome] = (mapa[nome] || 0) + Number(t.amount || 0);
+    mapa[nome] = (mapa[nome] || 0) + paraBRL(t.amount, t.accounts?.currency, dolarAtual);
   });
   (cardTx || []).forEach((c) => {
     const nome = c.categories?.nome || 'Cartão';
@@ -469,8 +478,12 @@ async function init() {
   if (!user) return;
   usuarioAtual = user;
 
-  const { data: catFatura } = await supabase.from('categories').select('id').eq('user_id', user.id).eq('nome', 'Fatura de Cartão').maybeSingle();
+  const [{ data: catFatura }, dolar] = await Promise.all([
+    supabase.from('categories').select('id').eq('user_id', user.id).eq('nome', 'Fatura de Cartão').maybeSingle(),
+    carregarCotacaoDolar(supabase, user.id),
+  ]);
   idCategoriaFatura = catFatura?.id ?? null;
+  dolarAtual = dolar;
 
   const hoje = new Date();
   modo.mes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;

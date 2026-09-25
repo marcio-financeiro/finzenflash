@@ -36,27 +36,34 @@ async function carregarSaldoInicial(userId) {
 }
 
 async function carregarLancamentosPendentes(userId, inicio, fim) {
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('date, type, amount, description, is_recurring, category_id')
-    .eq('user_id', userId)
-    .eq('status', 'pendente')
-    .gte('date', inicio)
-    .lte('date', fim)
-    .order('date');
+  const [{ data, error }, dolarAtual] = await Promise.all([
+    supabase
+      .from('transactions')
+      .select('date, type, amount, description, is_recurring, category_id, accounts:account_id(currency)')
+      .eq('user_id', userId)
+      .eq('status', 'pendente')
+      .gte('date', inicio)
+      .lte('date', fim)
+      .order('date'),
+    carregarCotacaoDolar(supabase, userId),
+  ]);
   if (error) throw error;
   // Exclui a categoria "Fatura de Cartão": ela já é representada por
   // carregarFaturasFuturas (soma das parcelas em aberto) — um lançamento
   // pendente nessa categoria contaria a mesma dívida duas vezes.
+  // paraBRL: lançamento numa conta em USD (Nomad) grava amount em dólar.
   return (data ?? [])
     .filter((t) => t.category_id !== idCategoriaFatura)
-    .map((t) => ({
-      data: t.date,
-      valor: t.type === 'receita' ? Number(t.amount) : -Number(t.amount),
-      nome: t.description || (t.type === 'receita' ? 'Receita' : 'Despesa'),
-      recorrente: !!t.is_recurring,
-      tipo: 'lancamento',
-    }));
+    .map((t) => {
+      const valorBRL = paraBRL(t.amount, t.accounts?.currency, dolarAtual);
+      return {
+        data: t.date,
+        valor: t.type === 'receita' ? valorBRL : -valorBRL,
+        nome: t.description || (t.type === 'receita' ? 'Receita' : 'Despesa'),
+        recorrente: !!t.is_recurring,
+        tipo: 'lancamento',
+      };
+    });
 }
 
 async function carregarFaturasFuturas(userId, inicio, fim) {

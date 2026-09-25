@@ -283,8 +283,12 @@ async function carregarRanking(userId, inicio, fim, inicioAnt, fimAnt, refMesAtu
 
 // Mesma base de Relatórios/Saúde — ver comentário em js/home.js.
 async function carregarEconomia(userId, inicio, fim, ref) {
+  // accounts:account_id(currency) + paraBRL: uma despesa/receita lançada
+  // numa conta em USD (Nomad) grava amount em dólar — sem converter aqui,
+  // esse card ficava mais barato/caro do que devia sempre que houvesse
+  // lançamento em moeda estrangeira (card_transactions é sempre BRL).
   const [{ data, error }, { data: compras, error: erroCompras }] = await Promise.all([
-    supabase.from('transactions').select('type, amount, category_id').eq('user_id', userId).eq('status', 'pago').gte('date', inicio).lte('date', fim),
+    supabase.from('transactions').select('type, amount, category_id, accounts:account_id(currency)').eq('user_id', userId).eq('status', 'pago').gte('date', inicio).lte('date', fim),
     supabase.from('card_transactions').select('valor_parcela').eq('user_id', userId).eq('fatura_referencia', ref),
   ]);
   if (error) throw error;
@@ -293,8 +297,9 @@ async function carregarEconomia(userId, inicio, fim, ref) {
   let receitas = 0;
   let despesas = 0;
   for (const t of data ?? []) {
-    if (t.type === 'receita') receitas += Number(t.amount);
-    else if (t.category_id !== idCategoriaFatura) despesas += Number(t.amount);
+    const valorBRL = paraBRL(t.amount, t.accounts?.currency, dolarAtual);
+    if (t.type === 'receita') receitas += valorBRL;
+    else if (t.category_id !== idCategoriaFatura) despesas += valorBRL;
   }
   for (const c of compras ?? []) despesas += Number(c.valor_parcela);
   return { receitas, despesas };
@@ -303,7 +308,7 @@ async function carregarEconomia(userId, inicio, fim, ref) {
 async function carregarMetas(userId, ref) {
   const [{ data: orcamentos, error: erroOrc }, { data: despesas, error: erroDesp }, { data: compras, error: erroCompras }] = await Promise.all([
     supabase.from('budgets').select('category_id, valor_planejado, categories(nome)').eq('user_id', userId).eq('mes_referencia', ref),
-    supabase.from('transactions').select('category_id, amount').eq('user_id', userId).eq('type', 'despesa').eq('status', 'pago').gte('date', `${ref}-01`).lte('date', fimMesRef(ref)),
+    supabase.from('transactions').select('category_id, amount, accounts:account_id(currency)').eq('user_id', userId).eq('type', 'despesa').eq('status', 'pago').gte('date', `${ref}-01`).lte('date', fimMesRef(ref)),
     // Compra no cartão também é gasto da categoria — sem isso, uma meta de
     // "Mercado" com compras no cartão parece folgada mesmo estourada.
     supabase.from('card_transactions').select('category_id, valor_parcela').eq('user_id', userId).eq('fatura_referencia', ref),
@@ -317,7 +322,7 @@ async function carregarMetas(userId, ref) {
   // aqui — o gasto real por categoria já vem das compras individuais abaixo.
   for (const t of despesas ?? []) {
     if (t.category_id === idCategoriaFatura) continue;
-    gastoPorCategoria.set(t.category_id, (gastoPorCategoria.get(t.category_id) ?? 0) + Number(t.amount));
+    gastoPorCategoria.set(t.category_id, (gastoPorCategoria.get(t.category_id) ?? 0) + paraBRL(t.amount, t.accounts?.currency, dolarAtual));
   }
   for (const c of compras ?? []) {
     gastoPorCategoria.set(c.category_id, (gastoPorCategoria.get(c.category_id) ?? 0) + Number(c.valor_parcela));
