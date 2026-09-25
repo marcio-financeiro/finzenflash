@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Backup</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+        if (v.contrast) s.setProperty('--accent-contrast', v.contrast);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    .bkp-intro { color: var(--muted); font-size: 13px; line-height: 1.6; max-width: 680px; margin-bottom: 20px; }
+    .bkp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 900px; }
+    .bkp-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .bkp-card h2 { font-size: 15px; margin: 0; }
+    .bkp-card p { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin: 0; }
+    .status-msg { font-size: 12.5px; min-height: 16px; }
+    .status-msg.erro { color: var(--danger); }
+    .status-msg.ok { color: var(--success); }
+    input[type="file"] { display: none; }
+
+    .resumo-lista { display: flex; flex-direction: column; gap: 4px; font-size: 13px; max-height: 260px; overflow-y: auto; }
+    .resumo-lista .linha { display: flex; justify-content: space-between; color: var(--muted); padding: 2px 0; }
+    .resumo-lista .linha strong { color: var(--text); }
+    .resumo-total { font-size: 13px; font-weight: 800; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; }
+    .aviso { font-size: 12px; color: var(--danger); background: var(--danger-soft); border-radius: var(--radius-md); padding: 10px 12px; line-height: 1.5; }
+    .modal-acoes-botoes { display: flex; gap: 10px; margin-top: 4px; }
+    .modal-acoes-botoes .btn-desktop { flex: 1; }
+  </style>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo">Backup</div>
+        <div class="topbar-acoes">
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">Buscar <kbd>Ctrl K</kbd></button>
+        </div>
+      </div>
+      <div class="content-scroll">
+        <div class="pagina-titulo-bloco">
+          <h1>💾 Backup</h1>
+          <p>Backup completo de todos os seus dados, pronto pra restaurar depois.</p>
+        </div>
+
+        <p class="bkp-intro">Diferente da "Exportar para análise com IA" (que seleciona/transforma os dados pra leitura por uma IA), isto é um dump fiel de todas as tabelas — contas, cartões, categorias, lançamentos, cartão, transferências, investimentos, patrimônio etc. — pensado pra restaurar o estado exato do app depois (troca de aparelho, ou desfazer um erro grave).</p>
+
+        <div class="bkp-grid">
+          <div class="bkp-card">
+            <h2>Fazer backup agora</h2>
+            <p>Baixa um .json com tudo. Guarde num lugar seguro — tem seus dados financeiros em texto puro.</p>
+            <button type="button" class="btn-desktop primario" id="btn-fazer-backup">Baixar backup completo</button>
+            <div class="status-msg" id="status-backup"></div>
+          </div>
+
+          <div class="bkp-card">
+            <h2>Restaurar de um backup</h2>
+            <p>Escolha um .json gerado aqui. Nada é apagado — registros com o mesmo ID são atualizados, o resto é adicionado.</p>
+            <button type="button" class="btn-desktop" id="btn-escolher-arquivo">Escolher arquivo de backup</button>
+            <input type="file" id="input-arquivo" accept="application/json,.json">
+            <div class="status-msg" id="status-restaurar"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-confirmar" hidden>
+    <div class="modal-caixa">
+      <h2>Confirmar restauração</h2>
+      <div class="resumo-lista" id="resumo-lista"></div>
+      <div class="resumo-total" id="resumo-total"></div>
+      <div class="aviso">Isso vai sobrescrever qualquer registro que já exista com o mesmo ID. Confira a data de geração do backup acima antes de continuar.</div>
+      <div class="modal-acoes-botoes">
+        <button type="button" class="btn-desktop" id="btn-cancelar-restaurar">Cancelar</button>
+        <button type="button" class="btn-desktop perigo" id="btn-confirmar-restaurar">Restaurar agora</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/desktop/backup.js"></script>
+</body>
+</html>

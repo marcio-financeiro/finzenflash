@@ -15,8 +15,9 @@ const ICONE_PARCELAMENTOS = '<svg width="19" height="19" viewBox="0 0 24 24" fil
 const ICONE_TRANSFERIR = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h13l-4-4M17 17H4l4 4"/></svg>';
 const ICONE_SAIR = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>';
 const ICONE_DESKTOP = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';
+const ICONE_BACKUP = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>';
 
-const PAGINAS_NO_MAIS = ['cadastros', 'investimentos', 'offshore', 'relatorios', 'projecao', 'saude', 'aparencia', 'parcelamentos'];
+const PAGINAS_NO_MAIS = ['cadastros', 'investimentos', 'offshore', 'relatorios', 'projecao', 'saude', 'aparencia', 'parcelamentos', 'backup'];
 
 /**
  * Monta o menu inferior (Início/Cartão/Extrato/Mais) dentro de
@@ -56,6 +57,7 @@ export function montarNavInferior(paginaAtiva) {
         <a class="mais-item ${ativo('saude')}" href="/pages/saude.html">${ICONE_SAUDE}Saúde Financeira</a>
         <a class="mais-item ${ativo('parcelamentos')}" href="/pages/parcelamentos.html">${ICONE_PARCELAMENTOS}Parcelamentos</a>
         <a class="mais-item ${ativo('aparencia')}" href="/pages/aparencia.html">${ICONE_APARENCIA}Aparência</a>
+        <a class="mais-item ${ativo('backup')}" href="/pages/backup.html">${ICONE_BACKUP}Backup</a>
         <a class="mais-item" href="/pages/desktop/home.html" id="link-versao-desktop">${ICONE_DESKTOP}Versão desktop</a>
         <button type="button" class="mais-item perigo" id="btn-sair-nav">${ICONE_SAIR}Sair</button>
       </div>

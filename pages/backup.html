@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Backup — FinZen Flash</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0E7C86">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FinZen Flash">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+        if (v.contrast) s.setProperty('--accent-contrast', v.contrast);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    body { display: flex; justify-content: center; }
+    .shell { width: 100%; max-width: 480px; min-height: 100dvh; display: flex; flex-direction: column; }
+    .topo { display: flex; align-items: center; gap: 14px; padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 8px 20px; }
+    .topo a { display: flex; color: var(--text); }
+    .topo-titulo { font-size: 17px; font-weight: 800; }
+    .conteudo { flex: 1; padding: 12px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px; display: flex; flex-direction: column; gap: 18px; }
+
+    .intro { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+    .card-titulo { font-size: 14px; font-weight: 800; }
+    .card-desc { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+
+    .btn-primario { width: 100%; height: 50px; border-radius: var(--radius-lg); border: none; background: var(--accent); color: #fff; font-family: inherit; font-size: 14.5px; font-weight: 800; cursor: pointer; }
+    .btn-primario:disabled { opacity: 0.6; }
+    .btn-secundario { width: 100%; height: 50px; border-radius: var(--radius-md); border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .btn-perigo { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+    .status-msg { font-size: 12.5px; text-align: center; min-height: 16px; }
+    .status-msg.erro { color: var(--danger); }
+    .status-msg.ok { color: var(--success); }
+
+    input[type="file"] { display: none; }
+
+    .resumo-lista { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+    .resumo-lista .linha { display: flex; justify-content: space-between; color: var(--muted); }
+    .resumo-lista .linha strong { color: var(--text); }
+    .resumo-total { font-size: 13px; font-weight: 800; padding-top: 8px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; }
+
+    .aviso { font-size: 12px; color: var(--danger); background: var(--danger-soft); border-radius: var(--radius-md); padding: 10px 12px; line-height: 1.5; }
+
+    .sheet-overlay { position: fixed; inset: 0; background: rgba(16,38,42,0.45); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
+    .sheet-overlay[hidden] { display: none; }
+    .sheet { width: 100%; max-width: 480px; max-height: calc(85vh - env(safe-area-inset-top, 0px)); overflow-y: auto; background: var(--surface); border-radius: 24px 24px 0 0; padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px; display: flex; flex-direction: column; gap: 14px; }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); align-self: center; flex-shrink: 0; }
+    .sheet-titulo { font-size: 16px; font-weight: 800; text-align: center; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topo">
+      <a href="/pages/home.html" aria-label="Voltar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <div class="topo-titulo">💾 Backup</div>
+    </div>
+
+    <div class="conteudo">
+      <p class="intro">Backup completo de todos os seus dados (contas, cartões, categorias, lançamentos, investimentos etc.) em um único arquivo JSON — pra guardar num lugar seguro ou restaurar depois numa troca de aparelho. Isto é diferente da "Exportar para análise com IA": lá os dados são selecionados/transformados pra leitura por uma IA; aqui é um dump fiel, pensado pra restaurar.</p>
+
+      <div class="card">
+        <div class="card-titulo">Fazer backup agora</div>
+        <div class="card-desc">Baixa um arquivo .json com tudo. Guarde num lugar seguro — o arquivo tem seus dados financeiros em texto puro.</div>
+        <button type="button" class="btn-primario" id="btn-fazer-backup">Baixar backup completo</button>
+        <div class="status-msg" id="status-backup"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-titulo">Restaurar de um backup</div>
+        <div class="card-desc">Escolha um arquivo .json gerado aqui. Nada é apagado — registros com o mesmo ID são atualizados, o resto é adicionado.</div>
+        <button type="button" class="btn-secundario" id="btn-escolher-arquivo">Escolher arquivo de backup</button>
+        <input type="file" id="input-arquivo" accept="application/json,.json">
+        <div class="status-msg" id="status-restaurar"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet-overlay" id="sheet-confirmar" hidden>
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-titulo">Confirmar restauração</div>
+      <div class="resumo-lista" id="resumo-lista"></div>
+      <div class="resumo-total" id="resumo-total"></div>
+      <div class="aviso">Isso vai sobrescrever qualquer registro que já exista com o mesmo ID. Confira a data de geração do backup acima antes de continuar.</div>
+      <button type="button" class="btn-primario btn-perigo" id="btn-confirmar-restaurar">Restaurar agora</button>
+      <button type="button" class="btn-secundario" id="btn-cancelar-restaurar">Cancelar</button>
+    </div>
+  </div>
+
+  <script type="module" src="/js/backup.js"></script>
+</body>
+</html>
