@@ -47,6 +47,16 @@
     .ranking-nome { flex: 1; }
     .ranking-valor { font-weight: 700; }
     .ranking-pct { color: var(--muted); width: 44px; text-align: right; }
+
+    @media print {
+      .rail, .topbar-acoes, .topbar-busca { display: none !important; }
+      body, .app-shell, .content { background: #fff !important; color: #000 !important; }
+      .app-shell { padding: 0; gap: 0; }
+      .content { height: auto !important; overflow: visible !important; }
+      .widget { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc; }
+      .board { display: block !important; }
+      .board .widget { margin-bottom: 16px; }
+    }
   </style>
 </head>
 <body class="desktop-body">
@@ -57,6 +67,7 @@
         <div class="topbar-titulo">Relatórios</div>
         <div class="topbar-acoes">
           <button type="button" class="btn-desktop" id="btn-exportar">Exportar / Imprimir</button>
+          <a class="btn-desktop primario" href="/pages/desktop/exportar-ia.html">🤖 Exportar para análise com IA</a>
           <button type="button" class="topbar-busca" id="btn-topbar-busca">Buscar <kbd>Ctrl K</kbd></button>
         </div>
       </div>

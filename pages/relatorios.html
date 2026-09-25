@@ -50,6 +50,10 @@
       gap: 14px;
     }
     .topo-linha { display: flex; align-items: center; justify-content: space-between; }
+    .link-exportar-ia {
+      display: block; text-align: center; font-size: 13px; font-weight: 700; color: var(--accent);
+      background: var(--accent-soft); border-radius: var(--radius-md); padding: 10px; text-decoration: none;
+    }
     .topo-titulo { font-size: 20px; font-weight: 800; }
     .topo-acoes { display: flex; gap: 8px; }
     .btn-privacidade, .btn-exportar {
@@ -247,8 +251,19 @@
     .sheet-titulo { font-size: 16px; font-weight: 800; text-align: center; flex-shrink: 0; }
 
     @media print {
-      .topo-acoes #btn-privacidade, .modo-tabs, #nav-inferior-slot, .btn-exportar { display: none !important; }
-      body, .shell { background: #fff !important; }
+      /* window.print() na tela de cards ainda serve pra imprimir esta
+         página específica — mas quem quer uma análise de verdade pra
+         guardar/levar a uma IA deve usar "Exportar para análise com IA"
+         (mais completo e já gera PDF formatado sozinho). */
+      .topo-acoes #btn-privacidade, .modo-tabs, #nav-inferior-slot, .btn-exportar, .link-exportar-ia { display: none !important; }
+      body, .shell { background: #fff !important; color: #000 !important; }
+      .shell { max-width: none; padding-bottom: 0; }
+      /* Sem isso um card cortado ao meio (com só o título numa página e o
+         gráfico na seguinte) era exatamente a "impressão desconfigurada"
+         reclamada — cada card inteiro pula de página se não couber. */
+      .card { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc; }
+      .grafico-wrap { height: 260px !important; }
+      canvas { max-width: 100% !important; }
     }
   </style>
 </head>
@@ -264,6 +279,8 @@
           <button type="button" id="btn-privacidade" class="btn-privacidade" aria-label="Ocultar valores"></button>
         </div>
       </div>
+
+      <a href="/pages/exportar-ia.html" class="link-exportar-ia">🤖 Exportar para análise com IA</a>
 
       <div class="modo-tabs">
         <button type="button" class="modo-tab ativo" id="tab-mes">Mês</button>

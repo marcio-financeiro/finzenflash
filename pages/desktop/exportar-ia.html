@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinZen Flash · Exportar para análise com IA</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <meta name="theme-color" content="#0E7C86">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/desktop/shell.css">
+  <link rel="stylesheet" href="/css/desktop/components.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+        if (v.contrast) s.setProperty('--accent-contrast', v.contrast);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    .exp-intro { color: var(--muted); font-size: 13px; line-height: 1.6; max-width: 640px; margin-bottom: 20px; }
+    .exp-periodo { display: flex; gap: 16px; align-items: flex-end; margin-bottom: 20px; }
+    .exp-periodo .field label { display: block; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; }
+
+    .resumo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+    .resumo-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; }
+    .resumo-item .rotulo { font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; }
+    .resumo-item .valor { font-family: var(--font-display); font-size: 22px; font-weight: 700; margin-top: 4px; }
+    .resumo-item .valor.qualidade-ok { color: var(--success); }
+    .resumo-item .valor.qualidade-warning { color: var(--warning, #c9963f); }
+    .resumo-item .valor.qualidade-attention { color: var(--danger); }
+
+    .downloads { display: none; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .downloads.visivel { display: flex; }
+    .erro-msg { color: var(--danger); font-size: 13px; margin-top: 10px; }
+
+    #area-impressao-pdf { display: none; }
+    body.modo-impressao-pdf > .app-shell { display: none; }
+    body.modo-impressao-pdf #area-impressao-pdf { display: block; }
+    .relatorio-ia-pdf h1 { font-size: 20px; margin-bottom: 2px; }
+    .relatorio-ia-pdf .periodo { color: #555; font-size: 12px; margin-bottom: 16px; }
+    .relatorio-ia-pdf h2 { font-size: 15px; margin: 18px 0 8px; break-after: avoid; }
+    .relatorio-ia-pdf .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .relatorio-ia-pdf .kpis div { border: 1px solid #ccc; border-radius: 8px; padding: 8px 10px; }
+    .relatorio-ia-pdf .kpis span { display: block; font-size: 10px; color: #666; text-transform: uppercase; }
+    .relatorio-ia-pdf .kpis strong { font-size: 15px; }
+    .relatorio-ia-pdf table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px; }
+    .relatorio-ia-pdf th, .relatorio-ia-pdf td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+    .relatorio-ia-pdf td.pos { color: #0a7d3d; } .relatorio-ia-pdf td.neg { color: #b91c1c; }
+    .relatorio-ia-pdf .rodape { font-size: 11px; color: #777; margin-top: 16px; }
+  </style>
+</head>
+<body class="desktop-body">
+  <div class="app-shell">
+    <div id="rail-slot"></div>
+    <div class="content">
+      <div class="topbar">
+        <div class="topbar-titulo">Exportar para análise com IA</div>
+        <div class="topbar-acoes">
+          <button type="button" class="topbar-busca" id="btn-topbar-busca">Buscar <kbd>Ctrl K</kbd></button>
+        </div>
+      </div>
+      <div class="content-scroll">
+        <div class="pagina-titulo-bloco">
+          <h1>🤖 Exportar para análise com IA</h1>
+          <p>Movimentações, patrimônio, investimentos e indicadores — pronto pra analisar no ChatGPT, Claude ou outra IA.</p>
+        </div>
+
+        <p class="exp-intro">Os dados brutos (movimentações, patrimônio, investimentos) são a fonte de verdade. Os indicadores são só uma camada de apoio — sempre recalculável a partir dos CSVs primários. Nada é enviado pra nenhum serviço automaticamente: o download acontece no seu navegador.</p>
+
+        <div class="exp-periodo">
+          <div class="field"><label for="periodo-inicio">Início</label><input type="date" class="input-desktop" id="periodo-inicio" style="max-width:180px"></div>
+          <div class="field"><label for="periodo-fim">Fim</label><input type="date" class="input-desktop" id="periodo-fim" style="max-width:180px"></div>
+        </div>
+
+        <div class="resumo-grid">
+          <div class="resumo-item"><div class="rotulo">Movimentações</div><div class="valor" id="resumo-movimentacoes">—</div></div>
+          <div class="resumo-item"><div class="rotulo">Contas</div><div class="valor" id="resumo-contas">—</div></div>
+          <div class="resumo-item"><div class="rotulo">Investimentos</div><div class="valor" id="resumo-investimentos">—</div></div>
+          <div class="resumo-item"><div class="rotulo">Qualidade dos dados</div><div class="valor" id="resumo-qualidade">—</div></div>
+        </div>
+
+        <button type="button" class="btn-desktop primario" id="btn-gerar" style="height:48px;padding:0 28px">Gerar exportação</button>
+        <div class="erro-msg" id="erro-exportar"></div>
+
+        <div class="downloads" id="downloads">
+          <button type="button" class="btn-desktop" id="btn-baixar-zip">📦 Baixar ZIP (tudo)</button>
+          <button type="button" class="btn-desktop" id="btn-baixar-csv">📄 Baixar CSVs</button>
+          <button type="button" class="btn-desktop" id="btn-baixar-json">🧾 Baixar JSONs</button>
+          <button type="button" class="btn-desktop" id="btn-baixar-pdf">🖨️ Baixar PDF (resumo)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="area-impressao-pdf"></div>
+
+  <script type="module" src="/js/desktop/exportarIA.js"></script>
+</body>
+</html>

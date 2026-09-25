@@ -82,7 +82,7 @@ async function carregarCartoes(userId) {
 async function carregarCategorias(userId) {
   const { data, error } = await supabase
     .from('categories')
-    .select('id, nome, tipo, icon, ativo')
+    .select('id, nome, tipo, icon, ativo, fixo_variavel, essencial')
     .eq('user_id', userId)
     .in('tipo', ['despesa', 'receita'])
     .order('tipo')
@@ -197,12 +197,18 @@ function renderCategorias() {
     container.innerHTML = '<tr><td colspan="2" class="lista-vazia">Nenhuma categoria cadastrada.</td></tr>';
     return;
   }
-  container.innerHTML = categorias.map((c) => `
+  container.innerHTML = categorias.map((c) => {
+    const tags = [];
+    if (c.fixo_variavel) tags.push(c.fixo_variavel === 'fixo' ? 'Fixo' : 'Variável');
+    if (c.essencial === true) tags.push('Essencial');
+    if (c.essencial === false) tags.push('Não essencial');
+    return `
     <tr class="item-cadastro ${c.ativo ? '' : 'item-inativo'}" data-tipo="categoria" data-id="${c.id}">
-      <td><div class="cad-item-nome">${c.icon || '•'} ${escapeHtml(c.nome)}${c.ativo ? '' : '<span class="badge-inativo">inativa</span>'}</div></td>
+      <td><div class="cad-item-nome">${c.icon || '•'} ${escapeHtml(c.nome)}${c.ativo ? '' : '<span class="badge-inativo">inativa</span>'}</div>${tags.length ? `<div style="font-size:11px;color:var(--muted)">${escapeHtml(tags.join(' · '))}</div>` : ''}</td>
       <td>${c.tipo === 'receita' ? 'Receita' : 'Despesa'}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
   wireItens();
 }
 
@@ -436,6 +442,9 @@ function formCategoria(c) {
       ${campoSelect('f-tipo', 'Tipo', [{ valor: 'despesa', texto: 'Despesa' }, { valor: 'receita', texto: 'Receita' }], c?.tipo || 'despesa')}
       ${campoTexto('f-icon', 'Ícone (emoji)', c?.icon, 'Ex: 💊')}
       ${campoSelect('f-ativo', 'Status', [{ valor: 'true', texto: 'Ativa' }, { valor: 'false', texto: 'Inativa' }], String(c?.ativo !== false))}
+      ${campoSelect('f-fixo-variavel', 'Fixo ou variável', [{ valor: '', texto: 'Não classificado' }, { valor: 'fixo', texto: 'Fixo' }, { valor: 'variavel', texto: 'Variável' }], c?.fixo_variavel || '')}
+      ${campoSelect('f-essencial', 'Essencial', [{ valor: '', texto: 'Não classificado' }, { valor: 'true', texto: 'Essencial' }, { valor: 'false', texto: 'Não essencial' }], c?.essencial === true ? 'true' : c?.essencial === false ? 'false' : '')}
+      <div style="font-size:11px;color:var(--muted)">Usado na exportação de dados para análise com IA — não afeta o app.</div>
       <div class="error-msg" id="erro-form"></div>
       <button type="button" class="btn-desktop primario" id="btn-salvar-form">Salvar</button>
     </div>
@@ -556,11 +565,14 @@ async function salvarForm(tipo, item) {
     };
   } else {
     tabela = 'categories';
+    const essencialValor = document.getElementById('f-essencial').value;
     dados = {
       nome,
       tipo: document.getElementById('f-tipo').value,
       icon: document.getElementById('f-icon').value.trim() || null,
       ativo: document.getElementById('f-ativo').value === 'true',
+      fixo_variavel: document.getElementById('f-fixo-variavel').value || null,
+      essencial: essencialValor === '' ? null : essencialValor === 'true',
     };
   }
 

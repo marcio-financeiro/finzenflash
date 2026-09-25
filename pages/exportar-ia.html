@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Exportar para análise com IA — FinZen Flash</title>
+  <link rel="icon" href="/img/logo-mark.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0E7C86">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FinZen Flash">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('flash_tema_cores');
+        if (!raw) return;
+        var cores = JSON.parse(raw);
+        var escuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var v = escuro ? cores.dark : cores.light;
+        if (!v) return;
+        var s = document.documentElement.style;
+        s.setProperty('--accent', v.accent);
+        s.setProperty('--accent-grad-1', v.grad1);
+        s.setProperty('--accent-grad-2', v.grad2);
+        s.setProperty('--accent-soft', v.soft);
+        if (v.contrast) s.setProperty('--accent-contrast', v.contrast);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    body { display: flex; justify-content: center; }
+    .shell { width: 100%; max-width: 480px; min-height: 100dvh; display: flex; flex-direction: column; }
+    .topo { display: flex; align-items: center; gap: 14px; padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 8px 20px; }
+    .topo a { display: flex; color: var(--text); }
+    .topo-titulo { font-size: 17px; font-weight: 800; }
+    .conteudo { flex: 1; padding: 12px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px; display: flex; flex-direction: column; gap: 18px; }
+
+    .intro { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; }
+    .periodo-campos { display: flex; gap: 10px; }
+    .periodo-campos .field { flex: 1; }
+    .periodo-campos label { display: block; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; }
+
+    .resumo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px; }
+    .resumo-item { background: var(--surface-2); border-radius: var(--radius-md); padding: 12px; }
+    .resumo-item .rotulo { font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; }
+    .resumo-item .valor { font-size: 20px; font-weight: 800; margin-top: 2px; }
+    .resumo-item .valor.qualidade-ok { color: var(--success); }
+    .resumo-item .valor.qualidade-warning { color: var(--warning, #c9963f); }
+    .resumo-item .valor.qualidade-attention { color: var(--danger); }
+
+    .btn-gerar { width: 100%; height: 54px; border-radius: var(--radius-lg); border: none; background: var(--accent); color: #fff; font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer; }
+    .btn-gerar:disabled { opacity: 0.6; }
+
+    .downloads { display: none; flex-direction: column; gap: 10px; }
+    .downloads.visivel { display: flex; }
+    .downloads .titulo-concluido { font-size: 15px; font-weight: 800; color: var(--success); text-align: center; }
+    .btn-download {
+      width: 100%; height: 50px; border-radius: var(--radius-md); border: 1.5px solid var(--border);
+      background: var(--surface); color: var(--text); font-family: inherit; font-size: 14px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+    }
+    .btn-download:hover { border-color: var(--accent); color: var(--accent); }
+    .erro-msg { color: var(--danger); font-size: 13px; text-align: center; min-height: 16px; }
+
+    #area-impressao-pdf { display: none; }
+    body.modo-impressao-pdf > .shell { display: none; }
+    body.modo-impressao-pdf #area-impressao-pdf { display: block; }
+    .relatorio-ia-pdf h1 { font-size: 20px; margin-bottom: 2px; }
+    .relatorio-ia-pdf .periodo { color: #555; font-size: 12px; margin-bottom: 16px; }
+    .relatorio-ia-pdf h2 { font-size: 15px; margin: 18px 0 8px; break-after: avoid; }
+    .relatorio-ia-pdf .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .relatorio-ia-pdf .kpis div { border: 1px solid #ccc; border-radius: 8px; padding: 8px 10px; }
+    .relatorio-ia-pdf .kpis span { display: block; font-size: 10px; color: #666; text-transform: uppercase; }
+    .relatorio-ia-pdf .kpis strong { font-size: 15px; }
+    .relatorio-ia-pdf table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px; }
+    .relatorio-ia-pdf th, .relatorio-ia-pdf td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+    .relatorio-ia-pdf td.pos { color: #0a7d3d; } .relatorio-ia-pdf td.neg { color: #b91c1c; }
+    .relatorio-ia-pdf .rodape { font-size: 11px; color: #777; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topo">
+      <a href="/pages/relatorios.html" aria-label="Voltar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <div class="topo-titulo">🤖 Exportar para análise com IA</div>
+    </div>
+
+    <div class="conteudo">
+      <p class="intro">Gere um pacote estruturado com suas movimentações, patrimônio, investimentos e indicadores — pronto pra analisar no ChatGPT, Claude ou outra IA. Os dados brutos são a fonte de verdade; os indicadores são só uma camada de apoio, sempre recalculável a partir deles.</p>
+
+      <div class="card">
+        <div class="periodo-campos">
+          <div class="field"><label for="periodo-inicio">Início</label><input type="date" id="periodo-inicio"></div>
+          <div class="field"><label for="periodo-fim">Fim</label><input type="date" id="periodo-fim"></div>
+        </div>
+        <div class="resumo-grid" id="resumo-grid">
+          <div class="resumo-item"><div class="rotulo">Movimentações</div><div class="valor" id="resumo-movimentacoes">—</div></div>
+          <div class="resumo-item"><div class="rotulo">Contas</div><div class="valor" id="resumo-contas">—</div></div>
+          <div class="resumo-item"><div class="rotulo">Investimentos</div><div class="valor" id="resumo-investimentos">—</div></div>
+          <div class="resumo-item"><div class="rotulo">Qualidade dos dados</div><div class="valor" id="resumo-qualidade">—</div></div>
+        </div>
+      </div>
+
+      <button type="button" class="btn-gerar" id="btn-gerar">Gerar exportação</button>
+      <div class="erro-msg" id="erro-exportar"></div>
+
+      <div class="downloads" id="downloads">
+        <div class="titulo-concluido">Exportação concluída</div>
+        <button type="button" class="btn-download" id="btn-baixar-zip">📦 Baixar ZIP (tudo)</button>
+        <button type="button" class="btn-download" id="btn-baixar-csv">📄 Baixar CSVs</button>
+        <button type="button" class="btn-download" id="btn-baixar-json">🧾 Baixar JSONs</button>
+        <button type="button" class="btn-download" id="btn-baixar-pdf">🖨️ Baixar PDF (resumo)</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="area-impressao-pdf"></div>
+
+  <script type="module" src="/js/exportarIA.js"></script>
+</body>
+</html>

@@ -115,7 +115,7 @@ async function carregarCartoes(userId) {
 async function carregarCategorias(userId) {
   const { data, error } = await supabase
     .from('categories')
-    .select('id, nome, tipo, icon, ativo')
+    .select('id, nome, tipo, icon, ativo, fixo_variavel, essencial')
     .eq('user_id', userId)
     .in('tipo', ['despesa', 'receita'])
     .order('tipo')
@@ -251,14 +251,21 @@ function renderCategorias(container) {
   const despesas = categorias.filter((c) => c.tipo === 'despesa');
   const receitas = categorias.filter((c) => c.tipo === 'receita');
 
-  const linha = (c) => `
+  const linha = (c) => {
+    const tags = [];
+    if (c.fixo_variavel) tags.push(c.fixo_variavel === 'fixo' ? 'Fixo' : 'Variável');
+    if (c.essencial === true) tags.push('Essencial');
+    if (c.essencial === false) tags.push('Não essencial');
+    return `
     <button type="button" class="item-cadastro ${c.ativo ? '' : 'item-inativo'}" data-tipo="categoria" data-id="${c.id}">
       <div class="item-avatar" style="background:var(--surface-2)">${c.icon || '•'}</div>
       <div class="item-info">
         <div class="item-nome">${escapeHtml(c.nome)}${c.ativo ? '' : '<span class="badge-inativo">inativa</span>'}</div>
+        ${tags.length ? `<div class="item-detalhe">${escapeHtml(tags.join(' · '))}</div>` : ''}
       </div>
     </button>
   `;
+  };
 
   let html = '';
   if (despesas.length) html += '<div class="grupo-titulo">Despesas</div>' + despesas.map(linha).join('');
@@ -499,6 +506,11 @@ function formCategoria(c) {
     ${campoSelect('f-tipo', 'Tipo', [{ valor: 'despesa', texto: 'Despesa' }, { valor: 'receita', texto: 'Receita' }], c?.tipo || 'despesa')}
     ${campoTexto('f-icon', 'Ícone (emoji)', c?.icon, 'Ex: 💊')}
     ${campoSelect('f-ativo', 'Status', [{ valor: 'true', texto: 'Ativa' }, { valor: 'false', texto: 'Inativa' }], String(c?.ativo !== false))}
+    <div class="form-linha">
+      ${campoSelect('f-fixo-variavel', 'Fixo ou variável', [{ valor: '', texto: 'Não classificado' }, { valor: 'fixo', texto: 'Fixo' }, { valor: 'variavel', texto: 'Variável' }], c?.fixo_variavel || '')}
+      ${campoSelect('f-essencial', 'Essencial', [{ valor: '', texto: 'Não classificado' }, { valor: 'true', texto: 'Essencial' }, { valor: 'false', texto: 'Não essencial' }], c?.essencial === true ? 'true' : c?.essencial === false ? 'false' : '')}
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:-8px">Usado na exportação de dados para análise com IA — não afeta o app.</div>
     <div class="error-msg" id="erro-form"></div>
     <button type="button" class="btn-primary" id="btn-salvar-form">Salvar</button>
     <button type="button" class="sheet-acao-btn" id="btn-cancelar-form">Cancelar</button>
@@ -630,11 +642,14 @@ async function salvarForm(tipo, item) {
     };
   } else {
     tabela = 'categories';
+    const essencialValor = document.getElementById('f-essencial').value;
     dados = {
       nome,
       tipo: document.getElementById('f-tipo').value,
       icon: document.getElementById('f-icon').value.trim() || null,
       ativo: document.getElementById('f-ativo').value === 'true',
+      fixo_variavel: document.getElementById('f-fixo-variavel').value || null,
+      essencial: essencialValor === '' ? null : essencialValor === 'true',
     };
   }
 
